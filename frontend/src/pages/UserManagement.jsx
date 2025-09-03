@@ -1,3 +1,5 @@
+// src/pages/UserManagement.jsx
+
 import React, { useState, useEffect } from "react";
 import axiosClient from "../api/axiosClient";
 
@@ -5,10 +7,16 @@ import axiosClient from "../api/axiosClient";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  Grid,
   IconButton,
   Table,
   TableBody,
@@ -21,10 +29,20 @@ import {
   MenuItem,
   Paper,
   Typography,
+  Chip,
+  InputBase,
 } from "@mui/material";
 
 // MUI icons
-import { Add, Edit, Delete } from "@mui/icons-material";
+import {
+  Add,
+  Edit,
+  Delete,
+  People,
+  Person,
+  Apartment,
+  Search as SearchIcon,
+} from "@mui/icons-material";
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -39,16 +57,29 @@ const UserManagement = () => {
     company: "",
     department: "",
   });
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch users
   const fetchUsers = async () => {
-    const res = await axiosClient.get("/users");
-    setUsers(res.data);
+    try {
+      const res = await axiosClient.get("/users");
+      setUsers(res.data);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+    }
   };
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Filtered users for search functionality
+  const filteredUsers = users.filter((user) =>
+    user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Handle input
   const handleChange = (e) => {
@@ -58,28 +89,36 @@ const UserManagement = () => {
   // Save user
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingUser) {
-      await axiosClient.put(`/users/${editingUser.id}`, formData);
-    } else {
-      await axiosClient.post("/users", formData);
+    try {
+      if (editingUser) {
+        await axiosClient.put(`/users/${editingUser.id}`, formData);
+      } else {
+        await axiosClient.post("/users", formData);
+      }
+      setOpen(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error("Failed to save user:", error);
     }
-    setOpen(false);
-    setEditingUser(null);
-    fetchUsers();
   };
 
   // Edit user
   const handleEdit = (user) => {
     setEditingUser(user);
-    setFormData(user);
+    setFormData({ ...user, password: "" }); // Clear password field for security
     setOpen(true);
   };
 
   // Delete user
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this user?")) {
-      await axiosClient.delete(`/users/${id}`);
-      fetchUsers();
+      try {
+        await axiosClient.delete(`/users/${id}`);
+        fetchUsers();
+      } catch (error) {
+        console.error("Failed to delete user:", error);
+      }
     }
   };
 
@@ -98,13 +137,58 @@ const UserManagement = () => {
     setOpen(true);
   };
 
+  // Calculate summary stats
+  const totalUsers = users.length;
+  const adminUsers = users.filter(user => user.role === 'Admin').length;
+  const uniqueCompanies = new Set(users.map(user => user.company)).size;
+
+  const cardStyle = {
+    elevation: 4,
+    sx: {
+      borderRadius: 2,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      p: 2,
+    }
+  };
+
+  const statCard = (title, value, icon, iconColor) => (
+    <Card {...cardStyle}>
+      <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1 }}>
+        <Box>
+          <Typography variant="body2" color="text.secondary">{title}</Typography>
+          <Typography variant="h4" fontWeight="bold">{value}</Typography>
+        </Box>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            bgcolor: iconColor,
+            p: 1.5,
+            borderRadius: '50%',
+            color: 'white',
+          }}
+        >
+          {icon}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <Box sx={{ p: 4, maxWidth: "1000px", mx: "auto" }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
-          👥 User Management
-        </Typography>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 10, sm: 10, md: 4 } }}>
+      {/* Header section with User Management title and Add User button */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box>
+          <Typography variant="h4" fontWeight="bold">
+            👥 User Management
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage user accounts and permissions
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           startIcon={<Add />}
@@ -114,121 +198,180 @@ const UserManagement = () => {
         </Button>
       </Box>
 
-      {/* Table */}
-      <TableContainer component={Paper} elevation={3}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Company</TableCell>
-              <TableCell>Department</TableCell>
-              <TableCell align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  No users found
-                </TableCell>
-              </TableRow>
-            ) : (
-              users.map((u) => (
-                <TableRow key={u.id} hover>
-                  <TableCell>{u.firstName} {u.lastName}</TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>{u.role}</TableCell>
-                  <TableCell>{u.company}</TableCell>
-                  <TableCell>{u.department}</TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      color="primary"
-                      onClick={() => handleEdit(u)}
-                    >
-                      <Edit />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      onClick={() => handleDelete(u.id)}
-                    >
-                      <Delete />
-                    </IconButton>
-                  </TableCell>
+      {/* Summary Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={4}>
+          {statCard("Total Users", totalUsers, <People />, "#6259C3")}
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          {statCard("Admins", adminUsers, <Person />, "#4CAF50")}
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          {statCard("Companies", uniqueCompanies, <Apartment />, "#E91E63")}
+        </Grid>
+      </Grid>
+
+      {/* User List Card with Search */}
+      <Card elevation={4}>
+        <CardHeader
+          title={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" fontWeight="bold">Users</Typography>
+              <Typography variant="body2" color="text.secondary">A list of all users in your system</Typography>
+            </Box>
+          }
+          action={
+            <Box sx={{ display: 'flex', alignItems: 'center', border: '1px solid #e0e0e0', borderRadius: 1, p: '4px 8px' }}>
+              <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />
+              <InputBase
+                placeholder="Search users..."
+                inputProps={{ 'aria-label': 'search' }}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </Box>
+          }
+          sx={{ borderBottom: "1px solid", borderColor: "grey.200" }}
+        />
+        <CardContent sx={{ p: 0 }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Role</TableCell>
+                  <TableCell>Company</TableCell>
+                  <TableCell>Department</TableCell>
+                  <TableCell align="center">Actions</TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              </TableHead>
+              <TableBody>
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                      No users found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((u) => (
+                    <TableRow key={u.id} hover>
+                      <TableCell>{u.firstName} {u.lastName}</TableCell>
+                      <TableCell>{u.email}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={u.role.toLowerCase()}
+                          size="small"
+                          color={u.role === 'Admin' ? 'success' : 'default'}
+                          sx={{ textTransform: 'lowercase' }}
+                        />
+                      </TableCell>
+                      <TableCell>{u.company}</TableCell>
+                      <TableCell>{u.department}</TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          color="primary"
+                          onClick={() => handleEdit(u)}
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton
+                          color="error"
+                          onClick={() => handleDelete(u.id)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
+      </Card>
 
       {/* Dialog for Add/Edit */}
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>
-          {editingUser ? "Edit User" : "Create New User"}
-        </DialogTitle>
-        <DialogContent>
-          <Box
-            component="form"
-            sx={{ display: "grid", gap: 2, mt: 1 }}
-            onSubmit={handleSubmit}
-          >
-            <Box sx={{ display: "flex", gap: 2 }}>
+        <DialogTitle>{editingUser ? "Edit User" : "Create New User"}</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 name="firstName"
                 label="First Name"
                 value={formData.firstName}
                 onChange={handleChange}
+                required
               />
+            </Grid>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 name="lastName"
                 label="Last Name"
                 value={formData.lastName}
                 onChange={handleChange}
+                required
               />
-            </Box>
-            <TextField
-              fullWidth
-              name="email"
-              label="Email"
-              value={formData.email}
-              onChange={handleChange}
-            />
-            <TextField
-              fullWidth
-              type="password"
-              name="password"
-              label="Password"
-              value={formData.password}
-              onChange={handleChange}
-            />
-            <Select
-              fullWidth
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-            >
-              <MenuItem value="User">User</MenuItem>
-              <MenuItem value="Admin">Admin</MenuItem>
-            </Select>
-            <TextField
-              fullWidth
-              name="company"
-              label="Company"
-              value={formData.company}
-              onChange={handleChange}
-            />
-            <TextField
-              fullWidth
-              name="department"
-              label="Department"
-              value={formData.department}
-              onChange={handleChange}
-            />
-          </Box>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                name="email"
+                label="Email"
+                value={formData.email}
+                onChange={handleChange}
+                type="email"
+                required
+              />
+            </Grid>
+            {!editingUser && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  type="password"
+                  name="password"
+                  label="Password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                />
+              </Grid>
+            )}
+            <Grid item xs={12}>
+              <Select
+                fullWidth
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                label="Role"
+                displayEmpty
+              >
+                <MenuItem value="User">User</MenuItem>
+                <MenuItem value="Admin">Admin</MenuItem>
+              </Select>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                name="company"
+                label="Company"
+                value={formData.company}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                name="department"
+                label="Department"
+                value={formData.department}
+                onChange={handleChange}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Cancel</Button>
@@ -242,6 +385,3 @@ const UserManagement = () => {
 };
 
 export default UserManagement;
-
-
-
