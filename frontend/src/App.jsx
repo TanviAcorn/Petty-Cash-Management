@@ -14,9 +14,17 @@ import {
   InputBase,
   alpha,
   useMediaQuery,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  Divider,
+  Tooltip,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/Menu";
+import LogoutIcon from "@mui/icons-material/Logout";
+import Settings from "@mui/icons-material/Settings";
+import Person from "@mui/icons-material/Person";
 import Sidebar from "./components/Sidebar";
 import UserManagement from "./pages/UserManagement";
 
@@ -26,9 +34,29 @@ const App = () => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const menuOpen = Boolean(anchorEl);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    // Clear any auth artifacts if used
+    try {
+      localStorage.removeItem("token");
+      sessionStorage.removeItem("token");
+    } catch {}
+    // Reload or navigate to login route if you add routing later
+    window.location.reload();
   };
 
   return (
@@ -65,10 +93,82 @@ const App = () => {
 
           {!isSmallScreen && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Typography variant="body1" fontWeight="bold">
-                AU
-              </Typography>
               <Chip label="Admin" color="success" size="small" />
+              <Tooltip title="Account settings">
+                <IconButton
+                  onClick={handleMenuOpen}
+                  size="small"
+                  sx={{ ml: 1 }}
+                  aria-controls={menuOpen ? "account-menu" : undefined}
+                  aria-haspopup="true"
+                  aria-expanded={menuOpen ? "true" : undefined}
+                >
+                  <Avatar sx={{ width: 32, height: 32 }}>AU</Avatar>
+                </IconButton>
+              </Tooltip>
+              <Menu
+                anchorEl={anchorEl}
+                id="account-menu"
+                open={menuOpen}
+                onClose={handleMenuClose}
+                onClick={handleMenuClose}
+                PaperProps={{
+                  elevation: 0,
+                  sx: {
+                    overflow: "visible",
+                    filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.12))",
+                    mt: 1.5,
+                    '& .MuiAvatar-root': {
+                      width: 32,
+                      height: 32,
+                      ml: -0.5,
+                      mr: 1,
+                    },
+                    '&:before': {
+                      content: '""',
+                      display: "block",
+                      position: "absolute",
+                      top: 0,
+                      right: 14,
+                      width: 10,
+                      height: 10,
+                      bgcolor: "background.paper",
+                      transform: "translateY(-50%) rotate(45deg)",
+                      zIndex: 0,
+                    },
+                  },
+                }}
+                transformOrigin={{ horizontal: "right", vertical: "top" }}
+                anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+              >
+                <MenuItem>
+                  <Avatar sx={{ width: 24, height: 24 }}>AU</Avatar>
+                  <Box sx={{ ml: 1 }}>
+                    <Typography variant="body2" fontWeight={600}>Admin User</Typography>
+                    <Typography variant="caption" color="text.secondary">admin@company.com</Typography>
+                  </Box>
+                </MenuItem>
+                <Divider />
+                <MenuItem>
+                  <ListItemIcon>
+                    <Person fontSize="small" />
+                  </ListItemIcon>
+                  Profile
+                </MenuItem>
+                <MenuItem>
+                  <ListItemIcon>
+                    <Settings fontSize="small" />
+                  </ListItemIcon>
+                  Settings
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon>
+                    <LogoutIcon fontSize="small" />
+                  </ListItemIcon>
+                  Log out
+                </MenuItem>
+              </Menu>
             </Box>
           )}
         </Toolbar>
