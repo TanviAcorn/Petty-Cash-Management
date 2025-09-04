@@ -1,6 +1,6 @@
 // src/pages/UserManagement.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axiosClient from "../api/axiosClient";
 
 // MUI components
@@ -31,6 +31,9 @@ import {
   Typography,
   Chip,
   InputBase,
+  Tabs,
+  Tab,
+  Badge,
 } from "@mui/material";
 
 // MUI icons
@@ -48,6 +51,7 @@ const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -58,6 +62,10 @@ const UserManagement = () => {
     department: "",
   });
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
 
   // Fetch users
   const fetchUsers = async () => {
@@ -73,13 +81,6 @@ const UserManagement = () => {
     fetchUsers();
   }, []);
 
-  // Filtered users for search functionality
-  const filteredUsers = users.filter((user) =>
-    user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   // Handle input
   const handleChange = (e) => {
@@ -139,36 +140,75 @@ const UserManagement = () => {
 
   // Calculate summary stats
   const totalUsers = users.length;
-  const adminUsers = users.filter(user => user.role === 'Admin').length;
-  const uniqueCompanies = new Set(users.map(user => user.company)).size;
+  const adminUsers = users.filter((user) => user.role === "Admin").length;
+  const uniqueCompanies = new Set(users.filter((user) => user.company).map((user) => user.company)).size;
+
+  // Filter users based on active tab
+  const filteredUsersByTab = () => {
+    switch (activeTab) {
+      case 0: // All Users
+        return users;
+      case 1: // Admins
+        return users.filter((user) => user.role === "Admin");
+      case 2: // Companies
+        return users.filter((user) => user.company);
+      default:
+        return users;
+    }
+  };
+
+  // Get users for current tab
+  const currentTabUsers = filteredUsersByTab();
+
+  // Filtered users for search functionality
+  const filteredUsers = useMemo(() => {
+    return currentTabUsers.filter((user) =>
+      (user.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.company?.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  }, [currentTabUsers, searchQuery]);
 
   const cardStyle = {
     elevation: 4,
     sx: {
       borderRadius: 2,
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
       p: 2,
-    }
+    },
   };
 
   const statCard = (title, value, icon, iconColor) => (
     <Card {...cardStyle}>
-      <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1 }}>
+      <CardContent
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          p: 1,
+        }}
+      >
         <Box>
-          <Typography variant="body2" color="text.secondary">{title}</Typography>
-          <Typography variant="h4" fontWeight="bold">{value}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {title}
+          </Typography>
+          <Typography variant="h4" fontWeight="bold">
+            {value}
+          </Typography>
         </Box>
         <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             bgcolor: iconColor,
             p: 1.5,
-            borderRadius: '50%',
-            color: 'white',
+            borderRadius: "50%",
+            color: "white",
           }}
         >
           {icon}
@@ -180,7 +220,16 @@ const UserManagement = () => {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 10, sm: 10, md: 4 } }}>
       {/* Header section with User Management title and Add User button */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+          flexWrap: "wrap",
+          gap: 2,
+        }}
+      >
         <Box>
           <Typography variant="h4" fontWeight="bold">
             👥 User Management
@@ -193,23 +242,102 @@ const UserManagement = () => {
           variant="contained"
           startIcon={<Add />}
           onClick={handleAddUser}
+          sx={{ ml: "auto" }}
         >
           Add User
         </Button>
       </Box>
 
+      {/* Tabs */}
+      <Box sx={{ width: "100%", mb: 3 }}>
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{
+            "& .MuiTabs-indicator": {
+              backgroundColor: "success.main",
+              height: 3,
+            },
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "0.9375rem",
+              "&.Mui-selected": {
+                color: "success.main",
+              },
+            },
+          }}
+        >
+          <Tab
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <People />
+                <span>Total Users</span>
+                <Chip
+                  label={totalUsers}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: "0.7rem",
+                    bgcolor: activeTab === 0 ? "success.light" : "grey.200",
+                    color: activeTab === 0 ? "white" : "inherit",
+                  }}
+                />
+              </Box>
+            }
+          />
+          <Tab
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Person />
+                <span>Admins</span>
+                <Chip
+                  label={adminUsers}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: "0.7rem",
+                    bgcolor: activeTab === 1 ? "success.light" : "grey.200",
+                    color: activeTab === 1 ? "white" : "inherit",
+                  }}
+                />
+              </Box>
+            }
+          />
+          <Tab
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Apartment />
+                <span>Companies</span>
+                <Chip
+                  label={uniqueCompanies}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: "0.7rem",
+                    bgcolor: activeTab === 2 ? "success.light" : "grey.200",
+                    color: activeTab === 2 ? "white" : "inherit",
+                  }}
+                />
+              </Box>
+            }
+          />
+        </Tabs>
+      </Box>
+
       {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      {/* <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={4}>
-          {statCard("Total Users", totalUsers, <People />, "#6259C3")}
+          {statCard("Total Users", totalUsers, <People />, "primary.main")}
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          {statCard("Admins", adminUsers, <Person />, "#4CAF50")}
+          {statCard("Admins", adminUsers, <Person />, "success.main")}
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          {statCard("Companies", uniqueCompanies, <Apartment />, "#E91E63")}
+          {statCard("Companies", uniqueCompanies, <Apartment />, "warning.main")}
         </Grid>
-      </Grid>
+      </Grid> */}
 
       {/* User List Card with Search */}
       <Card elevation={4}>
@@ -217,7 +345,9 @@ const UserManagement = () => {
           title={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography variant="h6" fontWeight="bold">Users</Typography>
-              <Typography variant="body2" color="text.secondary">A list of all users in your system</Typography>
+              <Typography variant="body2" color="text.secondary">
+                A list of all users in your system
+              </Typography>
             </Box>
           }
           action={

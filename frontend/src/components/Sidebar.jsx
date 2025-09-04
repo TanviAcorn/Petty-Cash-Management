@@ -1,169 +1,143 @@
+// src/components/Sidebar.jsx
 import React from "react";
 import {
-  Box,
   Drawer,
+  Box,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Toolbar,
   Typography,
-  Chip,
   Avatar,
-  useTheme,
-  useMediaQuery,
   Divider,
 } from "@mui/material";
 
 // Icons
 import {
   Dashboard,
-  PlaylistAddCheck,
-  PendingActions,
-  DoneAll,
-  Close,
-  PeopleAlt,
-  Apartment,
+  ListAlt,
+  CheckCircle,
+  Cancel,
+  People,
+  Business,
   Settings,
 } from "@mui/icons-material";
 
-const drawerWidth = 240;
+const drawerWidth = 260;
 
-const sidebarItems = [
-  { text: "Dashboard", icon: <Dashboard />, path: "/dashboard" },
-  { text: "All Requests", icon: <PlaylistAddCheck />, path: "/requests" },
-  { text: "Pending Approval", icon: <PendingActions />, path: "/pending" },
-  { text: "Approved", icon: <DoneAll />, path: "/approved" },
-  { text: "Rejected", icon: <Close />, path: "/rejected" },
-  { text: "User Management", icon: <PeopleAlt />, path: "/users" },
-  { text: "Companies", icon: <Apartment />, path: "/companies" },
-  { text: "Settings", icon: <Settings />, path: "/settings" },
+const menuItems = [
+  { text: "Dashboard", icon: <Dashboard /> },
+  { text: "All Requests", icon: <ListAlt /> },
+  { text: "Pending Approval", icon: <ListAlt /> },
+  { text: "Approved", icon: <CheckCircle /> },
+  { text: "Rejected", icon: <Cancel /> },
+  { text: "User Management", icon: <People /> },
+  { text: "Companies", icon: <Business /> },
+  { text: "Settings", icon: <Settings /> },
 ];
 
-const Sidebar = ({ open, onClose }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const activePath = window.location.pathname;
-
-  const drawerContent = (
-    <Box
+export default function Sidebar({ active = "User Management" }) {
+  return (
+    <Drawer
+      variant="permanent"
       sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
+        width: drawerWidth,
+        flexShrink: 0,
+        "& .MuiDrawer-paper": {
+          width: drawerWidth,
+          boxSizing: "border-box",
+          borderRight: "1px solid #f0f0f0",
+        },
       }}
     >
-      {/* App Title and Admin Chip */}
-      <Toolbar sx={{ justifyContent: "space-between", p: 2 }}>
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <Box
+      {/* Header */}
+      <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
+        <Box
+          sx={{
+            width: 36,
+            height: 36,
+            bgcolor: "success.main",
+            borderRadius: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            fontWeight: "bold",
+            fontSize: "18px",
+          }}
+        >
+          HR
+        </Box>
+        <Box>
+          <Typography fontWeight="bold">HR PettyCash</Typography>
+          <Typography
             sx={{
-              width: 32,
-              height: 32,
-              backgroundColor: theme.palette.primary.main,
+              fontSize: "11px",
+              bgcolor: "success.main",
+              color: "white",
+              px: 0.8,
+              py: 0.1,
               borderRadius: 1,
-              mr: 1,
+              display: "inline-block",
             }}
-          />
-          <Typography variant="h6" noWrap sx={{ fontWeight: "bold" }}>
-            HR PettyCash
+          >
+            Admin
           </Typography>
         </Box>
-        <Chip label="Admin" color="success" size="small" sx={{ ml: 1 }} />
-      </Toolbar>
-      <Divider />
-      {/* Navigation List (no scrollbar) */}
-      
-      <List sx={{ flex: 1, px: 1, overflow: "hidden" }}>
-        {" "}
-        {/* prevent scrolling */}
-        {sidebarItems.map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ py: 0.5 }}>
+      </Box>
+
+      {/* Menu */}
+      <List sx={{ flexGrow: 1 }}>
+        {menuItems.map((item) => (
+          <ListItem
+            key={item.text}
+            disablePadding
+            sx={{
+              mb: 0.5,
+            }}
+          >
             <ListItemButton
-              selected={activePath === item.path}
+              selected={active === item.text}
               sx={{
                 borderRadius: 2,
+                mx: 1,
                 "&.Mui-selected": {
-                  backgroundColor: theme.palette.success.main, // ✅ green active
+                  bgcolor: "success.main",
                   color: "white",
-                  "& .MuiListItemIcon-root": {
-                    color: "white",
-                  },
-                  "&:hover": {
-                    backgroundColor: theme.palette.success.dark,
-                  },
-                },
-                "&:hover": {
-                  backgroundColor: theme.palette.action.hover,
+                  "& .MuiSvgIcon-root": { color: "white" },
                 },
               }}
             >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
+              <ListItemIcon
+                sx={{
+                  minWidth: 40,
+                  color: active === item.text ? "white" : "text.secondary",
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={item.text}
+                primaryTypographyProps={{ fontSize: "0.95rem" }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
       </List>
-      {/* User Info at the bottom */}
+
       <Divider />
-      <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 2 }}>
-        <Avatar
-          sx={{
-            bgcolor: theme.palette.grey[300],
-            color: theme.palette.text.primary,
-          }}
-        >
-          AU
-        </Avatar>
+
+      {/* Footer with User */}
+      <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
+        <Avatar sx={{ bgcolor: "grey.400" }}>AU</Avatar>
         <Box>
-          <Typography variant="body1" fontWeight="bold">
-            Admin User
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography fontSize="0.9rem">Admin User</Typography>
+          <Typography fontSize="0.75rem" color="text.secondary">
             admin@company.com
           </Typography>
         </Box>
       </Box>
-    </Box>
+    </Drawer>
   );
-
-  return (
-    <Box
-      component="nav"
-      sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
-    >
-      {/* Mobile Drawer (Temporary) */}
-      <Drawer
-        variant="temporary"
-        open={isMobile && open}
-        onClose={onClose}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          display: { xs: "block", md: "none" },
-          "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
-        }}
-      >
-        {drawerContent}
-      </Drawer>
-
-      {/* Desktop Drawer (Permanent) */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          display: { xs: "none", md: "block" },
-          "& .MuiDrawer-paper": {
-            boxSizing: "border-box",
-            width: drawerWidth,
-            borderRight: "none",
-          },
-        }}
-        open
-      >
-        {drawerContent}
-      </Drawer>
-    </Box>
-  );
-};
-
-export default Sidebar;
+}
