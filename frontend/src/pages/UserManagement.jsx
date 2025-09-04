@@ -1,8 +1,8 @@
 // src/pages/UserManagement.jsx
-
+ 
 import React, { useState, useEffect, useMemo } from "react";
 import axiosClient from "../api/axiosClient";
-
+ 
 // MUI components
 import {
   Box,
@@ -35,7 +35,7 @@ import {
   Tab,
   Badge,
 } from "@mui/material";
-
+ 
 // MUI icons
 import {
   Add,
@@ -46,7 +46,7 @@ import {
   Apartment,
   Search as SearchIcon,
 } from "@mui/icons-material";
-
+ 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
@@ -62,11 +62,11 @@ const UserManagement = () => {
     department: "",
   });
   const [searchQuery, setSearchQuery] = useState("");
-
+ 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
-
+ 
   // Fetch users
   const fetchUsers = async () => {
     try {
@@ -76,17 +76,17 @@ const UserManagement = () => {
       console.error("Failed to fetch users:", error);
     }
   };
-
+ 
   useEffect(() => {
     fetchUsers();
   }, []);
-
-
+ 
+ 
   // Handle input
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
-
+ 
   // Save user
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,14 +103,14 @@ const UserManagement = () => {
       console.error("Failed to save user:", error);
     }
   };
-
+ 
   // Edit user
   const handleEdit = (user) => {
     setEditingUser(user);
     setFormData({ ...user, password: "" }); // Clear password field for security
     setOpen(true);
   };
-
+ 
   // Delete user
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this user?")) {
@@ -122,7 +122,7 @@ const UserManagement = () => {
       }
     }
   };
-
+ 
   // Open modal for add user
   const handleAddUser = () => {
     setEditingUser(null);
@@ -137,12 +137,12 @@ const UserManagement = () => {
     });
     setOpen(true);
   };
-
+ 
   // Calculate summary stats
   const totalUsers = users.length;
   const adminUsers = users.filter((user) => user.role === "Admin").length;
   const uniqueCompanies = new Set(users.filter((user) => user.company).map((user) => user.company)).size;
-
+ 
   // Filter users based on active tab
   const filteredUsersByTab = () => {
     switch (activeTab) {
@@ -156,10 +156,10 @@ const UserManagement = () => {
         return users;
     }
   };
-
+ 
   // Get users for current tab
   const currentTabUsers = filteredUsersByTab();
-
+ 
   // Filtered users for search functionality
   const filteredUsers = useMemo(() => {
     return currentTabUsers.filter((user) =>
@@ -170,7 +170,7 @@ const UserManagement = () => {
       user.company?.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   }, [currentTabUsers, searchQuery]);
-
+ 
   const cardStyle = {
     elevation: 4,
     sx: {
@@ -181,7 +181,7 @@ const UserManagement = () => {
       p: 2,
     },
   };
-
+ 
   const statCard = (title, value, icon, iconColor) => (
     <Card {...cardStyle}>
       <CardContent
@@ -216,7 +216,7 @@ const UserManagement = () => {
       </CardContent>
     </Card>
   );
-
+ 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, pt: { xs: 10, sm: 10, md: 4 } }}>
       {/* Header section with User Management title and Add User button */}
@@ -247,7 +247,7 @@ const UserManagement = () => {
           Add User
         </Button>
       </Box>
-
+ 
       {/* Tabs */}
       <Box sx={{ width: "100%", mb: 3 }}>
         <Tabs
@@ -325,7 +325,7 @@ const UserManagement = () => {
           />
         </Tabs>
       </Box>
-
+ 
       {/* Summary Cards */}
       {/* <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={4}>
@@ -338,7 +338,7 @@ const UserManagement = () => {
           {statCard("Companies", uniqueCompanies, <Apartment />, "warning.main")}
         </Grid>
       </Grid> */}
-
+ 
       {/* User List Card with Search */}
       <Card elevation={4}>
         <CardHeader
@@ -420,7 +420,7 @@ const UserManagement = () => {
           </TableContainer>
         </CardContent>
       </Card>
-
+ 
       {/* Dialog for Add/Edit */}
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingUser ? "Edit User" : "Create New User"}</DialogTitle>
@@ -513,5 +513,5 @@ const UserManagement = () => {
     </Box>
   );
 };
-
+ 
 export default UserManagement;

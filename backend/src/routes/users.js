@@ -2,12 +2,69 @@ const express = require("express");
 const router = express.Router();
 const { poolPromise } = require("../config/db"); // mssql connection
 
+// POST login (authenticate user)
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const pool = await poolPromise;
+    const userByEmail = await pool
+      .request()
+      .input("email", String(email))
+      .query(`
+        SELECT TOP 1 *
+        FROM Users
+        WHERE LOWER(LTRIM(RTRIM(email))) = LOWER(LTRIM(RTRIM(@email)))
+      `);
+
+    if (!userByEmail.recordset || userByEmail.recordset.length === 0) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const u = userByEmail.recordset[0];
+    const pwdOk = String(u.password || "").trim() === String(password).trim();
+    if (!pwdOk) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+    // In a real app, return a JWT. For now, return a simple placeholder token
+    const token = `token-${u.id}-${Date.now()}`;
+    return res.json({
+      token,
+      user: {
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`,
+        email: u.email,
+        role: u.role,
+        company: u.company,
+        department: u.department,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err?.message || err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // GET all users
 router.get("/", async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query("SELECT * FROM Users");
-    res.json(result.recordset);
+
+    // Map to expected structure for frontend
+    const users = result.recordset.map((u) => ({
+      id: u.id,
+      name: `${u.firstName} ${u.lastName}`,
+      email: u.email,
+      role: u.role,
+      company: u.company,
+      department: u.department,
+    }));
+
+    res.json(users);
   } catch (err) {
     res.status(500).send(err.message);
   }
@@ -49,7 +106,7 @@ router.put("/:id", async (req, res) => {
       .input("firstName", firstName)
       .input("lastName", lastName)
       .input("email", email)
-      .input("password", password)
+      .input("password", password ?? null)
       .input("role", role)
       .input("company", company)
       .input("department", department)
@@ -58,7 +115,7 @@ router.put("/:id", async (req, res) => {
          SET firstName = @firstName,
              lastName = @lastName,
              email = @email,
-             password = @password,
+             password = CASE WHEN @password IS NULL OR LTRIM(RTRIM(@password)) = '' THEN password ELSE @password END,
              role = @role,
              company = @company,
              department = @department
@@ -83,3 +140,4 @@ router.delete("/:id", async (req, res) => {
 });
 
 module.exports = router;
+

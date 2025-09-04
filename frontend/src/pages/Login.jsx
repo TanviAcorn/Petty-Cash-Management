@@ -1,127 +1,128 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axiosClient from "../api/axiosClient";
+import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
-
     try {
-      const res = await axiosClient.post("/auth/login", {
-        email,
-        password,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "Invalid credentials");
-      }
-
-      // Save token in localStorage for later API calls
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-
-      // Redirect to dashboard (adjust path as needed)
-      window.location.href = "/dashboard";
+      const res = await axiosClient.post("/users/login", { email, password });
+      localStorage.setItem("token", res.data.token);
+      try { localStorage.setItem("user", JSON.stringify(res.data.user)); } catch {}
+      // Reload so AuthGate re-renders App with token
+      window.location.reload();
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      const msg = err?.response?.data?.message || "Invalid email or password";
+      setError(msg);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100">
-      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-md">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-6">
-          <div className="bg-green-500 text-white rounded-lg p-3 mb-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-8 w-8"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8c-1.105 0-2 .895-2 2v1H8a2 2 0 00-2 2v3h12v-3a2 2 0 00-2-2h-2v-1c0-1.105-.895-2-2-2z"
-              />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-semibold text-gray-800">HR PettyCash</h1>
-          <p className="text-gray-500 text-sm">Sign in to your account</p>
+    <div className="min-h-screen w-full bg-[linear-gradient(180deg,#eef4ff_0%,#e9f0ff_100%)] flex flex-col items-center">
+      {/* Brand header */}
+      <div className="pt-16 px-6 text-center">
+        <div className="mx-auto w-12 h-12 rounded-xl bg-blue-900 flex items-center justify-center shadow-md">
+          <Lock className="text-white w-6 h-6" />
         </div>
+        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-800">HR PettyCash</h1>
+        <p className="mt-1 text-slate-500">Sign in to your account</p>
+      </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:outline-none"
-              required
-            />
+      {/* Card */}
+      <div className="w-full max-w-md mt-8 px-4 pb-16">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-slate-800">Sign In</h2>
+            <p className="text-slate-500">Enter your email and password to access your account</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:outline-none"
-              required
-            />
-          </div>
+          <form onSubmit={handleLogin} className="space-y-5">
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="Enter your email"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
 
-          {error && (
-            <p className="text-red-500 text-sm text-center">{error}</p>
-          )}
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="Enter your password"
+                  className="w-full pl-3 pr-10 py-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              <div className="text-right mt-1">
+                <a href="#" className="text-sm text-green-700 hover:underline">Forgot password?</a>
+              </div>
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition font-medium disabled:opacity-60"
-          >
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
-        </form>
+            {/* Error */}
+            {error && (
+              <p className="text-red-600 text-sm text-center bg-red-50 border border-red-100 rounded-md py-2">
+                {error}
+              </p>
+            )}
 
-        {/* Signup link */}
-        <p className="text-center text-sm text-gray-600 mt-4">
-          Don’t have an account?{" "}
-          <a href="/signup" className="text-green-600 hover:underline">
-            Sign up
-          </a>
-        </p>
+            {/* Button */}
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 rounded-lg shadow-sm transition-colors"
+            >
+              Sign In
+            </button>
+          </form>
 
-        {/* Demo Accounts */}
-        <div className="border-t mt-6 pt-4 text-xs text-gray-500">
-          <p>Demo Accounts:</p>
-          <p>
-            <strong>Admin:</strong> admin@company.com / admin123
+          {/* Footer */}
+          <p className="text-center text-sm text-slate-600 mt-4">
+            Don’t have an account?{" "}
+            <a href="/signup" className="text-green-700 hover:underline font-medium">
+              Sign up
+            </a>
           </p>
-          <p>
-            <strong>User:</strong> user@company.com / user123
-          </p>
+
+          {/* <div className="mt-6 pt-4 border-t border-slate-200 text-sm text-slate-600">
+            <p className="text-center mb-1 font-semibold text-slate-700">
+              Demo Accounts
+            </p>
+            <p>
+              <span className="font-semibold">Admin:</span> admin@company.com /
+              admin123
+            </p>
+            <p>
+              <span className="font-semibold">User:</span> user@company.com /
+              user123
+            </p>
+          </div> */}
         </div>
       </div>
     </div>

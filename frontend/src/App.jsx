@@ -53,9 +53,10 @@ const App = () => {
     // Clear any auth artifacts if used
     try {
       localStorage.removeItem("token");
+      localStorage.removeItem("user");
       sessionStorage.removeItem("token");
     } catch {}
-    // Reload or navigate to login route if you add routing later
+    // Reload so AuthGate renders Login
     window.location.reload();
   };
 
