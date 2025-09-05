@@ -6,7 +6,7 @@ app.use(cors());
 app.use(express.json());
 
 // ✅ import once
-const userRoutes = require("./src/routes/users");
+const userRoutes = require("./src/routes/userRoutes");
 
 // ✅ use it once
 app.use("/api/users", userRoutes);

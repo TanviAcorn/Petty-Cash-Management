@@ -142,27 +142,6 @@ const App = () => {
                 transformOrigin={{ horizontal: "right", vertical: "top" }}
                 anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
               >
-                <MenuItem>
-                  <Avatar sx={{ width: 24, height: 24 }}>AU</Avatar>
-                  <Box sx={{ ml: 1 }}>
-                    <Typography variant="body2" fontWeight={600}>Admin User</Typography>
-                    <Typography variant="caption" color="text.secondary">admin@company.com</Typography>
-                  </Box>
-                </MenuItem>
-                <Divider />
-                <MenuItem>
-                  <ListItemIcon>
-                    <Person fontSize="small" />
-                  </ListItemIcon>
-                  Profile
-                </MenuItem>
-                <MenuItem>
-                  <ListItemIcon>
-                    <Settings fontSize="small" />
-                  </ListItemIcon>
-                  Settings
-                </MenuItem>
-                <Divider />
                 <MenuItem onClick={handleLogout}>
                   <ListItemIcon>
                     <LogoutIcon fontSize="small" />
@@ -181,10 +160,10 @@ const App = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          // p: 3, // Padding is now handled inside UserManagement
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           mt: { xs: "56px", sm: "64px" },
-          overflow: "hidden", // ✅ fix: no sidebar scroll
+          overflow: "auto",
         }}
       >
         <UserManagement />

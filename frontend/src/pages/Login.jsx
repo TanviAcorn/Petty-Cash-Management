@@ -81,9 +81,6 @@ export default function Login() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <div className="text-right mt-1">
-                <a href="#" className="text-sm text-green-700 hover:underline">Forgot password?</a>
-              </div>
             </div>
 
             {/* Error */}
@@ -101,28 +98,6 @@ export default function Login() {
               Sign In
             </button>
           </form>
-
-          {/* Footer */}
-          <p className="text-center text-sm text-slate-600 mt-4">
-            Don’t have an account?{" "}
-            <a href="/signup" className="text-green-700 hover:underline font-medium">
-              Sign up
-            </a>
-          </p>
-
-          {/* <div className="mt-6 pt-4 border-t border-slate-200 text-sm text-slate-600">
-            <p className="text-center mb-1 font-semibold text-slate-700">
-              Demo Accounts
-            </p>
-            <p>
-              <span className="font-semibold">Admin:</span> admin@company.com /
-              admin123
-            </p>
-            <p>
-              <span className="font-semibold">User:</span> user@company.com /
-              user123
-            </p>
-          </div> */}
         </div>
       </div>
     </div>

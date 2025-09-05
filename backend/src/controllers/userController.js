@@ -1,41 +1,174 @@
-const db = require("../config/db");
+const { poolPromise } = require("../config/db");
+
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const pool = await poolPromise;
+    const userByEmail = await pool
+      .request()
+      .input("email", String(email))
+      .query(`
+        SELECT TOP 1 *
+        FROM Users
+        WHERE LOWER(LTRIM(RTRIM(email))) = LOWER(LTRIM(RTRIM(@email)))
+      `);
+
+    if (!userByEmail.recordset || userByEmail.recordset.length === 0) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const u = userByEmail.recordset[0];
+    const pwdOk = String(u.password || "").trim() === String(password).trim();
+    if (!pwdOk) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+    
+    const token = `token-${u.id}-${Date.now()}`;
+    return res.json({
+      token,
+      user: {
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`,
+        email: u.email,
+        role: u.role,
+        company: u.company,
+        department: u.department,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err?.message || err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await db("Users").select("*");
+    const pool = await poolPromise;
+    const result = await pool.request().query("SELECT * FROM Users");
+
+    const users = result.recordset.map((u) => ({
+      id: u.id,
+      name: `${u.firstName} ${u.lastName}`,
+      email: u.email,
+      role: u.role,
+      company: u.company,
+      department: u.department,
+      status: u.status || 'active' // Default to active if status is not set
+    }));
+
     res.json(users);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 };
 
 exports.createUser = async (req, res) => {
-  const { name, email, role, company, department } = req.body;
   try {
-    const [id] = await db("Users").insert({ name, email, role, company, department });
-    res.status(201).json({ user_id: id });
+    const { firstName, lastName, email, password, role, company, department } = req.body;
+    const pool = await poolPromise;
+    
+    // Check if user already exists
+    const existingUser = await pool
+      .request()
+      .input("email", email)
+      .query("SELECT id FROM Users WHERE email = @email");
+      
+    if (existingUser.recordset.length > 0) {
+      return res.status(400).json({ message: "User with this email already exists" });
+    }
+
+    await pool
+      .request()
+      .input("firstName", firstName)
+      .input("lastName", lastName)
+      .input("email", email)
+      .input("password", password)
+      .input("role", role)
+      .input("company", company)
+      .input("department", department)
+      .query(
+        `INSERT INTO Users (firstName, lastName, email, password, role, company, department, status)
+         VALUES (@firstName, @lastName, @email, @password, @role, @company, @department, 'active')`
+      );
+      
+    res.status(201).json({ message: "User created successfully" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Create user error:", err);
+    res.status(500).json({ message: err.message });
   }
 };
 
 exports.updateUser = async (req, res) => {
-  const { id } = req.params;
-  const { name, email, role, company, department } = req.body;
   try {
-    await db("Users").where({ user_id: id }).update({ name, email, role, company, department });
-    res.json({ message: "User updated" });
+    const { id } = req.params;
+    const { firstName, lastName, email, password, role, company, department, status } = req.body;
+    
+    const pool = await poolPromise;
+    
+    // Check if user exists
+    const user = await pool
+      .request()
+      .input("id", id)
+      .query("SELECT id FROM Users WHERE id = @id");
+      
+    if (user.recordset.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await pool
+      .request()
+      .input("id", id)
+      .input("firstName", firstName)
+      .input("lastName", lastName)
+      .input("email", email)
+      .input("password", password ?? null)
+      .input("role", role)
+      .input("company", company)
+      .input("department", department)
+      .input("status", status || 'active')
+      .query(
+        `UPDATE Users
+         SET firstName = @firstName,
+             lastName = @lastName,
+             email = @email,
+             password = CASE WHEN @password IS NULL OR LTRIM(RTRIM(@password)) = '' THEN password ELSE @password END,
+             role = @role,
+             company = @company,
+             department = @department,
+             status = @status
+         WHERE id = @id`
+      );
+      
+    res.json({ message: "User updated successfully" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Update user error:", err);
+    res.status(500).json({ message: err.message });
   }
 };
 
 exports.deleteUser = async (req, res) => {
-  const { id } = req.params;
   try {
-    await db("Users").where({ user_id: id }).del();
-    res.json({ message: "User deleted" });
+    const { id } = req.params;
+    const pool = await poolPromise;
+    
+    // Check if user exists
+    const user = await pool
+      .request()
+      .input("id", id)
+      .query("SELECT id FROM Users WHERE id = @id");
+      
+    if (user.recordset.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    await pool.request().input("id", id).query("DELETE FROM Users WHERE id = @id");
+    res.json({ message: "User deleted successfully" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Delete user error:", err);
+    res.status(500).json({ message: err.message });
   }
 };
