@@ -1,9 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import Login from './pages/Login.jsx'
-import { BrowserRouter } from 'react-router-dom'
 
 function AuthGate() {
   const token = (() => {
@@ -13,13 +13,25 @@ function AuthGate() {
       return ''
     }
   })()
-  return token ? <App /> : <Login />
+
+  return (
+    <Router>
+      <Routes>
+        <Route 
+          path="/*" 
+          element={token ? <App /> : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/login" 
+          element={!token ? <Login /> : <Navigate to="/dashboard" replace />} 
+        />
+      </Routes>
+    </Router>
+  )
 }
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
-      <AuthGate />
-    </BrowserRouter>
-  </StrictMode>,
+    <AuthGate />
+  </StrictMode>
 )

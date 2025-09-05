@@ -16,9 +16,11 @@ export default function Login() {
     try {
       const res = await axiosClient.post("/users/login", { email, password });
       localStorage.setItem("token", res.data.token);
-      try { localStorage.setItem("user", JSON.stringify(res.data.user)); } catch {}
-      // Reload so AuthGate re-renders App with token
-      window.location.reload();
+      try { 
+        localStorage.setItem("user", JSON.stringify(res.data.user)); 
+      } catch {}
+      // Navigate to dashboard after successful login
+      navigate('/dashboard');
     } catch (err) {
       const msg = err?.response?.data?.message || "Invalid email or password";
       setError(msg);

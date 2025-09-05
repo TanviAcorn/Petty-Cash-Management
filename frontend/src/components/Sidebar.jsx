@@ -1,5 +1,6 @@
 // src/components/Sidebar.jsx
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Drawer,
   Box,
@@ -27,17 +28,32 @@ import {
 const drawerWidth = 260;
 
 const menuItems = [
-  { text: "Dashboard", icon: <Dashboard /> },
-  { text: "All Requests", icon: <ListAlt /> },
-  { text: "Pending Approval", icon: <ListAlt /> },
-  { text: "Approved", icon: <CheckCircle /> },
-  { text: "Rejected", icon: <Cancel /> },
-  { text: "User Management", icon: <People /> },
-  { text: "Companies", icon: <Business /> },
-  { text: "Settings", icon: <Settings /> },
+  { text: "Dashboard", icon: <Dashboard />, path: "/dashboard" },
+  { text: "All Requests", icon: <ListAlt />, path: "/requests" },
+  { text: "Pending Approval", icon: <ListAlt />, path: "/pending-approval" },
+  { text: "Approved", icon: <CheckCircle />, path: "/approved" },
+  { text: "Rejected", icon: <Cancel />, path: "/rejected" },
+  { text: "User Management", icon: <People />, path: "/users" },
+  { text: "Companies", icon: <Business />, path: "/companies" },
+  { text: "Settings", icon: <Settings />, path: "/settings" },
 ];
 
-export default function Sidebar({ active = "User Management" }) {
+export { menuItems };
+
+export default function Sidebar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [active, setActive] = useState('');
+  
+  useEffect(() => {
+    const currentPage = menuItems.find(item => location.pathname === item.path);
+    if (currentPage) {
+      setActive(currentPage.text);
+    } else if (location.pathname === '/') {
+      navigate('/dashboard');
+      setActive('Dashboard');
+    }
+  }, [location.pathname, navigate]);
   return (
     <Drawer
       variant="permanent"
@@ -98,14 +114,24 @@ export default function Sidebar({ active = "User Management" }) {
             }}
           >
             <ListItemButton
+              component={Link}
+              to={item.path}
               selected={active === item.text}
               sx={{
                 borderRadius: 2,
                 mx: 1,
+                width: '100%',
                 "&.Mui-selected": {
                   bgcolor: "primary.main",
                   color: "white",
                   "& .MuiSvgIcon-root": { color: "white" },
+                },
+                '&:hover': {
+                  textDecoration: 'none',
+                  bgcolor: 'action.hover',
+                },
+                '&.Mui-selected:hover': {
+                  bgcolor: 'primary.dark',
                 },
               }}
             >

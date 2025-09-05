@@ -1,6 +1,7 @@
 // src/App.jsx
-
 import React, { useState } from "react";
+import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
+import { useEffect } from "react";
 import {
   Box,
   CssBaseline,
@@ -11,8 +12,6 @@ import {
   Typography,
   Chip,
   useTheme,
-  InputBase,
-  alpha,
   useMediaQuery,
   Menu,
   MenuItem,
@@ -20,15 +19,24 @@ import {
   Divider,
   Tooltip,
 } from "@mui/material";
-import { styled } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
-import Settings from "@mui/icons-material/Settings";
+import SettingsIcon from "@mui/icons-material/Settings";
 import Person from "@mui/icons-material/Person";
 import Sidebar from "./components/Sidebar";
-import UserManagement from "./pages/UserManagement";
 
-const drawerWidth = 240;
+// Pages
+import Dashboard from "./pages/Dashboard";
+import UserManagement from "./pages/UserManagement";
+import AllRequests from "./pages/AllRequests";
+import PendingApproval from "./pages/PendingApproval";
+import Approved from "./pages/Approved";
+import Rejected from "./pages/Rejected";
+import Companies from "./pages/Companies";
+import Settings from "./pages/Settings";
+import { menuItems } from "./components/Sidebar";
+
+const drawerWidth = 260;
 
 const App = () => {
   const theme = useTheme();
@@ -55,17 +63,41 @@ const App = () => {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       sessionStorage.removeItem("token");
-    } catch {}
-    // Reload so AuthGate renders Login
-    window.location.reload();
+      // Navigate to login page
+      navigate('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still try to navigate to login even if clearing storage fails
+      navigate('/login');
+    }
+  };
+
+  const navigate = useNavigate();
+  const [pageTitle, setPageTitle] = useState('Dashboard');
+
+  const location = useLocation();
+  
+  // Update page title when route changes
+  useEffect(() => {
+    const currentPage = menuItems.find(item => item.path === location.pathname);
+    if (currentPage) {
+      setPageTitle(currentPage.text);
+    } else if (location.pathname === '/') {
+      // Handle root path
+      navigate('/dashboard');
+      setPageTitle('Dashboard');
+    }
+  }, [location, navigate]);
+
+  const handleNavigation = (path, title) => {
+    navigate(path);
+    setPageTitle(title);
   };
 
   return (
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      {" "}
-      {/* <-- KEY CHANGE */}
       <CssBaseline />
-      {/* Main App Bar at the top */}
+      {/* App Bar */}
       <AppBar
         position="fixed"
         sx={{
@@ -89,7 +121,7 @@ const App = () => {
           </IconButton>
 
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            User Management
+            {pageTitle}
           </Typography>
 
           {!isSmallScreen && (
@@ -119,13 +151,13 @@ const App = () => {
                     overflow: "visible",
                     filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.12))",
                     mt: 1.5,
-                    '& .MuiAvatar-root': {
+                    "& .MuiAvatar-root": {
                       width: 32,
                       height: 32,
                       ml: -0.5,
                       mr: 1,
                     },
-                    '&:before': {
+                    "&:before": {
                       content: '""',
                       display: "block",
                       position: "absolute",
@@ -142,6 +174,13 @@ const App = () => {
                 transformOrigin={{ horizontal: "right", vertical: "top" }}
                 anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
               >
+                <MenuItem onClick={() => handleNavigation("/settings", "Settings")}>
+                  <ListItemIcon>
+                    <SettingsIcon fontSize="small" />
+                  </ListItemIcon>
+                  Settings
+                </MenuItem>
+                <Divider />
                 <MenuItem onClick={handleLogout}>
                   <ListItemIcon>
                     <LogoutIcon fontSize="small" />
@@ -153,20 +192,36 @@ const App = () => {
           )}
         </Toolbar>
       </AppBar>
-      {/* Sidebar component */}
-      <Sidebar open={mobileOpen} onClose={handleDrawerToggle} />
-      {/* Main Content Area */}
+
+      {/* Sidebar */}
+      <Sidebar />
+
+      {/* Main Content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          // p: 3, // Padding is now handled inside UserManagement
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           mt: { xs: "56px", sm: "64px" },
+          p: 3,
           overflow: "auto",
+          backgroundColor: "#f5f7fa",
+          minHeight: "calc(100vh - 64px)",
         }}
       >
-        <UserManagement />
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/users" element={<UserManagement />} />
+          <Route path="/requests" element={<AllRequests />} />
+          <Route path="/pending-approval" element={<PendingApproval />} />
+          <Route path="/approved" element={<Approved />} />
+          <Route path="/rejected" element={<Rejected />} />
+          <Route path="/companies" element={<Companies />} />
+          <Route path="/settings" element={<Settings />} />
+          {/* Add a catch-all route for 404 pages */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
       </Box>
     </Box>
   );
