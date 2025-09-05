@@ -57,7 +57,7 @@ export default function Sidebar({ active = "User Management" }) {
           sx={{
             width: 36,
             height: 36,
-            bgcolor: "success.main",
+            bgcolor: "primary.main",
             borderRadius: 1,
             display: "flex",
             alignItems: "center",
@@ -74,7 +74,7 @@ export default function Sidebar({ active = "User Management" }) {
           <Typography
             sx={{
               fontSize: "11px",
-              bgcolor: "success.main",
+              bgcolor: "primary.main",
               color: "white",
               px: 0.8,
               py: 0.1,
@@ -103,7 +103,7 @@ export default function Sidebar({ active = "User Management" }) {
                 borderRadius: 2,
                 mx: 1,
                 "&.Mui-selected": {
-                  bgcolor: "success.main",
+                  bgcolor: "primary.main",
                   color: "white",
                   "& .MuiSvgIcon-root": { color: "white" },
                 },

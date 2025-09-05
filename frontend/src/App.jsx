@@ -94,7 +94,7 @@ const App = () => {
 
           {!isSmallScreen && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Chip label="Admin" color="success" size="small" />
+              <Chip label="Admin" color="primary" size="small" />
               <Tooltip title="Account settings">
                 <IconButton
                   onClick={handleMenuOpen}

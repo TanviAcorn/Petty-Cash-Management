@@ -187,81 +187,59 @@ const UserManagement = () => {
         </Button>
       </Box>
 
-      {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        {/* ... (Grid items for cards) */}
-        <Grid item xs={12} sm={6} md={4}>
-            <Card
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                p: 2,
-                borderRadius: 2,
-                boxShadow: 3,
-              }}
-            >
-              <Box>
-                <Typography variant="body1" color="text.secondary">
-                  Total Users
-                </Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {totalUsers}
-                </Typography>
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Total Users
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    {totalUsers}
+                  </Typography>
+                </Box>
+                <People sx={{ color: 'primary.main', fontSize: 32, opacity: 0.9 }} />
               </Box>
-              <People
-                sx={{ fontSize: 40, color: "primary.main", opacity: 0.7 }}
-              />
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                p: 2,
-                borderRadius: 2,
-                boxShadow: 3,
-              }}
-            >
-              <Box>
-                <Typography variant="body1" color="text.secondary">
-                  Admins
-                </Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {adminUsers}
-                </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Admins
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    {adminUsers}
+                  </Typography>
+                </Box>
+                <Person sx={{ color: 'success.main', fontSize: 32, opacity: 0.9 }} />
               </Box>
-              <Person
-                sx={{ fontSize: 40, color: "success.main", opacity: 0.7 }}
-              />
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={4}>
-            <Card
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                p: 2,
-                borderRadius: 2,
-                boxShadow: 3,
-              }}
-            >
-              <Box>
-                <Typography variant="body1" color="text.secondary">
-                  Companies
-                </Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {uniqueCompanies}
-                </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Companies
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    {uniqueCompanies}
+                  </Typography>
+                </Box>
+                <Apartment sx={{ color: 'secondary.main', fontSize: 32, opacity: 0.9 }} />
               </Box>
-              <Apartment
-                sx={{ fontSize: 40, color: "secondary.main", opacity: 0.7 }}
-              />
-            </Card>
-          </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       {/* User List Card with Search */}
@@ -331,7 +309,7 @@ const UserManagement = () => {
                         <Chip
                           label={u.role.toLowerCase()}
                           size="small"
-                          color={u.role === "Admin" ? "success" : "default"}
+                          color={u.role === "Admin" ? "primary" : "default"}
                           sx={{ textTransform: "lowercase" }}
                         />
                       </TableCell>
