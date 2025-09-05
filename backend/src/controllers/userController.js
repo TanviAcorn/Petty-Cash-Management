@@ -56,8 +56,7 @@ exports.getAllUsers = async (req, res) => {
       email: u.email,
       role: u.role,
       company: u.company,
-      department: u.department,
-      status: u.status || 'active' // Default to active if status is not set
+      department: u.department
     }));
 
     res.json(users);
@@ -91,8 +90,8 @@ exports.createUser = async (req, res) => {
       .input("company", company)
       .input("department", department)
       .query(
-        `INSERT INTO Users (firstName, lastName, email, password, role, company, department, status)
-         VALUES (@firstName, @lastName, @email, @password, @role, @company, @department, 'active')`
+        `INSERT INTO Users (firstName, lastName, email, password, role, company, department)
+         VALUES (@firstName, @lastName, @email, @password, @role, @company, @department)`
       );
       
     res.status(201).json({ message: "User created successfully" });
@@ -105,7 +104,7 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, password, role, company, department, status } = req.body;
+    const { firstName, lastName, email, password, role, company, department } = req.body;
     
     const pool = await poolPromise;
     
@@ -129,7 +128,6 @@ exports.updateUser = async (req, res) => {
       .input("role", role)
       .input("company", company)
       .input("department", department)
-      .input("status", status || 'active')
       .query(
         `UPDATE Users
          SET firstName = @firstName,
@@ -138,8 +136,7 @@ exports.updateUser = async (req, res) => {
              password = CASE WHEN @password IS NULL OR LTRIM(RTRIM(@password)) = '' THEN password ELSE @password END,
              role = @role,
              company = @company,
-             department = @department,
-             status = @status
+             department = @department
          WHERE id = @id`
       );
       

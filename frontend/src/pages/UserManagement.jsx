@@ -10,12 +10,10 @@ import {
   Card,
   CardContent,
   CardHeader,
-  Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   Grid,
   IconButton,
   Table,
@@ -27,7 +25,6 @@ import {
   TextField,
   Select,
   MenuItem,
-  Paper,
   Typography,
   Chip,
   InputBase,
@@ -59,7 +56,6 @@ const UserManagement = () => {
   });
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch users
   const fetchUsers = async () => {
     try {
       const res = await axiosClient.get("/users");
@@ -73,48 +69,10 @@ const UserManagement = () => {
     fetchUsers();
   }, []);
 
-  // Handle input
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Save user
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingUser) {
-        await axiosClient.put(`/users/${editingUser.id}`, formData);
-      } else {
-        await axiosClient.post("/users", formData);
-      }
-      setOpen(false);
-      setEditingUser(null);
-      fetchUsers();
-    } catch (error) {
-      console.error("Failed to save user:", error);
-    }
-  };
-
-  // Edit user
-  const handleEdit = (user) => {
-    setEditingUser(user);
-    setFormData({ ...user, password: "" }); // Clear password field for security
-    setOpen(true);
-  };
-
-  // Delete user
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
-      try {
-        await axiosClient.delete(`/users/${id}`);
-        fetchUsers();
-      } catch (error) {
-        console.error("Failed to delete user:", error);
-      }
-    }
-  };
-
-  // Open modal for add user
   const handleAddUser = () => {
     setEditingUser(null);
     setFormData({
@@ -129,19 +87,75 @@ const UserManagement = () => {
     setOpen(true);
   };
 
-  // Calculate summary stats
+  const handleEdit = (user) => {
+    setEditingUser(user);
+    
+    // Split the full name into first and last names
+    let firstName = '';
+    let lastName = '';
+    
+    if (user.name) {
+      const nameParts = user.name.split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
+    
+    // Set form data with split names
+    setFormData({
+      ...user,
+      firstName,
+      lastName,
+      password: '', // Clear password for security
+    });
+    
+    setOpen(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        // For editing, only send the password if a new one was entered
+        const dataToUpdate = { ...formData };
+        if (!dataToUpdate.password) {
+          delete dataToUpdate.password;
+        }
+        await axiosClient.put(`/users/${editingUser.id}`, dataToUpdate);
+      } else {
+        // For creating, password is required
+        await axiosClient.post("/users", formData);
+      }
+      setOpen(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error("Failed to save user:", error);
+      // You can add logic here to display an error message to the user
+      // e.g., if (error.response?.status === 400) { alert(error.response.data.message); }
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this user?")) {
+      try {
+        await axiosClient.delete(`/users/${id}`);
+        fetchUsers();
+      } catch (error) {
+        console.error("Failed to delete user:", error);
+      }
+    }
+  };
+
   const totalUsers = users.length;
   const adminUsers = users.filter((user) => user.role === "Admin").length;
   const uniqueCompanies = new Set(
     users.filter((user) => user.company).map((user) => user.company)
   ).size;
 
-  // Filtered users for search functionality
   const filteredUsers = useMemo(() => {
     return users.filter(
       (user) =>
-        user.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.company?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -149,27 +163,8 @@ const UserManagement = () => {
   }, [users, searchQuery]);
 
   return (
-    <Box
-      sx={{
-        p: { xs: 2, sm: 3 }, // This padding now controls the inner content
-        pb: 5, // A little extra bottom padding
-        minHeight: "100%",
-        backgroundColor: "background.default",
-      }}
-    >
-      {/* All the content for the UserManagement page goes here */}
-      
-      {/* Header section */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-          flexWrap: "wrap",
-          gap: 2,
-        }}
-      >
+    <Box sx={{ p: { xs: 2, sm: 3 }, pb: 5, minHeight: "100%", backgroundColor: "background.default" }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
         <Box>
           <Typography variant="h4" fontWeight="bold">
             User Management
@@ -178,16 +173,11 @@ const UserManagement = () => {
             Manage user accounts and permissions
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={handleAddUser}
-        >
+        <Button variant="contained" startIcon={<Add />} onClick={handleAddUser}>
           Add User
         </Button>
       </Box>
 
-      {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -242,13 +232,10 @@ const UserManagement = () => {
         </Grid>
       </Grid>
 
-      {/* User List Card with Search */}
       <Card elevation={4}>
         <CardHeader
           title={
-            <Box
-              sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}
-            >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
               <Typography variant="h6" fontWeight="bold">
                 Users
               </Typography>
@@ -260,15 +247,7 @@ const UserManagement = () => {
             </Typography>
           }
           action={
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                border: "1px solid #e0e0e0",
-                borderRadius: 1,
-                p: "4px 8px",
-              }}
-            >
+            <Box sx={{ display: "flex", alignItems: "center", border: "1px solid #e0e0e0", borderRadius: 1, p: "4px 8px" }}>
               <SearchIcon sx={{ color: "text.secondary", mr: 1 }} />
               <InputBase
                 placeholder="Search users..."
@@ -316,16 +295,10 @@ const UserManagement = () => {
                       <TableCell>{u.company}</TableCell>
                       <TableCell>{u.department}</TableCell>
                       <TableCell align="center">
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleEdit(u)}
-                        >
+                        <IconButton color="primary" onClick={() => handleEdit(u)}>
                           <Edit />
                         </IconButton>
-                        <IconButton
-                          color="error"
-                          onClick={() => handleDelete(u.id)}
-                        >
+                        <IconButton color="error" onClick={() => handleDelete(u.id)}>
                           <Delete />
                         </IconButton>
                       </TableCell>
@@ -337,16 +310,9 @@ const UserManagement = () => {
           </TableContainer>
         </CardContent>
       </Card>
-      {/* Dialog for Add/Edit */}
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>
-          {editingUser ? "Edit User" : "Create New User"}
-        </DialogTitle>
+
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{editingUser ? "Edit User" : "Create New User"}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
@@ -399,7 +365,6 @@ const UserManagement = () => {
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                label="Role"
                 displayEmpty
               >
                 <MenuItem value="User">User</MenuItem>

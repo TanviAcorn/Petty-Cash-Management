@@ -21,6 +21,7 @@ export default function AddUserModal({ onClose, onSave }) {
     onSave({
       name: `${form.firstName} ${form.lastName}`,
       email: form.email,
+      password: form.password,
       role: form.role,
       company: form.company,
       department: form.department,
