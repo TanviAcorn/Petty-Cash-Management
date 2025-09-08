@@ -151,7 +151,14 @@ const App = () => {
 
           {!isSmallScreen && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Chip label="Admin" color="primary" size="small" />
+              <Chip
+                icon={<Brightness6Icon />}
+                label={mode === 'light' ? 'Light' : 'Dark'}
+                size="small"
+                variant="outlined"
+                onClick={toggle}
+                sx={{ cursor: 'pointer' }}
+              />
               <Tooltip title="Account settings">
                 <IconButton
                   onClick={handleMenuOpen}
