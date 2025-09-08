@@ -29,6 +29,7 @@ import {
   Chip,
   InputBase,
 } from "@mui/material";
+import { alpha } from '@mui/material/styles';
 
 // MUI icons
 import {
@@ -163,10 +164,10 @@ const UserManagement = () => {
   }, [users, searchQuery]);
 
   // Reusable StatCard for metrics
-  const StatCard = ({ icon, label, value, color = 'default' }) => (
-    <Card variant="outlined" sx={{ height: '100%', borderRadius: 2 }}>
+  const StatCard = ({ icon, label, value, color = 'primary' }) => (
+    <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper', borderColor: 'divider' }}>
       <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.25 }}>
-        <Box sx={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 1, bgcolor: `${color}.light`, color: `${color}.main` }}>
+        <Box sx={(theme)=>({ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 1, bgcolor: alpha(theme.palette[color].main, 0.15), color: theme.palette[color].main })}>
           {icon}
         </Box>
         <Box>
@@ -219,7 +220,7 @@ const UserManagement = () => {
             </Typography>
           }
           action={
-            <Box sx={{ display: "flex", alignItems: "center", border: "1px solid #e0e0e0", borderRadius: 1, p: "4px 8px" }}>
+            <Box sx={{ display: "flex", alignItems: "center", border: 1, borderColor: 'divider', borderRadius: 1, p: "4px 8px", bgcolor: 'background.paper' }}>
               <SearchIcon sx={{ color: "text.secondary", mr: 1 }} />
               <InputBase
                 placeholder="Search users..."
@@ -229,13 +230,13 @@ const UserManagement = () => {
               />
             </Box>
           }
-          sx={{ borderBottom: "1px solid", borderColor: "grey.200" }}
+          sx={{ borderBottom: 1, borderColor: "divider" }}
         />
         <CardContent sx={{ p: 0 }}>
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   <TableCell>Name</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>Role</TableCell>

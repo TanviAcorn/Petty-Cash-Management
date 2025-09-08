@@ -29,6 +29,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import { alpha } from '@mui/material/styles';
 import axiosClient from '../api/axiosClient';
 
 // Helper to format currency consistently
@@ -150,19 +151,19 @@ const Rejected = () => {
   };
 
   // Reusable stat card
-  const StatCard = ({ icon, label, value, color = 'default' }) => (
-    <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper' }}>
+  const StatCard = ({ icon, label, value, color = 'primary' }) => (
+    <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper', borderColor: 'divider' }}>
       <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5, p: 2.5 }}>
-        <Box sx={{
+        <Box sx={(theme)=>({
           width: 36,
           height: 36,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           borderRadius: 1,
-          bgcolor: `${color}.light`,
-          color: `${color}.main`,
-        }}>
+          bgcolor: alpha(theme.palette[color].main, 0.15),
+          color: theme.palette[color].main,
+        })}>
           {icon}
         </Box>
         <Box>
@@ -183,7 +184,7 @@ const Rejected = () => {
             View and analyze all rejected petty cash requests
           </Typography>
         </Box>
-        <Button variant="contained" color="success" onClick={handleExportCSV}>
+        <Button variant="contained" color="primary" onClick={handleExportCSV}>
           Export CSV
         </Button>
       </Box>

@@ -24,6 +24,8 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
 import Person from "@mui/icons-material/Person";
 import Sidebar from "./components/Sidebar";
+import { useColorMode } from './theme/ColorMode.jsx';
+import Brightness6Icon from '@mui/icons-material/Brightness6';
 
 // Pages
 import Dashboard from "./pages/Dashboard";
@@ -40,6 +42,7 @@ const drawerWidth = 260;
 
 const App = () => {
   const theme = useTheme();
+  const { mode, toggle } = useColorMode();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -105,7 +108,7 @@ const App = () => {
           ml: { md: `${drawerWidth}px` },
           boxShadow: "none",
           borderBottom: `1px solid ${theme.palette.divider}`,
-          backgroundColor: "white",
+          backgroundColor: theme.palette.background.paper,
           color: theme.palette.text.primary,
         }}
       >
@@ -126,7 +129,14 @@ const App = () => {
 
           {!isSmallScreen && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Chip label="Admin" color="primary" size="small" />
+              <Chip
+                icon={<Brightness6Icon />}
+                label={mode === 'light' ? 'Light' : 'Dark'}
+                size="small"
+                variant="outlined"
+                onClick={toggle}
+                sx={{ cursor: 'pointer' }}
+              />
               <Tooltip title="Account settings">
                 <IconButton
                   onClick={handleMenuOpen}
@@ -205,7 +215,7 @@ const App = () => {
           mt: { xs: "56px", sm: "64px" },
           p: 3,
           overflow: "auto",
-          backgroundColor: "#f5f7fa",
+          backgroundColor: theme.palette.background.default,
           minHeight: "calc(100vh - 64px)",
         }}
       >

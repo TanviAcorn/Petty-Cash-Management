@@ -154,7 +154,7 @@ const Companies = () => {
       </Tabs>
 
       {tab === 0 && (
-      <Card elevation={0} sx={{ border: "1px solid #e5e7eb", borderRadius: 2 }}>
+      <Card elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper' }}>
         <CardHeader
           title={
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -169,13 +169,14 @@ const Companies = () => {
                 <Box sx={{
                   display: "flex",
                   alignItems: "center",
-                  border: "1px solid #e5e7eb",
+                  border: 1,
+                  borderColor: 'divider',
                   borderRadius: 2,
                   px: 1.5,
                   py: 0.5,
                   mr: 1,
                   minWidth: 280,
-                  backgroundColor: (t) => alpha(t.palette.common.white, 0.9),
+                  bgcolor: 'background.paper',
                 }}>
                   <SearchIcon sx={{ color: "text.secondary", mr: 1 }} />
                   <InputBase placeholder="Search companies..." value={search} onChange={(e) => setSearch(e.target.value)} sx={{ width: '100%' }} />
@@ -188,13 +189,13 @@ const Companies = () => {
               </Grid>
             </Grid>
           }
-          sx={{ borderBottom: "1px solid #e5e7eb" }}
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
         />
         <CardContent sx={{ p: 0 }}>
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: "#f9fafb" }}>
+                <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   <TableCell>Company Name</TableCell>
                   <TableCell>Code</TableCell>
                   <TableCell>Country</TableCell>
@@ -258,13 +259,14 @@ const Companies = () => {
                 <Box sx={{
                   display: "flex",
                   alignItems: "center",
-                  border: "1px solid #e5e7eb",
+                  border: 1,
+                  borderColor: 'divider',
                   borderRadius: 2,
                   px: 1.5,
                   py: 0.5,
                   mr: 1,
                   minWidth: 280,
-                  backgroundColor: (t) => alpha(t.palette.common.white, 0.9),
+                  bgcolor: 'background.paper',
                 }}>
                   <SearchIcon sx={{ color: "text.secondary", mr: 1 }} />
                   <InputBase placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)} sx={{ width: '100%' }} />
@@ -277,13 +279,13 @@ const Companies = () => {
               </Grid>
             </Grid>
           }
-          sx={{ borderBottom: "1px solid #e5e7eb" }}
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
         />
         <CardContent sx={{ p: 0 }}>
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: "#f9fafb" }}>
+                <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   <TableCell>Category Name</TableCell>
                   <TableCell>Description</TableCell>
                   <TableCell align="center">Actions</TableCell>

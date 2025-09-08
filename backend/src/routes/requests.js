@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
   const params = {};
 
   if (status) {
-    where.push('r.status = @status');
+    where.push('LOWER(r.status) = LOWER(@status)');
     params.status = { type: sql.VarChar(20), value: String(status) };
   }
   if (company) {
@@ -27,10 +27,12 @@ router.get('/', async (req, res) => {
     where.push("(LOWER(r.employee_name) LIKE @q OR LOWER(r.employee_email) LIKE @q OR LOWER(r.company_name) LIKE @q OR LOWER(r.category_name) LIKE @q OR LOWER(ISNULL(r.reason, '')) LIKE @q)");
     params.q = { type: sql.NVarChar(400), value: `%${String(q).toLowerCase()}%` };
   }
+  // pick date column for date range and ordering
+  const dateCol = status === 'rejected' ? 'r.rejected_at' : status === 'approved' ? 'r.approved_at' : 'r.created_at';
   if (range && range !== 'all') {
-    if (range === '7d') where.push('r.rejected_at >= DATEADD(day, -7, SYSUTCDATETIME())');
-    else if (range === '30d') where.push('r.rejected_at >= DATEADD(day, -30, SYSUTCDATETIME())');
-    else if (range === 'year') where.push('YEAR(r.rejected_at) = YEAR(SYSUTCDATETIME())');
+    if (range === '7d') where.push(`${dateCol} >= DATEADD(day, -7, SYSUTCDATETIME())`);
+    else if (range === '30d') where.push(`${dateCol} >= DATEADD(day, -30, SYSUTCDATETIME())`);
+    else if (range === 'year') where.push(`YEAR(${dateCol}) = YEAR(SYSUTCDATETIME())`);
   }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -44,12 +46,13 @@ router.get('/', async (req, res) => {
       r.category_name AS category,
       r.amount,
       r.created_at AS date, -- original request date
+      r.approved_at AS approvedAt,
       r.rejected_at AS rejectedAt,
       r.status,
       r.reason
     FROM petty_cash_requests r
     ${whereSql}
-    ORDER BY CASE WHEN r.rejected_at IS NULL THEN 1 ELSE 0 END, r.rejected_at DESC, r.created_at DESC
+    ORDER BY CASE WHEN ${dateCol} IS NULL THEN 1 ELSE 0 END, ${dateCol} DESC, r.created_at DESC
   `;
 
   try {

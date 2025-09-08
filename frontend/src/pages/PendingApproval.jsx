@@ -1,11 +1,248 @@
-import React from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  TextField,
+  InputAdornment,
+  Select,
+  MenuItem,
+  FormControl,
+  OutlinedInput,
+  Button,
+  Divider,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  TableContainer,
+  Checkbox,
+  Chip,
+  Avatar,
+  IconButton,
+  CircularProgress,
+} from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import PlaylistAddCheckCircleIcon from '@mui/icons-material/PlaylistAddCheckCircle';
+import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
+import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
+import axiosClient from '../api/axiosClient';
+import { alpha } from '@mui/material/styles';
+
+const StatCard = ({ icon, label, value, color = 'primary' }) => (
+  <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper', borderColor: 'divider' }}>
+    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5, p: 2.5 }}>
+      <Box sx={(theme)=>({ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 1, bgcolor: alpha(theme.palette[color].main, 0.15), color: theme.palette[color].main })}>
+        {icon}
+      </Box>
+      <Box>
+        <Typography variant="caption" color="text.secondary">{label}</Typography>
+        <Typography variant="h6" fontWeight={700}>{value}</Typography>
+      </Box>
+    </CardContent>
+  </Card>
+);
+
+const statusColor = (s) => {
+  switch ((s || '').toLowerCase()) {
+    case 'approved': return { color: 'success', label: 'approved' };
+    case 'rejected': return { color: 'error', label: 'rejected' };
+    case 'intercompany': return { color: 'secondary', label: 'intercompany' };
+    default: return { color: 'warning', label: 'pending' };
+  }
+};
 
 const PendingApproval = () => {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const [search, setSearch] = useState('');
+  // This page shows only pending requests
+  const [statusFilter, setStatusFilter] = useState('pending');
+  const [selected, setSelected] = useState([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const fetchData = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        // Fetch only pending requests to align with page purpose
+        const { data } = await axiosClient.get('/requests', { params: { status: 'pending' }, signal: controller.signal });
+        const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
+        setRows(list);
+      } catch (err) {
+        setError(err?.response?.data?.message || err.message || 'Failed to load requests');
+        setRows([]);
+      } finally { setLoading(false); }
+    };
+    fetchData();
+    return () => controller.abort();
+  }, []);
+
+  const stats = useMemo(() => {
+    const total = rows.length;
+    const pending = rows.length; // page contains only pending
+    const approved = 0;
+    const rejected = 0;
+    return { total, pending, approved, rejected };
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    let list = rows; // already pending-only from server
+    if (search) {
+      const s = search.toLowerCase();
+      list = list.filter(r =>
+        String(r.employeeName || '').toLowerCase().includes(s) ||
+        String(r.company || '').toLowerCase().includes(s) ||
+        String(r.category || '').toLowerCase().includes(s) ||
+        String(r.reason || '').toLowerCase().includes(s)
+      );
+    }
+    return list;
+  }, [rows, statusFilter, search]);
+
+  const toggleSelectAll = (checked) => {
+    if (checked) setSelected(filteredRows.map(r => r.id));
+    else setSelected([]);
+  };
+  const toggleSelect = (id) => {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>Pending Approval</Typography>
-      <Typography>Requests awaiting your approval</Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 1200, mx: 'auto', width: '100%' }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>Request Approval</Typography>
+          <Typography variant="body2" color="text.secondary">Review and approve petty cash reimbursement requests</Typography>
+        </Box>
+      </Box>
+
+      {/* Stat Cards */}
+      <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+        <StatCard icon={<PlaylistAddCheckCircleIcon />} label="Total Requests" value={stats.total} color="info" />
+        <StatCard icon={<AccessTimeOutlinedIcon />} label="Pending" value={stats.pending} color="warning" />
+        <StatCard icon={<CheckCircleOutlineIcon />} label="Approved" value={stats.approved} color="success" />
+        <StatCard icon={<CancelOutlinedIcon />} label="Rejected" value={stats.rejected} color="error" />
+      </Box>
+
+      {/* List Card */}
+      <Card variant="outlined">
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={700}>Requests</Typography>
+              <Typography variant="body2" color="text.secondary">Manage and review all petty cash requests</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <TextField
+                placeholder="Search requests..."
+                size="small"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>) }}
+                sx={{ width: 320, maxWidth: '100%' }}
+              />
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <Select input={<OutlinedInput />} value={statusFilter} disabled>
+                  <MenuItem value="pending">Pending</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {loading ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        indeterminate={selected.length > 0 && selected.length < filteredRows.length}
+                        checked={filteredRows.length > 0 && selected.length === filteredRows.length}
+                        onChange={(e) => toggleSelectAll(e.target.checked)}
+                      />
+                    </TableCell>
+                    <TableCell>User</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Category</TableCell>
+                    <TableCell>Company</TableCell>
+                    <TableCell align="right">Amount</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="center">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                        {error || 'No requests found'}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredRows.map((r) => {
+                      const sc = statusColor(r.status);
+                      return (
+                        <TableRow key={r.id || `${r.employeeName}-${r.createdAt}`} hover>
+                          <TableCell padding="checkbox">
+                            <Checkbox checked={selected.includes(r.id)} onChange={() => toggleSelect(r.id)} />
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 260 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Box sx={{ width: 8, height: 8, bgcolor: `${sc.color}.main`, borderRadius: '50%' }} />
+                              <Avatar sx={{ width: 28, height: 28 }}>{(r.employeeName || '?').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase()}</Avatar>
+                              <Box>
+                                <Typography fontWeight={600} lineHeight={1.2}>{r.employeeName}</Typography>
+                                <Typography variant="caption" color="text.secondary">{r.employeeEmail || ''}</Typography>
+                              </Box>
+                            </Box>
+                          </TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            {r.date ? new Date(r.date).toLocaleDateString() : '-'}
+                            <Typography variant="caption" color="text.secondary" display="block">Requested: {r.date ? new Date(r.date).toLocaleDateString() : '-'}</Typography>
+                          </TableCell>
+                          <TableCell>{r.category}</TableCell>
+                          <TableCell>{r.company}</TableCell>
+                          <TableCell align="right">{new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(r.amount || 0))}</TableCell>
+                          <TableCell>
+                            <Chip size="small" label={sc.label} color={sc.color} variant="outlined" sx={{ textTransform: 'lowercase' }} />
+                          </TableCell>
+                          <TableCell align="center" sx={{ minWidth: 120 }}>
+                            <IconButton color="success" size="small" aria-label="approve">
+                              <CheckOutlinedIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton color="error" size="small" aria-label="reject">
+                              <CloseOutlinedIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" aria-label="view details">
+                              <VisibilityOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardContent>
+      </Card>
     </Box>
   );
 };
