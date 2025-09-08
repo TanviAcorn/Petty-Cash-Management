@@ -121,4 +121,46 @@ router.post('/', async (req, res) => {
   }
 });
 
+// POST /api/requests/:id/approve - mark a request as approved
+router.post('/:id/approve', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ message: 'Invalid id' });
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query(`
+        UPDATE petty_cash_requests
+        SET status = 'approved', approved_at = SYSUTCDATETIME()
+        WHERE id = @id;
+        SELECT * FROM petty_cash_requests WHERE id = @id;
+      `);
+    return res.json(result.recordset?.[0] || { id });
+  } catch (err) {
+    console.error('Error approving request:', err);
+    return res.status(500).json({ message: 'Failed to approve request' });
+  }
+});
+
+// POST /api/requests/:id/reject - mark a request as rejected
+router.post('/:id/reject', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ message: 'Invalid id' });
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query(`
+        UPDATE petty_cash_requests
+        SET status = 'rejected', rejected_at = SYSUTCDATETIME()
+        WHERE id = @id;
+        SELECT * FROM petty_cash_requests WHERE id = @id;
+      `);
+    return res.json(result.recordset?.[0] || { id });
+  } catch (err) {
+    console.error('Error rejecting request:', err);
+    return res.status(500).json({ message: 'Failed to reject request' });
+  }
+});
+
 module.exports = router;

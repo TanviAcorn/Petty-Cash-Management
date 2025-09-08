@@ -70,19 +70,19 @@ export { menuItems, getMenuItemsByRole };
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user: userInfo } = useAuth();
+  const { user } = useAuth?.() || { user: null };
   const [active, setActive] = useState('');
   const [currentMenuItems, setCurrentMenuItems] = useState(menuItems);
-  
+
   // Update menu items based on user role
   useEffect(() => {
-    if (userInfo) {
-      const roleBasedMenuItems = getMenuItemsByRole(userInfo.role);
+    if (user) {
+      const roleBasedMenuItems = getMenuItemsByRole(user.role);
       setCurrentMenuItems(roleBasedMenuItems);
     } else {
       setCurrentMenuItems(menuItems);
     }
-  }, [userInfo]);
+  }, [user]);
 
   useEffect(() => {
     const currentPage = currentMenuItems.find(item => location.pathname === item.path);
@@ -93,6 +93,7 @@ export default function Sidebar() {
       setActive('Dashboard');
     }
   }, [location.pathname, navigate, currentMenuItems]);
+
   return (
     <Drawer
       variant="permanent"
@@ -102,7 +103,11 @@ export default function Sidebar() {
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
-          borderRight: "1px solid #f0f0f0",
+          borderRight: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
     >
@@ -137,7 +142,7 @@ export default function Sidebar() {
               display: "inline-block",
             }}
           >
-            {userInfo?.role || 'Admin'}
+            {user?.role || 'Admin'}
           </Typography>
         </Box>
       </Box>
@@ -196,16 +201,14 @@ export default function Sidebar() {
       {/* Footer with User */}
       <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
         <Avatar sx={{ bgcolor: "primary.main" }}>
-          <Person fontSize="small" />
+          {(user?.firstName?.[0] || user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
         </Avatar>
-        <Box>
-          <Typography fontSize="0.9rem">
-            {userInfo?.firstName && userInfo?.lastName 
-              ? `${userInfo.firstName} ${userInfo.lastName}` 
-              : 'User'}
+        <Box sx={{ minWidth: 0 }}>
+          <Typography fontSize="0.9rem" noWrap title={user?.firstName ? `${user.firstName} ${user?.lastName || ''}`.trim() : (user?.name || 'User')}>
+            {user?.firstName ? `${user.firstName} ${user?.lastName || ''}`.trim() : (user?.name || 'User')}
           </Typography>
-          <Typography fontSize="0.75rem" color="text.secondary">
-            {userInfo?.email || 'user@company.com'}
+          <Typography fontSize="0.75rem" color="text.secondary" noWrap title={user?.email || ''}>
+            {user?.email || ''}
           </Typography>
         </Box>
       </Box>

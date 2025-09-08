@@ -109,6 +109,26 @@ const PendingApproval = () => {
     return list;
   }, [rows, statusFilter, search]);
 
+  const displayName = (r) => {
+    if (r.employeeName && r.employeeName.toLowerCase() !== 'unknown user') return r.employeeName;
+    const email = r.employeeEmail || '';
+    const namePart = email.split('@')[0] || '';
+    if (!namePart) return 'User';
+    return namePart.replace(/[._-]+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  };
+
+  const mutateStatus = async (id, action) => {
+    try {
+      await axiosClient.post(`/requests/${id}/${action}`);
+      // refresh list
+      const { data } = await axiosClient.get('/requests', { params: { status: 'pending' } });
+      const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
+      setRows(list);
+    } catch (err) {
+      console.error(`Failed to ${action} request`, err);
+    }
+  };
+
   const toggleSelectAll = (checked) => {
     if (checked) setSelected(filteredRows.map(r => r.id));
     else setSelected([]);

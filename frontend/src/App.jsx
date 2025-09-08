@@ -143,7 +143,6 @@ const App = () => {
                 onClick={toggle}
                 sx={{ cursor: 'pointer' }}
               />
-              <Chip label={userInfo?.role || "Admin"} color="primary" size="small" />
               <Tooltip title="Account settings">
                 <IconButton
                   onClick={handleMenuOpen}
@@ -232,7 +231,8 @@ const App = () => {
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           mt: { xs: "56px", sm: "64px" },
           p: 3,
-          overflow: "auto",
+          overflowY: "auto",
+          overflowX: "hidden",
           backgroundColor: theme.palette.background.default,
           minHeight: "calc(100vh - 64px)",
         }}
