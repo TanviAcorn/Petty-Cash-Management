@@ -6,7 +6,7 @@ const { poolPromise } = require("../config/db");
 router.get("/", async (req, res) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request().query("SELECT * FROM Companies ORDER BY name");
+    const result = await pool.request().query("SELECT * FROM petty_Companies ORDER BY name");
     const companies = (result.recordset || []).map((c) => ({
       id: c.id,
       name: c.name,
@@ -34,7 +34,7 @@ router.post("/", async (req, res) => {
       .input("code", String(code).trim())
       .input("country", String(country || "").trim())
       .query(
-        `INSERT INTO Companies (name, code, country)
+        `INSERT INTO petty_Companies (name, code, country)
          OUTPUT INSERTED.*
          VALUES (@name, @code, @country)`
       );
@@ -60,7 +60,7 @@ router.put("/:id", async (req, res) => {
       .input("code", String(code || "").trim())
       .input("country", String(country || "").trim())
       .query(
-        `UPDATE Companies
+        `UPDATE petty_Companies
          SET name = CASE WHEN @name = '' THEN name ELSE @name END,
              code = CASE WHEN @code = '' THEN code ELSE @code END,
              country = @country
@@ -78,7 +78,7 @@ router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
-    await pool.request().input("id", id).query("DELETE FROM Companies WHERE id = @id");
+    await pool.request().input("id", id).query("DELETE FROM petty_Companies WHERE id = @id");
     res.send("Company deleted");
   } catch (err) {
     console.error("Companies DELETE error:", err?.message || err);

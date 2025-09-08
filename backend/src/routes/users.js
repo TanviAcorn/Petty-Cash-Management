@@ -16,7 +16,7 @@ router.post("/login", async (req, res) => {
       .input("email", String(email))
       .query(`
         SELECT TOP 1 *
-        FROM Users
+        FROM petty_Users
         WHERE LOWER(LTRIM(RTRIM(email))) = LOWER(LTRIM(RTRIM(@email)))
       `);
 
@@ -51,7 +51,7 @@ router.post("/login", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request().query("SELECT * FROM Users");
+    const result = await pool.request().query("SELECT * FROM petty_Users");
 
     // Map to expected structure for frontend
     const users = result.recordset.map((u) => ({
@@ -86,7 +86,7 @@ router.post("/", async (req, res) => {
       .input("company", company)
       .input("department", department)
       .query(
-        `INSERT INTO Users (firstName, lastName, email, password, role, company, department)
+        `INSERT INTO petty_Users (firstName, lastName, email, password, role, company, department)
          VALUES (@firstName, @lastName, @email, @password, @role, @company, @department)`
       );
     res.status(201).send("User created");
@@ -112,7 +112,7 @@ router.put("/:id", async (req, res) => {
       .input("company", company)
       .input("department", department)
       .query(
-        `UPDATE Users
+        `UPDATE petty_Users
          SET firstName = @firstName,
              lastName = @lastName,
              email = @email,
@@ -133,7 +133,7 @@ router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
-    await pool.request().input("id", id).query("DELETE FROM Users WHERE id = @id");
+    await pool.request().input("id", id).query("DELETE FROM petty_Users WHERE id = @id");
     res.send("User deleted");
   } catch (err) {
     res.status(500).send(err.message);
