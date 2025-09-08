@@ -34,7 +34,10 @@ import Approved from "./pages/Approved";
 import Rejected from "./pages/Rejected";
 import Companies from "./pages/Companies";
 import Settings from "./pages/Settings";
-import { menuItems } from "./components/Sidebar";
+import MyRequests from "./pages/MyRequests";
+import NewRequest from "./pages/NewRequest";
+import Profile from "./pages/Profile";
+import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
 
@@ -44,6 +47,8 @@ const App = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
+  const [userInfo, setUserInfo] = useState(null);
+  const [currentMenuItems, setCurrentMenuItems] = useState(menuItems);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -76,10 +81,27 @@ const App = () => {
   const [pageTitle, setPageTitle] = useState('Dashboard');
 
   const location = useLocation();
+
+  // Get user info from localStorage
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        setUserInfo(user);
+        const roleBasedMenuItems = getMenuItemsByRole(user.role);
+        setCurrentMenuItems(roleBasedMenuItems);
+      }
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      // Fallback to default menu items
+      setCurrentMenuItems(menuItems);
+    }
+  }, []);
   
   // Update page title when route changes
   useEffect(() => {
-    const currentPage = menuItems.find(item => item.path === location.pathname);
+    const currentPage = currentMenuItems.find(item => item.path === location.pathname);
     if (currentPage) {
       setPageTitle(currentPage.text);
     } else if (location.pathname === '/') {
@@ -87,7 +109,7 @@ const App = () => {
       navigate('/dashboard');
       setPageTitle('Dashboard');
     }
-  }, [location, navigate]);
+  }, [location, navigate, currentMenuItems]);
 
   const handleNavigation = (path, title) => {
     navigate(path);
@@ -126,7 +148,7 @@ const App = () => {
 
           {!isSmallScreen && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Chip label="Admin" color="primary" size="small" />
+              <Chip label={userInfo?.role || "Admin"} color="primary" size="small" />
               <Tooltip title="Account settings">
                 <IconButton
                   onClick={handleMenuOpen}
@@ -136,7 +158,9 @@ const App = () => {
                   aria-haspopup="true"
                   aria-expanded={menuOpen ? "true" : undefined}
                 >
-                  <Avatar sx={{ width: 32, height: 32 }}>AU</Avatar>
+                  <Avatar sx={{ width: 32, height: 32 }}>
+                    {userInfo?.firstName?.charAt(0) || 'U'}{userInfo?.lastName?.charAt(0) || 'U'}
+                  </Avatar>
                 </IconButton>
               </Tooltip>
               <Menu
@@ -174,12 +198,21 @@ const App = () => {
                 transformOrigin={{ horizontal: "right", vertical: "top" }}
                 anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
               >
-                <MenuItem onClick={() => handleNavigation("/settings", "Settings")}>
-                  <ListItemIcon>
-                    <SettingsIcon fontSize="small" />
-                  </ListItemIcon>
-                  Settings
-                </MenuItem>
+                {userInfo?.role === 'Admin' ? (
+                  <MenuItem onClick={() => handleNavigation("/settings", "Settings")}>
+                    <ListItemIcon>
+                      <SettingsIcon fontSize="small" />
+                    </ListItemIcon>
+                    Settings
+                  </MenuItem>
+                ) : (
+                  <MenuItem onClick={() => handleNavigation("/profile", "Profile")}>
+                    <ListItemIcon>
+                      <Person fontSize="small" />
+                    </ListItemIcon>
+                    Profile
+                  </MenuItem>
+                )}
                 <Divider />
                 <MenuItem onClick={handleLogout}>
                   <ListItemIcon>
@@ -212,6 +245,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          {/* Admin Routes */}
           <Route path="/users" element={<UserManagement />} />
           <Route path="/requests" element={<AllRequests />} />
           <Route path="/pending-approval" element={<PendingApproval />} />
@@ -219,6 +253,10 @@ const App = () => {
           <Route path="/rejected" element={<Rejected />} />
           <Route path="/companies" element={<Companies />} />
           <Route path="/settings" element={<Settings />} />
+          {/* User Routes */}
+          <Route path="/my-requests" element={<MyRequests />} />
+          <Route path="/new-request" element={<NewRequest />} />
+          <Route path="/profile" element={<Profile />} />
           {/* Add a catch-all route for 404 pages */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

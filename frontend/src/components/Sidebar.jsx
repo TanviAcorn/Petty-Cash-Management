@@ -23,10 +23,36 @@ import {
   People,
   Business,
   Settings,
+  AddCircle,
+  Person,
 } from "@mui/icons-material";
 
 const drawerWidth = 260;
 
+// Role-based menu items
+const getMenuItemsByRole = (userRole) => {
+  const adminMenuItems = [
+    { text: "Dashboard", icon: <Dashboard />, path: "/dashboard" },
+    { text: "All Requests", icon: <ListAlt />, path: "/requests" },
+    { text: "Pending Approval", icon: <ListAlt />, path: "/pending-approval" },
+    { text: "Approved", icon: <CheckCircle />, path: "/approved" },
+    { text: "Rejected", icon: <Cancel />, path: "/rejected" },
+    { text: "User Management", icon: <People />, path: "/users" },
+    { text: "Companies", icon: <Business />, path: "/companies" },
+    { text: "Settings", icon: <Settings />, path: "/settings" },
+  ];
+
+  const userMenuItems = [
+    { text: "Dashboard", icon: <Dashboard />, path: "/dashboard" },
+    { text: "My Requests", icon: <ListAlt />, path: "/my-requests" },
+    { text: "New Request", icon: <AddCircle />, path: "/new-request" },
+    { text: "Profile", icon: <Person />, path: "/profile" },
+  ];
+
+  return userRole === 'Admin' ? adminMenuItems : userMenuItems;
+};
+
+// Default menu items for backward compatibility
 const menuItems = [
   { text: "Dashboard", icon: <Dashboard />, path: "/dashboard" },
   { text: "All Requests", icon: <ListAlt />, path: "/requests" },
@@ -38,22 +64,41 @@ const menuItems = [
   { text: "Settings", icon: <Settings />, path: "/settings" },
 ];
 
-export { menuItems };
+export { menuItems, getMenuItemsByRole };
 
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [active, setActive] = useState('');
-  
+  const [currentMenuItems, setCurrentMenuItems] = useState(menuItems);
+  const [userInfo, setUserInfo] = useState(null);
+
+  // Get user info from localStorage
   useEffect(() => {
-    const currentPage = menuItems.find(item => location.pathname === item.path);
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        setUserInfo(user);
+        const roleBasedMenuItems = getMenuItemsByRole(user.role);
+        setCurrentMenuItems(roleBasedMenuItems);
+      }
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      // Fallback to default menu items
+      setCurrentMenuItems(menuItems);
+    }
+  }, []);
+
+  useEffect(() => {
+    const currentPage = currentMenuItems.find(item => location.pathname === item.path);
     if (currentPage) {
       setActive(currentPage.text);
     } else if (location.pathname === '/') {
       navigate('/dashboard');
       setActive('Dashboard');
     }
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, currentMenuItems]);
   return (
     <Drawer
       variant="permanent"
@@ -98,14 +143,14 @@ export default function Sidebar() {
               display: "inline-block",
             }}
           >
-            Admin
+            {userInfo?.role || 'Admin'}
           </Typography>
         </Box>
       </Box>
 
       {/* Menu */}
       <List sx={{ flexGrow: 1 }}>
-        {menuItems.map((item) => (
+        {currentMenuItems.map((item) => (
           <ListItem
             key={item.text}
             disablePadding
@@ -156,11 +201,17 @@ export default function Sidebar() {
 
       {/* Footer with User */}
       <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
-        <Avatar sx={{ bgcolor: "grey.400" }}>AU</Avatar>
+        <Avatar sx={{ bgcolor: "grey.400" }}>
+          {userInfo?.firstName?.charAt(0) || 'U'}{userInfo?.lastName?.charAt(0) || 'U'}
+        </Avatar>
         <Box>
-          <Typography fontSize="0.9rem">Admin User</Typography>
+          <Typography fontSize="0.9rem">
+            {userInfo?.firstName && userInfo?.lastName 
+              ? `${userInfo.firstName} ${userInfo.lastName}` 
+              : 'User'}
+          </Typography>
           <Typography fontSize="0.75rem" color="text.secondary">
-            admin@company.com
+            {userInfo?.email || 'user@company.com'}
           </Typography>
         </Box>
       </Box>
