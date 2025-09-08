@@ -162,8 +162,23 @@ const UserManagement = () => {
     );
   }, [users, searchQuery]);
 
+  // Reusable StatCard for metrics
+  const StatCard = ({ icon, label, value, color = 'default' }) => (
+    <Card variant="outlined" sx={{ height: '100%', borderRadius: 2 }}>
+      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.25 }}>
+        <Box sx={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 1, bgcolor: `${color}.light`, color: `${color}.main` }}>
+          {icon}
+        </Box>
+        <Box>
+          <Typography variant="caption" color="text.secondary">{label}</Typography>
+          <Typography variant="h6" fontWeight={700}>{value}</Typography>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 }, pb: 5, minHeight: "100%", backgroundColor: "background.default" }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pb: 5, minHeight: "100%", backgroundColor: "background.default", maxWidth: 1200, mx: 'auto', width: '100%' }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
         <Box>
           <Typography variant="h4" fontWeight="bold">
@@ -178,59 +193,16 @@ const UserManagement = () => {
         </Button>
       </Box>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    Total Users
-                  </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {totalUsers}
-                  </Typography>
-                </Box>
-                <People sx={{ color: 'primary.main', fontSize: 32, opacity: 0.9 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    Admins
-                  </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {adminUsers}
-                  </Typography>
-                </Box>
-                <Person sx={{ color: 'success.main', fontSize: 32, opacity: 0.9 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Card sx={{ borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    Companies
-                  </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                    {uniqueCompanies}
-                  </Typography>
-                </Box>
-                <Apartment sx={{ color: 'secondary.main', fontSize: 32, opacity: 0.9 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <Box sx={{
+        display: 'grid',
+        gap: 2,
+        mb: 4,
+        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }
+      }}>
+        <StatCard icon={<People />} label="Total Users" value={totalUsers} color="primary" />
+        <StatCard icon={<Person />} label="Admins" value={adminUsers} color="success" />
+        <StatCard icon={<Apartment />} label="Companies" value={uniqueCompanies} color="secondary" />
+      </Box>
 
       <Card elevation={4}>
         <CardHeader
