@@ -25,6 +25,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import Person from "@mui/icons-material/Person";
 import Sidebar from "./components/Sidebar";
 import { useColorMode } from './theme/ColorMode.jsx';
+import { useAuth } from "./contexts/AuthContext";
 import Brightness6Icon from '@mui/icons-material/Brightness6';
 
 // Pages
@@ -46,11 +47,11 @@ const drawerWidth = 260;
 const App = () => {
   const theme = useTheme();
   const { mode, toggle } = useColorMode();
+  const { user: userInfo, logout } = useAuth();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
-  const [userInfo, setUserInfo] = useState(null);
   const [currentMenuItems, setCurrentMenuItems] = useState(menuItems);
 
   const handleDrawerToggle = () => {
@@ -66,18 +67,8 @@ const App = () => {
   };
 
   const handleLogout = () => {
-    // Clear any auth artifacts if used
-    try {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      sessionStorage.removeItem("token");
-      // Navigate to login page
-      navigate('/login');
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Still try to navigate to login even if clearing storage fails
-      navigate('/login');
-    }
+    logout();
+    // Navigation will be handled automatically by AuthGate
   };
 
   const navigate = useNavigate();
@@ -85,22 +76,15 @@ const App = () => {
 
   const location = useLocation();
 
-  // Get user info from localStorage
+  // Update menu items based on user role
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        setUserInfo(user);
-        const roleBasedMenuItems = getMenuItemsByRole(user.role);
-        setCurrentMenuItems(roleBasedMenuItems);
-      }
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      // Fallback to default menu items
+    if (userInfo) {
+      const roleBasedMenuItems = getMenuItemsByRole(userInfo.role);
+      setCurrentMenuItems(roleBasedMenuItems);
+    } else {
       setCurrentMenuItems(menuItems);
     }
-  }, []);
+  }, [userInfo]);
   
   // Update page title when route changes
   useEffect(() => {
@@ -159,6 +143,7 @@ const App = () => {
                 onClick={toggle}
                 sx={{ cursor: 'pointer' }}
               />
+              <Chip label={userInfo?.role || "Admin"} color="primary" size="small" />
               <Tooltip title="Account settings">
                 <IconButton
                   onClick={handleMenuOpen}
@@ -168,8 +153,8 @@ const App = () => {
                   aria-haspopup="true"
                   aria-expanded={menuOpen ? "true" : undefined}
                 >
-                  <Avatar sx={{ width: 32, height: 32 }}>
-                    {userInfo?.firstName?.charAt(0) || 'U'}{userInfo?.lastName?.charAt(0) || 'U'}
+                  <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                    <Person fontSize="small" />
                   </Avatar>
                 </IconButton>
               </Tooltip>

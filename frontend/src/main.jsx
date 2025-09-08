@@ -4,27 +4,33 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './index.css'
 import App from './App.jsx'
 import { ColorModeProvider } from './theme/ColorMode.jsx'
+import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 
 function AuthGate() {
-  const token = (() => {
-    try {
-      return localStorage.getItem('token') || ''
-    } catch {
-      return ''
-    }
-  })()
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router>
       <Routes>
         <Route 
           path="/*" 
-          element={token ? <App /> : <Navigate to="/login" replace />} 
+          element={isAuthenticated ? <App /> : <Navigate to="/login" replace />} 
         />
         <Route 
           path="/login" 
-          element={!token ? <Login /> : <Navigate to="/dashboard" replace />} 
+          element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} 
         />
       </Routes>
     </Router>
@@ -34,7 +40,9 @@ function AuthGate() {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ColorModeProvider>
-      <AuthGate />
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
     </ColorModeProvider>
   </StrictMode>
 )

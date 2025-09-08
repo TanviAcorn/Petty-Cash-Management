@@ -13,6 +13,7 @@ import {
   Avatar,
   Divider,
 } from "@mui/material";
+import { useAuth } from "../contexts/AuthContext";
 
 // Icons
 import {
@@ -69,26 +70,19 @@ export { menuItems, getMenuItemsByRole };
 export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user: userInfo } = useAuth();
   const [active, setActive] = useState('');
   const [currentMenuItems, setCurrentMenuItems] = useState(menuItems);
-  const [userInfo, setUserInfo] = useState(null);
-
-  // Get user info from localStorage
+  
+  // Update menu items based on user role
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        setUserInfo(user);
-        const roleBasedMenuItems = getMenuItemsByRole(user.role);
-        setCurrentMenuItems(roleBasedMenuItems);
-      }
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      // Fallback to default menu items
+    if (userInfo) {
+      const roleBasedMenuItems = getMenuItemsByRole(userInfo.role);
+      setCurrentMenuItems(roleBasedMenuItems);
+    } else {
       setCurrentMenuItems(menuItems);
     }
-  }, []);
+  }, [userInfo]);
 
   useEffect(() => {
     const currentPage = currentMenuItems.find(item => location.pathname === item.path);
@@ -201,8 +195,8 @@ export default function Sidebar() {
 
       {/* Footer with User */}
       <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
-        <Avatar sx={{ bgcolor: "grey.400" }}>
-          {userInfo?.firstName?.charAt(0) || 'U'}{userInfo?.lastName?.charAt(0) || 'U'}
+        <Avatar sx={{ bgcolor: "primary.main" }}>
+          <Person fontSize="small" />
         </Avatar>
         <Box>
           <Typography fontSize="0.9rem">

@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosClient from "../api/axiosClient";
 import { Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,12 +17,9 @@ export default function Login() {
     setError("");
     try {
       const res = await axiosClient.post("/users/login", { email, password });
-      localStorage.setItem("token", res.data.token);
-      try { 
-        localStorage.setItem("user", JSON.stringify(res.data.user)); 
-      } catch {}
-      // Navigate to dashboard after successful login
-      navigate('/dashboard');
+      // Use the auth context login method
+      login(res.data.token, res.data.user);
+      // Navigation will be handled automatically by AuthGate
     } catch (err) {
       const msg = err?.response?.data?.message || "Invalid email or password";
       setError(msg);
