@@ -14,6 +14,7 @@ import {
   FormHelperText
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import axiosClient from '../api/axiosClient';
 import { AttachMoney, Description, Category, ArrowBack } from '@mui/icons-material';
 
 const categories = [
@@ -68,15 +69,32 @@ const NewRequest = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (validateForm()) {
-      // TODO: Submit to API
-      console.log('Form submitted:', formData);
-      // Show success message and redirect
-      alert('Request submitted successfully!');
-      navigate('/my-requests');
+      try {
+        setSubmitting(true);
+        const user = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } })();
+        const payload = {
+          employeeName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
+          employeeEmail: user.email || '',
+          company: user.company || '',
+          category: formData.category,
+          amount: formData.amount,
+          description: formData.description,
+        };
+        await axiosClient.post('/requests', payload);
+        alert('Request submitted successfully!');
+        navigate('/my-requests');
+      } catch (err) {
+        console.error('Submit failed', err);
+        alert(err?.response?.data?.message || 'Failed to submit request');
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -178,8 +196,9 @@ const NewRequest = () => {
                 type="submit"
                 variant="contained"
                 color="primary"
+                disabled={submitting}
               >
-                Submit Request
+                {submitting ? 'Submitting...' : 'Submit Request'}
               </Button>
             </Grid>
           </Grid>
