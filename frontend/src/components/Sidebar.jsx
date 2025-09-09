@@ -44,7 +44,7 @@ const getMenuItemsByRole = (userRole) => {
   ];
 
   const userMenuItems = [
-    { text: "Dashboard", icon: <Dashboard />, path: "/dashboard" },
+    { text: "Dashboard", icon: <Dashboard />, path: "/user-dashboard" },
     { text: "My Requests", icon: <ListAlt />, path: "/my-requests" },
     { text: "New Request", icon: <AddCircle />, path: "/new-request" },
     { text: "Profile", icon: <Person />, path: "/profile" },

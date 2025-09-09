@@ -30,6 +30,7 @@ import Brightness6Icon from '@mui/icons-material/Brightness6';
 
 // Pages
 import Dashboard from "./pages/Dashboard";
+import UserDashboard from "./pages/UserDashboard";
 import UserManagement from "./pages/UserManagement";
 import AllRequests from "./pages/AllRequests";
 import PendingApproval from "./pages/PendingApproval";
@@ -92,9 +93,14 @@ const App = () => {
     if (currentPage) {
       setPageTitle(currentPage.text);
     } else if (location.pathname === '/') {
-      // Handle root path
-      navigate('/dashboard');
-      setPageTitle('Dashboard');
+      // Handle root path - redirect based on user role
+      if (userInfo?.role === 'Admin') {
+        navigate('/dashboard');
+        setPageTitle('Dashboard');
+      } else {
+        navigate('/user-dashboard');
+        setPageTitle('Dashboard');
+      }
     }
   }, [location, navigate, currentMenuItems]);
 
@@ -238,9 +244,13 @@ const App = () => {
         }}
       >
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/" element={
+            userInfo?.role === 'Admin' ? 
+            <Navigate to="/dashboard" replace /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
           {/* Admin Routes */}
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/users" element={<UserManagement />} />
           <Route path="/requests" element={<AllRequests />} />
           <Route path="/pending-approval" element={<PendingApproval />} />
@@ -249,11 +259,16 @@ const App = () => {
           <Route path="/companies" element={<Companies />} />
           <Route path="/settings" element={<Settings />} />
           {/* User Routes */}
+          <Route path="/user-dashboard" element={<UserDashboard />} />
           <Route path="/my-requests" element={<MyRequests />} />
           <Route path="/new-request" element={<NewRequest />} />
           <Route path="/profile" element={<Profile />} />
           {/* Add a catch-all route for 404 pages */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={
+            userInfo?.role === 'Admin' ? 
+            <Navigate to="/dashboard" replace /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
         </Routes>
       </Box>
     </Box>
