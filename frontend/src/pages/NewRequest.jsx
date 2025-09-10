@@ -138,9 +138,6 @@ const NewRequest = () => {
     if (!formData.dateOfPurchase) newErrors.dateOfPurchase = 'Date of purchase is required';
     if (!formData.category) newErrors.category = 'Category is required';
     if (!formData.company) newErrors.company = 'Company is required';
-    if (!formData.description || formData.description.trim().length < 10) {
-      newErrors.description = 'Please provide a detailed description (min 10 characters)';
-    }
     if (!formData.amount || isNaN(formData.amount) || parseFloat(formData.amount) <= 0) {
       newErrors.amount = 'Please enter a valid amount';
     }
@@ -156,14 +153,18 @@ const NewRequest = () => {
         const user = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } })();
         
         const formDataToSend = new FormData();
-        // FIX: Ensure all form fields are appended to FormData
-        formDataToSend.append('employeeName', `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User');
+        // Get the employee name from user object, falling back to name or email
+        const employeeName = user.name || 
+                           (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) ||
+                           user.email?.split('@')[0] || 'User';
+                           
+        formDataToSend.append('employeeName', employeeName);
         formDataToSend.append('employeeEmail', user.email || '');
         formDataToSend.append('company', formData.company);
         formDataToSend.append('category', formData.category);
         formDataToSend.append('amount', formData.amount);
         formDataToSend.append('dateOfPurchase', formData.dateOfPurchase);
-        formDataToSend.append('description', formData.description); 
+        formDataToSend.append('description', formData.description);
         
         attachments.forEach((file) => {
           formDataToSend.append('attachments', file);

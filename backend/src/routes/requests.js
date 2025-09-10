@@ -259,4 +259,78 @@ router.post('/:id/reject', async (req, res) => {
   }
 });
 
+// PUT /api/requests/:id/status - Update request status (approve/reject)
+router.put('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, rejectionReason } = req.body;
+    
+    if (!['approved', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status. Must be one of: approved, rejected, pending' });
+    }
+
+    const pool = await poolPromise;
+    const request = pool.request()
+      .input('id', sql.Int, id)
+      .input('status', sql.VarChar(20), status);
+
+    let updateSql = 'UPDATE petty_cash_requests SET status = @status';
+    
+    // Set approved_at, rejected_at, and date_of_approve_reject based on status
+    if (status === 'approved') {
+      updateSql += ', approved_at = SYSUTCDATETIME(), rejected_at = NULL, date_of_approve_reject = SYSUTCDATETIME()';
+    } else if (status === 'rejected') {
+      updateSql += ', rejected_at = SYSUTCDATETIME(), approved_at = NULL, date_of_approve_reject = SYSUTCDATETIME()';
+      if (rejectionReason) {
+        updateSql += ', rejection_reason = @rejectionReason';
+        request.input('rejectionReason', sql.NVarChar(sql.MAX), rejectionReason);
+      }
+    } else {
+      updateSql += ', approved_at = NULL, rejected_at = NULL, date_of_approve_reject = NULL';
+    }
+
+    updateSql += ' WHERE id = @id;';
+    
+    await request.query(updateSql);
+    
+    // Return the updated request
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT * FROM petty_cash_requests WHERE id = @id');
+    
+    return res.json({ 
+      message: `Request ${status} successfully`,
+      data: result.recordset[0] 
+    });
+    
+  } catch (err) {
+    console.error('Error updating request status:', err);
+    return res.status(500).json({ 
+      message: 'Failed to update request status',
+      error: err.message 
+    });
+  }
+});
+
+// GET /api/requests/status/:status - Get requests by status
+router.get('/status/:status', async (req, res) => {
+  try {
+    const { status } = req.params;
+    
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status. Must be one of: pending, approved, rejected' });
+    }
+
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('status', sql.VarChar(20), status)
+      .query('SELECT * FROM petty_cash_requests WHERE status = @status ORDER BY created_at DESC');
+    
+    return res.json({ data: result.recordset });
+  } catch (err) {
+    console.error('Error fetching requests by status:', err);
+    return res.status(500).json({ message: 'Failed to fetch requests' });
+  }
+});
+
 module.exports = router;

@@ -23,6 +23,14 @@ import {
   Avatar,
   IconButton,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
+  TextareaAutosize,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PlaylistAddCheckCircleIcon from '@mui/icons-material/PlaylistAddCheckCircle';
@@ -62,11 +70,20 @@ const PendingApproval = () => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
   const [search, setSearch] = useState('');
-  // This page shows only pending requests
   const [statusFilter, setStatusFilter] = useState('pending');
   const [selected, setSelected] = useState([]);
+  const [actionDialog, setActionDialog] = useState({
+    open: false,
+    requestId: null,
+    action: '', // 'approve' or 'reject'
+    rejectionReason: '',
+  });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -117,16 +134,72 @@ const PendingApproval = () => {
     return namePart.replace(/[._-]+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
   };
 
-  const mutateStatus = async (id, action) => {
+  const handleActionClick = (requestId, action) => {
+    setActionDialog({
+      open: true,
+      requestId,
+      action,
+      rejectionReason: '',
+    });
+  };
+
+  const handleActionConfirm = async () => {
     try {
-      await axiosClient.post(`/requests/${id}/${action}`);
-      // refresh list
-      const { data } = await axiosClient.get('/requests', { params: { status: 'pending' } });
-      const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
-      setRows(list);
-    } catch (err) {
-      console.error(`Failed to ${action} request`, err);
+      const { requestId, action, rejectionReason } = actionDialog;
+      
+      // Show loading state
+      setLoading(true);
+      
+      // Make the API call to update status
+      const response = await axiosClient.put(`/requests/${requestId}/status`, {
+        status: action === 'approve' ? 'approved' : 'rejected',
+        ...(action === 'reject' && { rejectionReason })
+      });
+
+      // Refresh the data from server
+      const { data } = await axiosClient.get('/requests', { 
+        params: { status: 'pending' },
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      const updatedList = Array.isArray(data?.data || data) ? (data.data || data) : [];
+      setRows(updatedList);
+      
+      showSnackbar(`Request ${action === 'approve' ? 'approved' : 'rejected'} successfully`, 'success');
+    } catch (error) {
+      console.error('Error updating request status:', error);
+      showSnackbar(`Failed to update request status: ${error.response?.data?.message || error.message}`, 'error');
+    } finally {
+      setLoading(false);
+      handleCloseDialog();
     }
+  };
+
+  const handleCloseDialog = () => {
+    setActionDialog({
+      open: false,
+      requestId: null,
+      action: '',
+      rejectionReason: '',
+    });
+  };
+
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity,
+    });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({
+      ...prev,
+      open: false,
+    }));
   };
 
   const toggleSelectAll = (checked) => {
@@ -243,10 +316,20 @@ const PendingApproval = () => {
                             <Chip size="small" label={sc.label} color={sc.color} variant="outlined" sx={{ textTransform: 'lowercase' }} />
                           </TableCell>
                           <TableCell align="center" sx={{ minWidth: 120 }}>
-                            <IconButton color="success" size="small" aria-label="approve">
+                            <IconButton 
+                              color="success" 
+                              size="small" 
+                              aria-label="approve"
+                              onClick={() => handleActionClick(r.id, 'approve')}
+                            >
                               <CheckOutlinedIcon fontSize="small" />
                             </IconButton>
-                            <IconButton color="error" size="small" aria-label="reject">
+                            <IconButton 
+                              color="error" 
+                              size="small" 
+                              aria-label="reject"
+                              onClick={() => handleActionClick(r.id, 'reject')}
+                            >
                               <CloseOutlinedIcon fontSize="small" />
                             </IconButton>
                             <IconButton size="small" aria-label="view details">
@@ -263,6 +346,65 @@ const PendingApproval = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Action Confirmation Dialog */}
+      <Dialog open={actionDialog.open} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {actionDialog.action === 'approve' ? 'Approve Request' : 'Reject Request'}
+        </DialogTitle>
+        <DialogContent>
+          {actionDialog.action === 'reject' ? (
+            <>
+              <DialogContentText mb={2}>
+                Please provide a reason for rejecting this request:
+              </DialogContentText>
+              <TextareaAutosize
+                minRows={3}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', borderColor: 'rgba(0, 0, 0, 0.23)' }}
+                value={actionDialog.rejectionReason}
+                onChange={(e) => 
+                  setActionDialog(prev => ({ ...prev, rejectionReason: e.target.value }))
+                }
+                placeholder="Enter rejection reason..."
+              />
+            </>
+          ) : (
+            <DialogContentText>
+              Are you sure you want to approve this request?
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} color="inherit">
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleActionConfirm} 
+            color={actionDialog.action === 'approve' ? 'primary' : 'error'}
+            variant="contained"
+            disabled={actionDialog.action === 'reject' && !actionDialog.rejectionReason.trim()}
+          >
+            {actionDialog.action === 'approve' ? 'Approve' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity} 
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

@@ -10,16 +10,18 @@ import {
   MenuItem,
   FormControl,
   OutlinedInput,
-  Button,
   Divider,
   Table,
   TableHead,
   TableRow,
   TableCell,
   TableBody,
+  TableContainer,
   CircularProgress,
   Avatar,
+  Chip,
   IconButton,
+  Tooltip,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
@@ -28,6 +30,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import axiosClient from '../api/axiosClient';
 
 const formatCurrency = (value) =>
@@ -39,6 +42,15 @@ const timeRanges = [
   { label: 'Last 30 Days', value: '30d' },
   { label: 'This Year', value: 'year' },
 ];
+
+const statusColor = (s) => {
+  switch ((s || '').toLowerCase()) {
+    case 'approved': return { color: 'success', label: 'approved' };
+    case 'rejected': return { color: 'error', label: 'rejected' };
+    case 'pending': return { color: 'warning', label: 'pending' };
+    default: return { color: 'default', label: s || 'unknown' };
+  }
+};
 
 const StatCard = ({ icon, label, value, color = 'primary' }) => (
   <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper', borderColor: 'divider' }}>
@@ -66,231 +78,372 @@ const StatCard = ({ icon, label, value, color = 'primary' }) => (
 );
 
 const Approved = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [rows, setRows] = useState([]);
-
-  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [requests, setRequests] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [timeRange, setTimeRange] = useState('30d');
+  const [stats, setStats] = useState({
+    total: 0,
+    totalAmount: 0,
+    avgAmount: 0,
+    topCategory: { name: 'N/A', count: 0 }
+  });
   const [company, setCompany] = useState('all');
   const [category, setCategory] = useState('all');
   const [range, setRange] = useState('all');
 
-  const companies = useMemo(() => ['all', ...Array.from(new Set(rows.map(r => r.company).filter(Boolean)))] , [rows]);
-  const categories = useMemo(() => ['all', ...Array.from(new Set(rows.map(r => r.category).filter(Boolean)))] , [rows]);
+  const companies = useMemo(() => ['all', ...Array.from(new Set(requests.map(r => r.company).filter(Boolean)))], [requests]);
+  const categories = useMemo(() => ['all', ...Array.from(new Set(requests.map(r => r.category).filter(Boolean)))], [requests]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const fetchData = async () => {
-      setLoading(true);
-      setError('');
+    const fetchApprovedRequests = async () => {
       try {
-        const { data } = await axiosClient.get('/requests', {
-          params: {
-            status: 'approved',
-            q: search || undefined,
-            company: company !== 'all' ? company : undefined,
-            category: category !== 'all' ? category : undefined,
-            range: range !== 'all' ? range : undefined,
-          },
-          signal: controller.signal,
+        setLoading(true);
+        // Fetch only approved requests
+        const { data } = await axiosClient.get('/requests', { 
+          params: { status: 'approved' },
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
         });
-        const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
-        setRows(list);
-      } catch (err) {
-        setError(err?.response?.data?.message || err.message || 'Failed to load approved requests');
-        setRows([]);
+        
+        const requestsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
+        setRequests(requestsList);
+
+        // Calculate statistics
+        if (requestsList.length > 0) {
+          const total = requestsList.length;
+          const totalAmount = requestsList.reduce((sum, req) => sum + Number(req.amount || 0), 0);
+          const avgAmount = total > 0 ? totalAmount / total : 0;
+
+          // Find top category
+          const categoryCounts = requestsList.reduce((acc, req) => {
+            const cat = req.category || 'Uncategorized';
+            acc[cat] = (acc[cat] || 0) + 1;
+            return acc;
+          }, {});
+
+          const topCategory = Object.entries(categoryCounts)
+            .sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
+
+          setStats({
+            total,
+            totalAmount,
+            avgAmount,
+            topCategory: { name: topCategory[0], count: topCategory[1] }
+          });
+        } else {
+          setStats({
+            total: 0,
+            totalAmount: 0,
+            avgAmount: 0,
+            topCategory: { name: 'N/A', count: 0 }
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching approved requests:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-    return () => controller.abort();
-  }, [search, company, category, range]);
 
-  const stats = useMemo(() => {
-    const total = rows.length;
-    const totalAmount = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
-    const avg = total ? totalAmount / total : 0;
-    const intercompany = 0; // placeholder if you track it later
-    return { total, totalAmount, avg, intercompany };
-  }, [rows]);
+    fetchApprovedRequests();
+  }, [timeRange]);
 
-  const filteredRows = useMemo(() => {
-    return rows
-      .filter(r => (company === 'all' ? true : r.company === company))
-      .filter(r => (category === 'all' ? true : r.category === category))
-      .filter(r => {
-        if (!search) return true;
-        const s = search.toLowerCase();
-        return (
-          String(r.employeeName || '').toLowerCase().includes(s) ||
-          String(r.company || '').toLowerCase().includes(s) ||
-          String(r.category || '').toLowerCase().includes(s) ||
-          String(r.reason || '').toLowerCase().includes(s)
-        );
+  const filteredRequests = useMemo(() => {
+    let result = requests;
+    
+    // Apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      result = result.filter(request =>
+        (request.employee_name || '').toLowerCase().includes(searchLower) ||
+        (request.employee_email || '').toLowerCase().includes(searchLower) ||
+        (request.company || '').toLowerCase().includes(searchLower) ||
+        (request.category || '').toLowerCase().includes(searchLower) ||
+        (request.reason || '').toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Apply company filter
+    if (company && company !== 'all') {
+      result = result.filter(request => request.company === company);
+    }
+    
+    // Apply category filter
+    if (category && category !== 'all') {
+      result = result.filter(request => request.category === category);
+    }
+    
+    // Apply date range filter
+    if (range && range !== 'all') {
+      const now = new Date();
+      result = result.filter(request => {
+        const approvedDate = new Date(request.approved_at || request.created_at);
+        switch(range) {
+          case '7d':
+            const sevenDaysAgo = new Date(now.setDate(now.getDate() - 7));
+            return approvedDate >= sevenDaysAgo;
+          case '30d':
+            const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+            return approvedDate >= thirtyDaysAgo;
+          case 'year':
+            return approvedDate.getFullYear() === new Date().getFullYear();
+          default:
+            return true;
+        }
       });
-  }, [rows, company, category, search]);
+    }
+    
+    return result;
+  }, [requests, searchTerm, company, category, range]);
 
-  const handleExportCSV = () => {
-    const header = ['ID', 'Employee', 'Company', 'Category', 'Amount', 'Approved Date', 'Reason'];
-    const csv = [header.join(',')]
-      .concat(
-        filteredRows.map(r => [
-          r.id ?? '',
-          (r.employeeName ?? '').replaceAll(',', ' '),
-          (r.company ?? '').replaceAll(',', ' '),
-          (r.category ?? '').replaceAll(',', ' '),
-          r.amount ?? 0,
-          r.approvedAt ?? '',
-          (r.reason ?? '').replaceAll('\n', ' ').replaceAll(',', ' '),
-        ].join(','))
-      )
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'approved_requests.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
+  // Update stats when filtered requests change
+  useEffect(() => {
+    if (filteredRequests.length > 0) {
+      const total = filteredRequests.length;
+      const totalAmount = filteredRequests.reduce((sum, req) => sum + Number(req.amount || 0), 0);
+      const avgAmount = total > 0 ? totalAmount / total : 0;
+
+      // Find top category
+      const categoryCounts = filteredRequests.reduce((acc, req) => {
+        const cat = req.category || 'Uncategorized';
+        acc[cat] = (acc[cat] || 0) + 1;
+        return acc;
+      }, {});
+
+      const topCategory = Object.entries(categoryCounts)
+        .sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
+
+      setStats({
+        total,
+        totalAmount,
+        avgAmount,
+        topCategory: { name: topCategory[0], count: topCategory[1] }
+      });
+    } else {
+      setStats({
+        total: 0,
+        totalAmount: 0,
+        avgAmount: 0,
+        topCategory: { name: 'N/A', count: 0 }
+      });
+    }
+  }, [filteredRequests]);
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 1200, mx: 'auto', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', p: 2 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box>
-          <Typography variant="h5" fontWeight={700}>Approved Requests</Typography>
-          <Typography variant="body2" color="text.secondary">
-            View and manage all approved petty cash requests
-          </Typography>
-        </Box>
-        <Button variant="contained" color="primary" onClick={handleExportCSV}>
-          Export CSV
-        </Button>
+      <Box>
+        <Typography variant="h5" fontWeight={700} gutterBottom>Approved Requests</Typography>
+        <Typography variant="body2" color="text.secondary">
+          View and manage all approved petty cash reimbursement requests
+        </Typography>
       </Box>
 
-      {/* Stat Cards */}
+      {/* Stats Cards */}
       <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-        <StatCard icon={<CheckCircleOutlineIcon />} label="Total Approved" value={stats.total} color="success" />
-        <StatCard icon={<AttachMoneyIcon />} label="Total Amount" value={formatCurrency(stats.totalAmount)} color="success" />
-        <StatCard icon={<TrendingUpIcon />} label="Average Amount" value={formatCurrency(stats.avg)} color="info" />
-        <StatCard icon={<ApartmentOutlinedIcon />} label="Intercompany" value={stats.intercompany} color="secondary" />
+        <StatCard
+          icon={<CheckCircleOutlineIcon />}
+          label="Total Approved"
+          value={stats.total}
+          color="success"
+        />
+        <StatCard
+          icon={<AttachMoneyIcon />}
+          label="Total Amount"
+          value={formatCurrency(stats.totalAmount)}
+          color="primary"
+        />
+        <StatCard
+          icon={<TrendingUpIcon />}
+          label="Average Amount"
+          value={formatCurrency(stats.avgAmount)}
+          color="info"
+        />
+        <StatCard
+          icon={<ApartmentOutlinedIcon />}
+          label="Intercompany"
+          value={`${stats.topCategory.name} (${stats.topCategory.count})`}
+          color="warning"
+        />
       </Box>
 
-      {/* Filters & List */}
+      {/* Filters */}
       <Card variant="outlined">
-        <CardContent>
-          {/* List header */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" fontWeight={700}>Approved Requests</Typography>
-            <Typography variant="body2" color="text.secondary">
-              All approved petty cash reimbursement requests
-            </Typography>
-          </Box>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <TextField
+            placeholder="Search requests..."
+            size="small"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ width: 320, maxWidth: '100%' }}
+          />
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <Select
+              value={timeRange}
+              onChange={(e) => setRange(e.target.value)}
+              input={<OutlinedInput />}
+            >
+              {timeRanges.map((range) => (
+                <MenuItem key={range.value} value={range.value}>
+                  {range.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <Select
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              input={<OutlinedInput />}
+              displayEmpty
+            >
+              <MenuItem value="all">All Companies</MenuItem>
+              {companies.filter(c => c !== 'all').map((comp) => (
+                <MenuItem key={comp} value={comp}>
+                  {comp}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <Select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              input={<OutlinedInput />}
+              displayEmpty
+            >
+              <MenuItem value="all">All Categories</MenuItem>
+              {categories.filter(c => c !== 'all').map((cat) => (
+                <MenuItem key={cat} value={cat}>
+                  {cat}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </CardContent>
+      </Card>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <TextField
-              placeholder="Search requests..."
-              size="small"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ flex: 1, minWidth: 220 }}
-            />
-
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <Select input={<OutlinedInput />} value={company} onChange={(e) => setCompany(e.target.value)}>
-                {companies.map((c) => (
-                  <MenuItem key={c} value={c}>{c === 'all' ? 'All Companies' : c}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <Select input={<OutlinedInput />} value={category} onChange={(e) => setCategory(e.target.value)}>
-                {categories.map((c) => (
-                  <MenuItem key={c} value={c}>{c === 'all' ? 'All Categories' : c}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <Select input={<OutlinedInput />} value={range} onChange={(e) => setRange(e.target.value)}>
-                {timeRanges.map((t) => (
-                  <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          <Divider sx={{ my: 2 }} />
-
-          {loading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
-              <CircularProgress size={28} />
-            </Box>
-          ) : filteredRows.length === 0 ? (
-            <Box sx={{ textAlign: 'center', color: 'text.secondary', py: 6 }}>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 1 }}>No approved requests found</Typography>
-              <Typography variant="body2">{error || 'No requests have been approved yet.'}</Typography>
-            </Box>
-          ) : (
-            <Box sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
+      {/* Requests Table */}
+      <Card variant="outlined">
+        <CardContent sx={{ p: 0 }}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>User</TableCell>
+                  <TableCell>Date Approved</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Company</TableCell>
+                  <TableCell align="right">Amount</TableCell>
+                  <TableCell>Intercompany</TableCell>
+                  <TableCell align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading ? (
                   <TableRow>
-                    <TableCell>User</TableCell>
-                    <TableCell>Date Approved</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Company</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                    <TableCell>Reason</TableCell>
-                    <TableCell align="center">Actions</TableCell>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <CircularProgress size={24} />
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Loading approved requests...
+                      </Typography>
+                    </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredRows.map((r) => (
-                    <TableRow key={r.id || `${r.employeeName}-${r.approvedAt}`} hover>
-                      <TableCell sx={{ minWidth: 260 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Avatar sx={{ width: 28, height: 28 }}>{(r.employeeName || '?').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase()}</Avatar>
-                          <Box>
-                            <Typography fontWeight={600} lineHeight={1.2}>{r.employeeName}</Typography>
-                            <Typography variant="caption" color="text.secondary">{r.employeeEmail || ''}</Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{r.approvedAt ? new Date(r.approvedAt).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell>{r.category}</TableCell>
-                      <TableCell>{r.company}</TableCell>
-                      <TableCell align="right" sx={{ color: 'success.main', fontWeight: 700 }}>{formatCurrency(r.amount)}</TableCell>
-                      <TableCell sx={{ maxWidth: 360 }}>
-                        <Typography sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {r.reason || '-'}
+                ) : filteredRequests.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <CheckCircleOutlineIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+                      <Typography variant="body1" color="text.secondary">
+                        No approved requests found
+                      </Typography>
+                      {searchTerm && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                          Try adjusting your search criteria
                         </Typography>
-                      </TableCell>
-                      <TableCell align="center" sx={{ minWidth: 80 }}>
-                        <IconButton size="small" aria-label="view details">
-                          <VisibilityOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-          )}
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredRequests.map((request) => {
+                    const sc = statusColor('approved');
+                    return (
+                      <TableRow key={request.id} hover>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem' }}>
+                              {(request.employee_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="subtitle2" lineHeight={1.2}>
+                                {request.employee_name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {request.employee_email}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Tooltip title={formatDate(request.approved_at)}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <EventAvailableIcon color="success" fontSize="small" />
+                              <Typography variant="body2">
+                                {request.approved_at
+                                  ? new Date(request.approved_at).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })
+                                  : 'N/A'}
+                              </Typography>
+                            </Box>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>{request.category || 'N/A'}</TableCell>
+                        <TableCell>{request.company || 'N/A'}</TableCell>
+                        <TableCell align="right">{formatCurrency(request.amount || 0)}</TableCell>
+                        <TableCell>{request.intercompany || '-'}</TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton size="small">
+                              <VisibilityOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </CardContent>
       </Card>
     </Box>
   );
-};
+}
 
 export default Approved;
