@@ -39,7 +39,6 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { commonService } from '../services/common';
 
 const API_URL = 'http://localhost:5000/api/users';
 
