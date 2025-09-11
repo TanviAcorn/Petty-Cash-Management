@@ -21,6 +21,214 @@ const storage = multer.diskStorage({
   }
 });
 
+// PUT /api/requests/:id - Update a request (only when pending)
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { company, category, amount, description, dateOfPurchase } = req.body || {};
+
+    const pool = await poolPromise;
+    // Ensure request is pending
+    const statusCheck = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT status FROM petty_cash_requests WHERE id = @id');
+    const curStatus = (statusCheck.recordset?.[0]?.status || '').toLowerCase();
+    if (curStatus !== 'pending') {
+      return res.status(400).json({ message: 'Request can only be edited while pending' });
+    }
+
+    const reqUpd = pool.request()
+      .input('id', sql.Int, id)
+      .input('company', sql.NVarChar(200), company ?? null)
+      .input('category', sql.NVarChar(200), category ?? null)
+      .input('amount', sql.Decimal(18,2), amount != null ? Number(amount) : null)
+      .input('reason', sql.NVarChar(sql.MAX), description ?? null)
+      .input('dateOfPurchase', sql.Date, dateOfPurchase ? new Date(dateOfPurchase) : null);
+
+    await reqUpd.query(`
+      UPDATE petty_cash_requests
+      SET 
+        company_name = COALESCE(@company, company_name),
+        category_name = COALESCE(@category, category_name),
+        amount = COALESCE(@amount, amount),
+        reason = COALESCE(@reason, reason),
+        date_of_purchase = COALESCE(@dateOfPurchase, date_of_purchase)
+      WHERE id = @id;
+    `);
+
+    const result = await pool.request().input('id', sql.Int, id).query('SELECT * FROM petty_cash_requests WHERE id = @id');
+    return res.json({ message: 'Request updated', data: result.recordset?.[0] });
+  } catch (err) {
+    console.error('Error updating request:', err);
+    return res.status(500).json({ message: 'Failed to update request' });
+  }
+});
+
+// DELETE /api/requests/:id - Delete a request (only when pending)
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await poolPromise;
+    // Only delete if pending
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query(`
+        DELETE FROM petty_cash_requests WHERE id = @id AND LOWER(status) = 'pending';
+        SELECT @@ROWCOUNT AS affected;
+      `);
+    const affected = result.recordset?.[0]?.affected || 0;
+    if (!affected) return res.status(400).json({ message: 'Only pending requests can be deleted or request not found' });
+    return res.json({ message: 'Request deleted' });
+  } catch (err) {
+    console.error('Error deleting request:', err);
+    return res.status(500).json({ message: 'Failed to delete request' });
+  }
+});
+
+// PUT /api/requests/:id/intercompany - Approve with intercompany transfer
+router.put('/:id/intercompany', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { company, performedByEmail, performedByName, note } = req.body || {};
+    if (!company || !String(company).trim()) {
+      return res.status(400).json({ message: 'Target company is required' });
+    }
+
+    const pool = await poolPromise;
+    // Read previous company before update for audit trail
+    const prev = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT company_name FROM petty_cash_requests WHERE id = @id');
+    const previousCompany = prev.recordset?.[0]?.company_name || null;
+
+    // Update request to intercompany
+    await pool.request()
+      .input('id', sql.Int, id)
+      .input('company', sql.NVarChar(200), String(company).trim())
+      .query(`
+        UPDATE petty_cash_requests
+        SET status = 'intercompany',
+            company_name = @company,
+            approved_at = SYSUTCDATETIME(),
+            rejected_at = NULL,
+            date_of_approve_reject = SYSUTCDATETIME()
+        WHERE id = @id;
+      `);
+
+    // Ensure audit table exists
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='petty_cash_request_audits' AND xtype='U')
+      BEGIN
+        CREATE TABLE petty_cash_request_audits (
+          id INT IDENTITY(1,1) PRIMARY KEY,
+          request_id INT NOT NULL,
+          action VARCHAR(50) NOT NULL,
+          previous_company NVARCHAR(200) NULL,
+          new_company NVARCHAR(200) NULL,
+          performed_by_email NVARCHAR(320) NULL,
+          performed_by_name NVARCHAR(200) NULL,
+          note NVARCHAR(MAX) NULL,
+          created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+        );
+      END
+    `);
+
+    // Insert audit record
+    await pool.request()
+      .input('requestId', sql.Int, id)
+      .input('previousCompany', sql.NVarChar(200), previousCompany)
+      .input('newCompany', sql.NVarChar(200), String(company).trim())
+      .input('performedByEmail', sql.NVarChar(320), performedByEmail || null)
+      .input('performedByName', sql.NVarChar(200), performedByName || null)
+      .input('note', sql.NVarChar(sql.MAX), note || null)
+      .query(`
+        INSERT INTO petty_cash_request_audits (request_id, action, previous_company, new_company, performed_by_email, performed_by_name, note)
+        VALUES (@requestId, 'intercompany_transfer', @previousCompany, @newCompany, @performedByEmail, @performedByName, @note);
+      `);
+
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT * FROM petty_cash_requests WHERE id = @id');
+
+    return res.json({ message: 'Request approved with intercompany transfer', data: result.recordset?.[0] });
+  } catch (err) {
+    console.error('Error approving with intercompany transfer:', err);
+    return res.status(500).json({ message: 'Failed to approve with intercompany transfer' });
+  }
+});
+
+// GET /api/requests/:id - get single request by ID with full details
+router.get('/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ message: 'Invalid id' });
+
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query(`
+        SELECT 
+          r.id,
+          r.employee_name       AS employeeName,
+          r.employee_email      AS employeeEmail,
+          r.company_name        AS company,
+          r.category_name       AS category,
+          r.amount,
+          r.reason              AS description,
+          r.status,
+          r.created_at          AS createdAt,
+          r.date_of_purchase    AS dateOfPurchase,
+          r.approved_at         AS approvedAt,
+          r.rejected_at         AS rejectedAt,
+          r.rejection_reason    AS rejectionReason,
+          r.attachments
+        FROM petty_cash_requests r
+        WHERE r.id = @id
+      `);
+
+    const row = result.recordset?.[0];
+    if (!row) return res.status(404).json({ message: 'Request not found' });
+
+    // Try to parse attachments JSON if present
+    try {
+      row.attachments = row.attachments ? JSON.parse(row.attachments) : [];
+    } catch {
+      row.attachments = [];
+    }
+
+    // Try to attach previous/new company from latest audit record (if audit table exists)
+    try {
+      const audit = await pool.request()
+        .input('id', sql.Int, id)
+        .query(`
+          IF OBJECT_ID('dbo.petty_cash_request_audits','U') IS NOT NULL
+          BEGIN
+            SELECT TOP 1 previous_company AS previousCompany, new_company AS newCompany
+            FROM petty_cash_request_audits
+            WHERE request_id = @id AND action = 'intercompany_transfer'
+            ORDER BY created_at DESC
+          END
+          ELSE
+          BEGIN
+            SELECT CAST(NULL AS NVARCHAR(200)) AS previousCompany, CAST(NULL AS NVARCHAR(200)) AS newCompany
+          END
+        `);
+      const latest = audit.recordset?.[0];
+      if (latest) {
+        row.previousCompany = latest.previousCompany;
+        row.newCompany = latest.newCompany;
+      }
+    } catch (e) {
+      // ignore if table not present or other non-critical errors
+    }
+
+    return res.json({ data: row });
+  } catch (err) {
+    console.error('Error fetching request by id:', err);
+    return res.status(500).json({ message: 'Failed to fetch request' });
+  }
+});
+
 // File filter to allow only specific file types
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [

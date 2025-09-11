@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -65,6 +66,7 @@ const AllRequests = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -233,7 +235,7 @@ const AllRequests = () => {
                             <IconButton color="error" size="small" aria-label="reject">
                               <CloseOutlinedIcon fontSize="small" />
                             </IconButton>
-                            <IconButton size="small" aria-label="view details">
+                            <IconButton size="small" aria-label="view details" onClick={() => navigate(`/requests/${r.id}`)}>
                               <VisibilityOutlinedIcon fontSize="small" />
                             </IconButton>
                           </TableCell>

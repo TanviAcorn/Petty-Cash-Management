@@ -41,6 +41,8 @@ import Settings from "./pages/Settings";
 import MyRequests from "./pages/MyRequests";
 import NewRequest from "./pages/NewRequest";
 import Profile from "./pages/Profile";
+import RequestReview from "./pages/RequestReview";
+import UserRequestDetails from "./pages/UserRequestDetails";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
@@ -100,6 +102,13 @@ const App = () => {
       } else {
         navigate('/user-dashboard');
         setPageTitle('Dashboard');
+      }
+    } else {
+      // Handle dynamic routes
+      if (/^\/requests\/[0-9]+$/.test(location.pathname)) {
+        setPageTitle('Request Review');
+      } else if (/^\/my-requests\/[0-9]+$/.test(location.pathname)) {
+        setPageTitle('Request Details');
       }
     }
   }, [location, navigate, currentMenuItems]);
@@ -253,6 +262,7 @@ const App = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/users" element={<UserManagement />} />
           <Route path="/requests" element={<AllRequests />} />
+          <Route path="/requests/:id" element={<RequestReview />} />
           <Route path="/pending-approval" element={<PendingApproval />} />
           <Route path="/approved" element={<Approved />} />
           <Route path="/rejected" element={<Rejected />} />
@@ -261,6 +271,7 @@ const App = () => {
           {/* User Routes */}
           <Route path="/user-dashboard" element={<UserDashboard />} />
           <Route path="/my-requests" element={<MyRequests />} />
+          <Route path="/my-requests/:id" element={<UserRequestDetails />} />
           <Route path="/new-request" element={<NewRequest />} />
           <Route path="/profile" element={<Profile />} />
           {/* Add a catch-all route for 404 pages */}

@@ -36,8 +36,17 @@ import {
   Schedule,
   Cancel
 } from '@mui/icons-material';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  OutlinedInput,
+  Snackbar,
+  Alert
+} from '@mui/material';
 
 const MyRequests = () => {
   const [loading, setLoading] = useState(false);
@@ -45,6 +54,14 @@ const MyRequests = () => {
   const [rows, setRows] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Status');
+  const navigate = useNavigate();
+
+  // Edit dialog state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editReq, setEditReq] = useState(null);
+  const [companies, setCompanies] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   const user = useMemo(() => {
     try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; }
@@ -70,6 +87,16 @@ const MyRequests = () => {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Preload companies for edit dropdown
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await axiosClient.get('/companies');
+        setCompanies(Array.isArray(data) ? data : []);
+      } catch {}
+    })();
+  }, []);
 
   const fmtMoney = (n) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(n||0));
 
@@ -317,101 +344,185 @@ const MyRequests = () => {
         </Box>
 
         {/* Table Content */}
-        <Box sx={{ p: 0 }}>
-          {loading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
-              <CircularProgress size={32} />
-            </Box>
-          ) : filteredRows.length === 0 ? (
-            <Box sx={{ textAlign: 'center', color: 'text.secondary', py: 8 }}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-                {rows.length === 0 ? 'No requests found' : 'No matching requests'}
-              </Typography>
-              <Typography variant="body2">
-                {error || (rows.length === 0 ? 'Create a new petty cash request to get started.' : 'Try adjusting your search or filter criteria.')}
-              </Typography>
-            </Box>
-          ) : (
-            <Table>
-              <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Date</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Category</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Company</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="right">Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="center">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredRows.map((r, index) => (
-                  <TableRow 
-                    key={r.id || index} 
-                    hover
-                    sx={{ 
-                      '&:hover': { bgcolor: '#f9f9f9' },
-                      borderBottom: '1px solid #e0e0e0'
-                    }}
-                  >
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Typography variant="body2" fontWeight="medium">
-                        {r.dateOfPurchase ? new Date(r.dateOfPurchase).toLocaleDateString() : 
-                         r.date ? new Date(r.date).toLocaleDateString() : '-'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Submitted: {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 
-                                   r.date ? new Date(r.date).toLocaleDateString() : '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={r.category} 
-                        size="small" 
-                        variant="outlined"
-                        sx={{ bgcolor: '#f0f0f0' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {r.company}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight="bold">
-                        {fmtMoney(r.amount)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusChip(r.status)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Tooltip title="View Details">
-                          <IconButton size="small" sx={{ color: '#1976d2' }}>
-                            <Visibility fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" sx={{ color: '#f57c00' }}>
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton size="small" sx={{ color: '#d32f2f' }}>
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
+          <Box sx={{ p: 0 }}>
+            {loading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+                <CircularProgress size={32} />
+              </Box>
+            ) : filteredRows.length === 0 ? (
+              <Box sx={{ textAlign: 'center', color: 'text.secondary', py: 8 }}>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+                  {rows.length === 0 ? 'No requests found' : 'No matching requests'}
+                </Typography>
+                <Typography variant="body2">
+                  {error || (rows.length === 0 ? 'Create a new petty cash request to get started.' : 'Try adjusting your search or filter criteria.')}
+                </Typography>
+              </Box>
+            ) : (
+              <Table>
+                <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Date</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Category</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Company</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="right">Amount</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="center">Actions</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </Box>
-      </Paper>
-    </Box>
-  );
-};
+                </TableHead>
+                <TableBody>
+                  {filteredRows.map((r, index) => (
+                    <TableRow 
+                      key={r.id || index} 
+                      hover
+                      sx={{ 
+                        '&:hover': { bgcolor: '#f9f9f9' },
+                        borderBottom: '1px solid #e0e0e0'
+                      }}
+                    >
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Typography variant="body2" fontWeight="medium">
+                          {r.dateOfPurchase ? new Date(r.dateOfPurchase).toLocaleDateString() : 
+                           r.date ? new Date(r.date).toLocaleDateString() : '-'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Submitted: {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 
+                                     r.date ? new Date(r.date).toLocaleDateString() : '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={r.category} 
+                          size="small" 
+                          variant="outlined"
+                          sx={{ bgcolor: '#f0f0f0' }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {r.company}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight="bold">
+                          {fmtMoney(r.amount)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {getStatusChip(r.status)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <Tooltip title="View Details">
+                            <IconButton size="small" sx={{ color: '#1976d2' }} onClick={() => navigate(`/my-requests/${r.id}`)}>
+                              <Visibility fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          {String(r.status).toLowerCase() === 'pending' && (
+                            <Tooltip title="Edit">
+                              <IconButton size="small" sx={{ color: '#f57c00' }} onClick={() => {
+                                setEditReq({
+                                  id: r.id,
+                                  company: r.company || '',
+                                  category: r.category || '',
+                                  amount: r.amount || '',
+                                  description: r.description || r.reason || '',
+                                  dateOfPurchase: r.dateOfPurchase || r.date || ''
+                                });
+                                setEditOpen(true);
+                              }}>
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Delete">
+                            <IconButton size="small" sx={{ color: '#d32f2f' }} onClick={async () => {
+                              if (!window.confirm('Delete this request? This cannot be undone.')) return;
+                              try {
+                                await axiosClient.delete(`/requests/${r.id}`);
+                                setToast({ open: true, message: 'Request deleted', severity: 'success' });
+                                load();
+                              } catch (e) {
+                                setToast({ open: true, message: e?.response?.data?.message || 'Failed to delete', severity: 'error' });
+                              }
+                            }}>
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Box>
+        </Paper>
 
-export default MyRequests;
+        {/* Edit Request Dialog */}
+        <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Edit Request</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="edit-company">Company</InputLabel>
+                  <Select
+                    labelId="edit-company"
+                    value={editReq?.company || ''}
+                    label="Company"
+                    onChange={(e)=> setEditReq(prev=>({...prev, company: e.target.value}))}
+                    input={<OutlinedInput label="Company" />}
+                  >
+                    {companies.map(c => (
+                      <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth size="small" label="Category" value={editReq?.category || ''} onChange={(e)=> setEditReq(prev=>({...prev, category: e.target.value}))} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth size="small" type="number" label="Amount" value={editReq?.amount || ''} onChange={(e)=> setEditReq(prev=>({...prev, amount: e.target.value}))} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth size="small" type="date" label="Date of Purchase" InputLabelProps={{ shrink: true }} value={editReq?.dateOfPurchase ? String(editReq.dateOfPurchase).substring(0,10) : ''} onChange={(e)=> setEditReq(prev=>({...prev, dateOfPurchase: e.target.value}))} />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField fullWidth size="small" multiline minRows={2} label="Description" value={editReq?.description || ''} onChange={(e)=> setEditReq(prev=>({...prev, description: e.target.value}))} />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button color="inherit" onClick={()=> setEditOpen(false)}>Cancel</Button>
+            <Button variant="contained" disabled={saving} onClick={async ()=>{
+              try {
+                setSaving(true);
+                await axiosClient.put(`/requests/${editReq.id}`, {
+                  company: editReq.company,
+                  category: editReq.category,
+                  amount: editReq.amount,
+                  description: editReq.description,
+                  dateOfPurchase: editReq.dateOfPurchase
+                });
+                setToast({ open: true, message: 'Request updated', severity: 'success' });
+                setEditOpen(false);
+                load();
+              } catch (e) {
+                setToast({ open: true, message: e?.response?.data?.message || 'Failed to update', severity: 'error' });
+              } finally {
+                setSaving(false);
+              }
+            }}>Save Changes</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar open={toast.open} autoHideDuration={4000} onClose={()=> setToast(prev=> ({...prev, open:false}))} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
+          <Alert severity={toast.severity} variant="filled" onClose={()=> setToast(prev=> ({...prev, open:false}))}>{toast.message}</Alert>
+        </Snackbar>
+      </Box>
+    );
+  };
+
+  export default MyRequests;

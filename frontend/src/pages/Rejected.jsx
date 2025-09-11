@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -47,6 +48,7 @@ const Rejected = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
+  const navigate = useNavigate();
 
   // Filters
   const [search, setSearch] = useState('');
@@ -315,7 +317,7 @@ const Rejected = () => {
                         </Typography>
                       </TableCell>
                       <TableCell align="center" sx={{ minWidth: 80 }}>
-                        <IconButton size="small" aria-label="view details">
+                        <IconButton size="small" aria-label="view details" onClick={() => navigate(`/requests/${r.id}`)}>
                           <VisibilityOutlinedIcon fontSize="small" />
                         </IconButton>
                       </TableCell>

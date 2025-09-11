@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -79,6 +80,7 @@ const PendingApproval = () => {
     action: '', // 'approve' or 'reject'
     rejectionReason: '',
   });
+  const navigate = useNavigate();
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -332,7 +334,7 @@ const PendingApproval = () => {
                             >
                               <CloseOutlinedIcon fontSize="small" />
                             </IconButton>
-                            <IconButton size="small" aria-label="view details">
+                            <IconButton size="small" aria-label="view details" onClick={() => navigate(`/requests/${r.id}`)}>
                               <VisibilityOutlinedIcon fontSize="small" />
                             </IconButton>
                           </TableCell>

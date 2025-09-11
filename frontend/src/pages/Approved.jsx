@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -91,6 +92,7 @@ const Approved = () => {
   const [company, setCompany] = useState('all');
   const [category, setCategory] = useState('all');
   const [range, setRange] = useState('all');
+  const navigate = useNavigate();
 
   const companies = useMemo(() => ['all', ...Array.from(new Set(requests.map(r => r.company).filter(Boolean)))], [requests]);
   const categories = useMemo(() => ['all', ...Array.from(new Set(requests.map(r => r.category).filter(Boolean)))], [requests]);
@@ -428,7 +430,7 @@ const Approved = () => {
                         <TableCell>{request.intercompany || '-'}</TableCell>
                         <TableCell align="center">
                           <Tooltip title="View Details">
-                            <IconButton size="small">
+                            <IconButton size="small" onClick={() => navigate(`/requests/${request.id}`)}>
                               <VisibilityOutlinedIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
