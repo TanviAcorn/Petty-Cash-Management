@@ -89,29 +89,37 @@ const App = () => {
     }
   }, [userInfo]);
   
-  // Update page title when route changes
+  // Update page title when route changes and handle initial redirects
   useEffect(() => {
     const currentPage = currentMenuItems.find(item => item.path === location.pathname);
+    
     if (currentPage) {
       setPageTitle(currentPage.text);
     } else if (location.pathname === '/') {
-      // Handle root path - redirect based on user role
+      // Redirect to appropriate dashboard based on role
       if (userInfo?.role === 'Admin') {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
         setPageTitle('Dashboard');
-      } else {
-        navigate('/user-dashboard');
+      } else if (userInfo) {
+        navigate('/user-dashboard', { replace: true });
         setPageTitle('Dashboard');
       }
-    } else {
-      // Handle dynamic routes
-      if (/^\/requests\/[0-9]+$/.test(location.pathname)) {
-        setPageTitle('Request Review');
-      } else if (/^\/my-requests\/[0-9]+$/.test(location.pathname)) {
-        setPageTitle('Request Details');
-      }
+    } else if (location.pathname === '/dashboard' && userInfo?.role !== 'Admin') {
+      // If non-admin tries to access admin dashboard, redirect to user dashboard
+      navigate('/user-dashboard', { replace: true });
+      setPageTitle('Dashboard');
+    } else if (location.pathname === '/user-dashboard' && userInfo?.role === 'Admin') {
+      // If admin tries to access user dashboard, redirect to admin dashboard
+      navigate('/dashboard', { replace: true });
+      setPageTitle('Dashboard');
+    } else if (/^\/requests\/[0-9]+$/.test(location.pathname)) {
+      // Handle request review page
+      setPageTitle('Request Review');
+    } else if (/^\/my-requests\/[0-9]+$/.test(location.pathname)) {
+      // Handle request details page
+      setPageTitle('Request Details');
     }
-  }, [location, navigate, currentMenuItems]);
+  }, [location, navigate, currentMenuItems, userInfo]);
 
   const handleNavigation = (path, title) => {
     navigate(path);
@@ -258,23 +266,90 @@ const App = () => {
             <Navigate to="/dashboard" replace /> : 
             <Navigate to="/user-dashboard" replace />
           } />
-          {/* Admin Routes */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/users" element={<UserManagement />} />
-          <Route path="/requests" element={<AllRequests />} />
-          <Route path="/requests/:id" element={<RequestReview />} />
-          <Route path="/pending-approval" element={<PendingApproval />} />
-          <Route path="/approved" element={<Approved />} />
-          <Route path="/rejected" element={<Rejected />} />
-          <Route path="/companies" element={<Companies />} />
-          <Route path="/settings" element={<Settings />} />
-          {/* User Routes */}
-          <Route path="/user-dashboard" element={<UserDashboard />} />
-          <Route path="/my-requests" element={<MyRequests />} />
-          <Route path="/my-requests/:id" element={<UserRequestDetails />} />
-          <Route path="/new-request" element={<NewRequest />} />
+          {/* Protected Admin Routes */}
+          <Route path="/dashboard" element={
+            userInfo?.role === 'Admin' ? 
+            <Dashboard /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
+          
+          <Route path="/users" element={
+            userInfo?.role === 'Admin' ? 
+            <UserManagement /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
+          
+          <Route path="/requests" element={
+            userInfo?.role === 'Admin' ? 
+            <AllRequests /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
+          
+          <Route path="/requests/:id" element={
+            userInfo?.role === 'Admin' ? 
+            <RequestReview /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
+          
+          <Route path="/pending-approval" element={
+            userInfo?.role === 'Admin' ? 
+            <PendingApproval /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
+          
+          <Route path="/approved" element={
+            userInfo?.role === 'Admin' ? 
+            <Approved /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
+          
+          <Route path="/rejected" element={
+            userInfo?.role === 'Admin' ? 
+            <Rejected /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
+          
+          <Route path="/companies" element={
+            userInfo?.role === 'Admin' ? 
+            <Companies /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
+          
+          <Route path="/settings" element={
+            userInfo?.role === 'Admin' ? 
+            <Settings /> : 
+            <Navigate to="/profile" replace />
+          } />
+          
+          {/* Protected User Routes */}
+          <Route path="/user-dashboard" element={
+            userInfo?.role === 'Admin' ? 
+            <Navigate to="/dashboard" replace /> : 
+            <UserDashboard />
+          } />
+          
+          <Route path="/my-requests" element={
+            userInfo?.role === 'Admin' ? 
+            <Navigate to="/requests" replace /> : 
+            <MyRequests />
+          } />
+          
+          <Route path="/my-requests/:id" element={
+            userInfo?.role === 'Admin' ? 
+            <Navigate to="/requests" replace /> : 
+            <UserRequestDetails />
+          } />
+          
+          <Route path="/new-request" element={
+            userInfo?.role === 'Admin' ? 
+            <Navigate to="/dashboard" replace /> : 
+            <NewRequest />
+          } />
+          
+          {/* Public Routes */}
           <Route path="/profile" element={<Profile />} />
-          {/* Add a catch-all route for 404 pages */}
+          
+          {/* Catch-all route */}
           <Route path="*" element={
             userInfo?.role === 'Admin' ? 
             <Navigate to="/dashboard" replace /> : 
