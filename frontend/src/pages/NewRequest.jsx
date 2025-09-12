@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Typography, 
@@ -17,9 +17,10 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
   ListItemIcon,
-  IconButton 
+  IconButton,
+  CircularProgress,
+  ListItemSecondaryAction
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
@@ -32,14 +33,6 @@ import {
   InsertDriveFile
 } from '@mui/icons-material';
 
-const categories = [
-  'Office Supplies',
-  'Travel',
-  'Meals & Entertainment',
-  'Utilities',
-  'Other'
-];
-
 const currencies = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'EUR', symbol: '€', name: 'Euro' },
@@ -47,11 +40,18 @@ const currencies = [
   { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
 ];
 
-const companies = [
-  { id: 1, name: 'Acorn Technologies' },
-  { id: 2, name: 'Tech Solutions Inc' },
-  { id: 3, name: 'Digital Innovations' },
-  { id: 4, name: 'Global Systems' }
+const locations = [
+  'Unit 2B',
+  'Hitchin',
+  'TFC',
+  'TFC - Office',
+  'Acme',
+  'USA Site 1',
+  'USA Site 2',
+  'NL',
+  'PL',
+  'BE',
+  'Germany'
 ];
 
 const NewRequest = () => {
@@ -60,14 +60,47 @@ const NewRequest = () => {
     dateOfPurchase: new Date().toISOString().split('T')[0],
     category: '',
     company: '',
+    location: '',
     description: '',
     amount: '',
     currency: 'USD'
   });
+  
   const [errors, setErrors] = useState({});
   const [attachments, setAttachments] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Dynamic state for categories and companies
+  const [categories, setCategories] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState('');
+
+  // Use useEffect to fetch data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [categoriesRes, companiesRes, locationsRes] = await Promise.all([
+          axiosClient.get('/categories'),
+          axiosClient.get('/companies'),
+          axiosClient.get('/locations')
+        ]);
+        setCategories(categoriesRes.data);
+        setCompanies(companiesRes.data);
+        setLocations(locationsRes.data);
+        setDataError('');
+      } catch (err) {
+        console.error('Failed to fetch dynamic data:', err);
+        setDataError('Failed to load categories and companies. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -110,7 +143,6 @@ const NewRequest = () => {
     }
   };
 
-  // FIX: Align frontend file types with backend multer filter
   const handleFiles = (files) => {
     const validFiles = Array.from(files).filter(file => {
       const validTypes = [
@@ -153,15 +185,15 @@ const NewRequest = () => {
         const user = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } })();
         
         const formDataToSend = new FormData();
-        // Get the employee name from user object, falling back to name or email
         const employeeName = user.name || 
-                           (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) ||
-                           user.email?.split('@')[0] || 'User';
-                           
+                               (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) ||
+                               user.email?.split('@')[0] || 'User';
+                               
         formDataToSend.append('employeeName', employeeName);
         formDataToSend.append('employeeEmail', user.email || '');
         formDataToSend.append('company', formData.company);
         formDataToSend.append('category', formData.category);
+        formDataToSend.append('location', formData.location);
         formDataToSend.append('amount', formData.amount);
         formDataToSend.append('dateOfPurchase', formData.dateOfPurchase);
         formDataToSend.append('description', formData.description);
@@ -189,14 +221,11 @@ const NewRequest = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 1200, mx: 'auto', width: '100%' }}>
-      {/* Header */}
       <Box>
         <Typography variant="h5" fontWeight={700}>New Petty Cash Request</Typography>
         <Typography variant="body2" color="text.secondary">Submit a new reimbursement request for your business expenses</Typography>
       </Box>
-
       <form onSubmit={handleSubmit}>
-        {/* Basic Information Section */}
         <Card variant="outlined" sx={{ borderRadius: 2, mb: 2 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -208,7 +237,6 @@ const NewRequest = () => {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Provide the basic details of your expense
             </Typography>
-
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <TextField
@@ -223,7 +251,8 @@ const NewRequest = () => {
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              {/* The category dropdown now takes the full width, moving it to a new line */}
+              <Grid item xs={12}>
                 <FormControl fullWidth error={!!errors.category}>
                   <InputLabel>Category *</InputLabel>
                   <Select
@@ -232,13 +261,19 @@ const NewRequest = () => {
                     onChange={handleChange}
                     label="Category *"
                     displayEmpty
+                    disabled={loading} // Disable while loading
                   >
                     <MenuItem value=""><em>Select category</em></MenuItem>
-                    {categories.map((category) => (<MenuItem key={category} value={category}>{category}</MenuItem>))}
+                    {loading ? (
+                      <MenuItem disabled><CircularProgress size={20} sx={{ mr: 1 }} /> Loading...</MenuItem>
+                    ) : (
+                      categories.map((category) => (<MenuItem key={category.id} value={category.name}>{category.name}</MenuItem>))
+                    )}
                   </Select>
-                  <FormHelperText>{errors.category}</FormHelperText>
+                  <FormHelperText>{errors.category || dataError}</FormHelperText>
                 </FormControl>
               </Grid>
+              {/* The company dropdown also takes the full width, moving it below the category dropdown */}
               <Grid item xs={12}>
                 <FormControl fullWidth error={!!errors.company}>
                   <InputLabel>Company *</InputLabel>
@@ -248,11 +283,33 @@ const NewRequest = () => {
                     onChange={handleChange}
                     label="Company *"
                     displayEmpty
+                    disabled={loading} // Disable while loading
                   >
                     <MenuItem value=""><em>Select company</em></MenuItem>
-                    {companies.map((company) => (<MenuItem key={company.id} value={company.name}>{company.name}</MenuItem>))}
+                    {loading ? (
+                      <MenuItem disabled><CircularProgress size={20} sx={{ mr: 1 }} /> Loading...</MenuItem>
+                    ) : (
+                      companies.map((company) => (<MenuItem key={company.id} value={company.name}>{company.name}</MenuItem>))
+                    )}
                   </Select>
-                  <FormHelperText>{errors.company}</FormHelperText>
+                  <FormHelperText>{errors.company || dataError}</FormHelperText>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Location</InputLabel>
+                  <Select
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    label="Location"
+                    displayEmpty
+                  >
+                    <MenuItem value=""><em>Select location</em></MenuItem>
+                    {locations.map((location) => (
+                      <MenuItem key={location} value={location}>{location}</MenuItem>
+                    ))}
+                  </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
@@ -272,8 +329,6 @@ const NewRequest = () => {
             </Grid>
           </CardContent>
         </Card>
-
-        {/* Amount Information Section */}
         <Card variant="outlined" sx={{ borderRadius: 2, mb: 2 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -285,7 +340,6 @@ const NewRequest = () => {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Specify the amount and currency for your expense
             </Typography>
-
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <TextField
@@ -324,8 +378,6 @@ const NewRequest = () => {
             </Grid>
           </CardContent>
         </Card>
-
-        {/* Attachments Section */}
         <Card variant="outlined" sx={{ borderRadius: 2, mb: 2 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -337,8 +389,6 @@ const NewRequest = () => {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Upload receipts and supporting documents (PDF, JPG, PNG, DOC, DOCX, ZIP - max 10MB each)
             </Typography>
-
-            {/* File Upload Area */}
             <Box
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
@@ -359,7 +409,6 @@ const NewRequest = () => {
               }}
               onClick={() => document.getElementById('file-input').click()}
             >
-              {/* FIX: Align the accept attribute with the backend's file filter */}
               <input
                 id="file-input"
                 type="file"
@@ -376,7 +425,6 @@ const NewRequest = () => {
                 Choose Files
               </Button>
             </Box>
-
             {attachments.length > 0 && (
               <Box sx={{ mt: 3 }}>
                 <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
@@ -409,8 +457,6 @@ const NewRequest = () => {
             )}
           </CardContent>
         </Card>
-
-        {/* Request Summary Section */}
         <Card variant="outlined" sx={{ borderRadius: 2, bgcolor: '#e3f2fd', border: '1px solid #bbdefb', mb: 2 }}>
           <CardContent>
             <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>Request Summary</Typography>
@@ -426,6 +472,10 @@ const NewRequest = () => {
               <Grid item xs={12} sm={6} md={3}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Company:</Typography>
                 <Typography variant="body1" fontWeight="medium">{formData.company || 'Not specified'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Location:</Typography>
+                <Typography variant="body1" fontWeight="medium">{formData.location || 'Not specified'}</Typography>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Amount:</Typography>
@@ -444,8 +494,6 @@ const NewRequest = () => {
             </Grid>
           </CardContent>
         </Card>
-
-        {/* Action Buttons */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4 }}>
           <Button
             variant="outlined"

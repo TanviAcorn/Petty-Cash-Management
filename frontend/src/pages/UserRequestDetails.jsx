@@ -112,6 +112,10 @@ export default function UserRequestDetails() {
                   <Chip size="small" label={req.category || '-'} />
                 </Box>
                 <Box>
+                  <Typography variant="caption" color="text.secondary">Location</Typography>
+                  <Typography>{req.location || '-'}</Typography>
+                </Box>
+                <Box>
                   <Typography variant="caption" color="text.secondary">Company</Typography>
                   <Typography>{req.company || '-'}</Typography>
                   {req.previousCompany && (

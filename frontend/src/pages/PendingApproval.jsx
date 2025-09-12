@@ -277,6 +277,7 @@ const PendingApproval = () => {
                     <TableCell>Date</TableCell>
                     <TableCell>Category</TableCell>
                     <TableCell>Company</TableCell>
+                    <TableCell>Location</TableCell>
                     <TableCell align="right">Amount</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell align="center">Actions</TableCell>
@@ -313,6 +314,7 @@ const PendingApproval = () => {
                           </TableCell>
                           <TableCell>{r.category}</TableCell>
                           <TableCell>{r.company}</TableCell>
+                          <TableCell>{r.location}</TableCell>
                           <TableCell align="right">{new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(r.amount || 0))}</TableCell>
                           <TableCell>
                             <Chip size="small" label={sc.label} color={sc.color} variant="outlined" sx={{ textTransform: 'lowercase' }} />

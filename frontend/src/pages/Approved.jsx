@@ -360,6 +360,7 @@ const Approved = () => {
                   <TableCell>Date Approved</TableCell>
                   <TableCell>Category</TableCell>
                   <TableCell>Company</TableCell>
+                  <TableCell>Location</TableCell>
                   <TableCell align="right">Amount</TableCell>
                   <TableCell>Intercompany</TableCell>
                   <TableCell align="center">Actions</TableCell>
@@ -426,6 +427,7 @@ const Approved = () => {
                         </TableCell>
                         <TableCell>{request.category || 'N/A'}</TableCell>
                         <TableCell>{request.company || 'N/A'}</TableCell>
+                        <TableCell>{request.location || 'N/A'}</TableCell>
                         <TableCell align="right">{formatCurrency(request.amount || 0)}</TableCell>
                         <TableCell>{request.intercompany || '-'}</TableCell>
                         <TableCell align="center">

@@ -60,6 +60,10 @@ const MyRequests = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editReq, setEditReq] = useState(null);
   const [companies, setCompanies] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([
+    'Unit 2B', 'Hitchin', 'TFC', 'TFC - Office', 'Acme', 'USA Site 1', 'USA Site 2', 'NL', 'PL', 'BE', 'Germany'
+  ]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
@@ -98,6 +102,16 @@ const MyRequests = () => {
     })();
   }, []);
 
+  // Preload categories for edit dropdown
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await axiosClient.get('/categories');
+        setCategories(Array.isArray(data) ? data : []);
+      } catch {}
+    })();
+  }, []);
+
   const fmtMoney = (n) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(n||0));
 
   // Calculate dashboard stats
@@ -116,6 +130,7 @@ const MyRequests = () => {
       const matchesSearch = !searchTerm || 
         row.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         row.description?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = statusFilter === 'All Status' || row.status === statusFilter.toLowerCase();
@@ -365,6 +380,7 @@ const MyRequests = () => {
                     <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Date</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Category</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Company</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Location</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="right">Amount</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Status</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="center">Actions</TableCell>
@@ -403,6 +419,11 @@ const MyRequests = () => {
                           {r.company}
                         </Typography>
                       </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {r.location}
+                        </Typography>
+                      </TableCell>
                       <TableCell align="right">
                         <Typography variant="body2" fontWeight="bold">
                           {fmtMoney(r.amount)}
@@ -425,6 +446,7 @@ const MyRequests = () => {
                                   id: r.id,
                                   company: r.company || '',
                                   category: r.category || '',
+                                  location: r.location || '',
                                   amount: r.amount || '',
                                   description: r.description || r.reason || '',
                                   dateOfPurchase: r.dateOfPurchase || r.date || ''
@@ -481,7 +503,36 @@ const MyRequests = () => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" label="Category" value={editReq?.category || ''} onChange={(e)=> setEditReq(prev=>({...prev, category: e.target.value}))} />
+                <FormControl fullWidth size="small">
+                  <InputLabel id="edit-category">Category</InputLabel>
+                  <Select
+                    labelId="edit-category"
+                    value={editReq?.category || ''}
+                    label="Category"
+                    onChange={(e)=> setEditReq(prev=>({...prev, category: e.target.value}))}
+                    input={<OutlinedInput label="Category" />}
+                  >
+                    {categories.map(c => (
+                      <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="edit-location">Location</InputLabel>
+                  <Select
+                    labelId="edit-location"
+                    value={editReq?.location || ''}
+                    label="Location"
+                    onChange={(e)=> setEditReq(prev=>({...prev, location: e.target.value}))}
+                    input={<OutlinedInput label="Location" />}
+                  >
+                    {locations.map(loc => (
+                      <MenuItem key={loc} value={loc}>{loc}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField fullWidth size="small" type="number" label="Amount" value={editReq?.amount || ''} onChange={(e)=> setEditReq(prev=>({...prev, amount: e.target.value}))} />
@@ -503,6 +554,7 @@ const MyRequests = () => {
                   company: editReq.company,
                   category: editReq.category,
                   amount: editReq.amount,
+                  location: editReq.location,
                   description: editReq.description,
                   dateOfPurchase: editReq.dateOfPurchase
                 });

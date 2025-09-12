@@ -25,7 +25,7 @@ const storage = multer.diskStorage({
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { company, category, amount, description, dateOfPurchase } = req.body || {};
+    const { company, category, location, amount, description, dateOfPurchase } = req.body || {};
 
     const pool = await poolPromise;
     // Ensure request is pending
@@ -41,6 +41,7 @@ router.put('/:id', async (req, res) => {
       .input('id', sql.Int, id)
       .input('company', sql.NVarChar(200), company ?? null)
       .input('category', sql.NVarChar(200), category ?? null)
+      .input('location', sql.NVarChar(200), location ?? null)
       .input('amount', sql.Decimal(18,2), amount != null ? Number(amount) : null)
       .input('reason', sql.NVarChar(sql.MAX), description ?? null)
       .input('dateOfPurchase', sql.Date, dateOfPurchase ? new Date(dateOfPurchase) : null);
@@ -50,6 +51,7 @@ router.put('/:id', async (req, res) => {
       SET 
         company_name = COALESCE(@company, company_name),
         category_name = COALESCE(@category, category_name),
+        location = COALESCE(@location, location),
         amount = COALESCE(@amount, amount),
         reason = COALESCE(@reason, reason),
         date_of_purchase = COALESCE(@dateOfPurchase, date_of_purchase)
@@ -173,6 +175,7 @@ router.get('/:id', async (req, res) => {
           r.employee_email      AS employeeEmail,
           r.company_name        AS company,
           r.category_name       AS category,
+          r.location            AS location,
           r.amount,
           r.reason              AS description,
           r.status,
@@ -258,7 +261,7 @@ const upload = multer({
 
 // GET /api/requests
 router.get('/', async (req, res) => {
-  const { status, q, company, category, range, email } = req.query;
+  const { status, q, company, category, range, email, location } = req.query;
 
   // Build dynamic WHERE clause safely
   const where = [];
@@ -275,6 +278,10 @@ router.get('/', async (req, res) => {
   if (category) {
     where.push('r.category_name = @category');
     params.category = { type: sql.NVarChar(200), value: String(category) };
+  }
+  if (location) {
+    where.push('r.location = @location');
+    params.location = { type: sql.NVarChar(200), value: String(location) };
   }
   if (email) {
     where.push('LOWER(LTRIM(RTRIM(r.employee_email))) = LOWER(LTRIM(RTRIM(@email)))');
@@ -310,6 +317,7 @@ router.get('/', async (req, res) => {
       r.employee_email AS employeeEmail,
       r.company_name AS company,
       r.category_name AS category,
+      r.location AS location,
       r.amount,
       r.created_at AS date, -- original request date
       r.approved_at AS approvedAt,
@@ -348,6 +356,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       amount,
       description,
       dateOfPurchase,
+      location
     } = req.body || {};
 
     console.log('Extracted fields:', {
@@ -357,7 +366,8 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       category,
       amount,
       description,
-      dateOfPurchase
+      dateOfPurchase,
+      location
     });
 
     if (!employeeName || !employeeEmail || !category || !amount) {
@@ -373,6 +383,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       .input('category', sql.NVarChar(200), String(category))
       .input('amount', sql.Decimal(18, 2), Number(amount))
       .input('dateOfPurchase', sql.Date, dateOfPurchase ? new Date(dateOfPurchase) : null)
+      .input('location', sql.NVarChar(200), location ? String(location) : null)
       // FIX: Map description field from frontend to reason field in the database
       .input('reason', sql.NVarChar(sql.MAX), description ? String(description) : null)
       .input('status', sql.VarChar(20), 'pending');
@@ -393,9 +404,9 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
 
     console.log('About to execute SQL insert...');
     const insertSql = `
-      INSERT INTO petty_cash_requests (employee_name, employee_email, company_name, category_name, amount, status, reason, created_at, approved_at, rejected_at, attachments, date_of_purchase)
+      INSERT INTO petty_cash_requests (employee_name, employee_email, company_name, category_name, amount, location, status, reason, created_at, approved_at, rejected_at, attachments, date_of_purchase)
       OUTPUT INSERTED.*
-      VALUES (@employeeName, @employeeEmail, @company, @category, @amount, @status, @reason, SYSUTCDATETIME(), NULL, NULL, @attachments, @dateOfPurchase)
+      VALUES (@employeeName, @employeeEmail, @company, @category, @amount, @location, @status, @reason, SYSUTCDATETIME(), NULL, NULL, @attachments, @dateOfPurchase)
     `;
 
     const result = await request.query(insertSql);
@@ -538,6 +549,34 @@ router.get('/status/:status', async (req, res) => {
   } catch (err) {
     console.error('Error fetching requests by status:', err);
     return res.status(500).json({ message: 'Failed to fetch requests' });
+  }
+});
+
+// GET /api/categories - Fetches all categories from the petty_Categories table
+router.get('/categories', async (req, res) => {
+  try {
+    await sql.connect(sqlConfig);
+    const result = await sql.query`SELECT id, name FROM petty_Categories ORDER BY name`;
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Database query failed: ', err);
+    res.status(500).json({ message: 'Error fetching categories.' });
+  } finally {
+    sql.close();
+  }
+});
+
+// GET /api/companies - Fetches all companies from the petty_Companies table
+router.get('/companies', async (req, res) => {
+  try {
+    await sql.connect(sqlConfig);
+    const result = await sql.query`SELECT id, name FROM petty_Companies ORDER BY name`;
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Database query failed: ', err);
+    res.status(500).json({ message: 'Error fetching companies.' });
+  } finally {
+    sql.close();
   }
 });
 

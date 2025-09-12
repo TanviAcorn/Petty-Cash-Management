@@ -263,6 +263,10 @@ export default function RequestReview() {
                   <Chip size="small" label={req.category || '-'} />
                 </Box>
                 <Box>
+                  <Typography variant="caption" color="text.secondary">Location</Typography>
+                  <Typography>{req.location || '-'}</Typography>
+                </Box>
+                <Box>
                   <Typography variant="caption" color="text.secondary">Description</Typography>
                   <Typography>{req.description || '-'}</Typography>
                 </Box>

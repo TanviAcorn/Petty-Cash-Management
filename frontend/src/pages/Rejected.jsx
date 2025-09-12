@@ -288,6 +288,7 @@ const Rejected = () => {
                     <TableCell>Date Rejected</TableCell>
                     <TableCell>Category</TableCell>
                     <TableCell>Company</TableCell>
+                    <TableCell>Location</TableCell>
                     <TableCell align="right">Amount</TableCell>
                     <TableCell>Reason</TableCell>
                     <TableCell align="center">Actions</TableCell>
@@ -308,6 +309,7 @@ const Rejected = () => {
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{r.rejectedAt ? new Date(r.rejectedAt).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>{r.category}</TableCell>
                       <TableCell>{r.company}</TableCell>
+                      <TableCell>{r.location}</TableCell>
                       <TableCell align="right" sx={{ color: 'error.main', fontWeight: 700 }}>
                         {formatCurrency(r.amount)}
                       </TableCell>
