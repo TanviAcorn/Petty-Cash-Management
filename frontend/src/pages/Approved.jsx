@@ -363,6 +363,7 @@ const Approved = () => {
                   <TableCell>Location</TableCell>
                   <TableCell align="right">Amount</TableCell>
                   <TableCell>Intercompany</TableCell>
+                  <TableCell>Reason</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -430,6 +431,7 @@ const Approved = () => {
                         <TableCell>{request.location || 'N/A'}</TableCell>
                         <TableCell align="right">{formatCurrency(request.amount || 0)}</TableCell>
                         <TableCell>{request.intercompany || '-'}</TableCell>
+                        <TableCell>{request.reason || '-'}</TableCell>
                         <TableCell align="center">
                           <Tooltip title="View Details">
                             <IconButton size="small" onClick={() => navigate(`/requests/${request.id}`)}>

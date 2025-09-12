@@ -79,6 +79,7 @@ const PendingApproval = () => {
     requestId: null,
     action: '', // 'approve' or 'reject'
     rejectionReason: '',
+    approvalReason: '',
   });
   const navigate = useNavigate();
   const [snackbar, setSnackbar] = useState({
@@ -142,12 +143,13 @@ const PendingApproval = () => {
       requestId,
       action,
       rejectionReason: '',
+      approvalReason: '',
     });
   };
 
   const handleActionConfirm = async () => {
     try {
-      const { requestId, action, rejectionReason } = actionDialog;
+      const { requestId, action, rejectionReason, approvalReason } = actionDialog;
       
       // Show loading state
       setLoading(true);
@@ -155,7 +157,7 @@ const PendingApproval = () => {
       // Make the API call to update status
       const response = await axiosClient.put(`/requests/${requestId}/status`, {
         status: action === 'approve' ? 'approved' : 'rejected',
-        ...(action === 'reject' && { rejectionReason })
+        ...(action === 'reject' ? { rejectionReason } : { approvalReason })
       });
 
       // Refresh the data from server
@@ -186,6 +188,7 @@ const PendingApproval = () => {
       requestId: null,
       action: '',
       rejectionReason: '',
+      approvalReason: '',
     });
   };
 
@@ -357,26 +360,26 @@ const PendingApproval = () => {
           {actionDialog.action === 'approve' ? 'Approve Request' : 'Reject Request'}
         </DialogTitle>
         <DialogContent>
-          {actionDialog.action === 'reject' ? (
-            <>
-              <DialogContentText mb={2}>
-                Please provide a reason for rejecting this request:
-              </DialogContentText>
-              <TextareaAutosize
-                minRows={3}
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', borderColor: 'rgba(0, 0, 0, 0.23)' }}
-                value={actionDialog.rejectionReason}
-                onChange={(e) => 
-                  setActionDialog(prev => ({ ...prev, rejectionReason: e.target.value }))
-                }
-                placeholder="Enter rejection reason..."
-              />
-            </>
-          ) : (
-            <DialogContentText>
-              Are you sure you want to approve this request?
-            </DialogContentText>
-          )}
+          <DialogContentText>
+            {actionDialog.action === 'approve' 
+              ? 'Please provide a reason for approval:' 
+              : 'Please provide a reason for rejection:'}
+          </DialogContentText>
+          <TextareaAutosize
+            autoFocus
+            margin="dense"
+            id="reason"
+            placeholder={`Enter reason for ${actionDialog.action}`}
+            minRows={3}
+            style={{ width: '100%', marginTop: '16px', padding: '8px' }}
+            value={actionDialog.action === 'approve' ? actionDialog.approvalReason : actionDialog.rejectionReason}
+            onChange={(e) => setActionDialog(prev => ({
+              ...prev,
+              ...(actionDialog.action === 'approve' 
+                ? { approvalReason: e.target.value }
+                : { rejectionReason: e.target.value })
+            }))}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog} color="inherit">
@@ -384,9 +387,12 @@ const PendingApproval = () => {
           </Button>
           <Button 
             onClick={handleActionConfirm} 
-            color={actionDialog.action === 'approve' ? 'primary' : 'error'}
+            color={actionDialog.action === 'approve' ? 'success' : 'error'}
             variant="contained"
-            disabled={actionDialog.action === 'reject' && !actionDialog.rejectionReason.trim()}
+            disabled={
+              (actionDialog.action === 'reject' && !actionDialog.rejectionReason.trim()) ||
+              (actionDialog.action === 'approve' && !actionDialog.approvalReason.trim())
+            }
           >
             {actionDialog.action === 'approve' ? 'Approve' : 'Reject'}
           </Button>

@@ -482,7 +482,7 @@ router.post('/:id/reject', async (req, res) => {
 router.put('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, rejectionReason } = req.body;
+    const { status, rejectionReason, approvalReason } = req.body;
     
     if (!['approved', 'rejected', 'pending'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status. Must be one of: approved, rejected, pending' });
@@ -498,6 +498,10 @@ router.put('/:id/status', async (req, res) => {
     // Set approved_at, rejected_at, and date_of_approve_reject based on status
     if (status === 'approved') {
       updateSql += ', approved_at = SYSUTCDATETIME(), rejected_at = NULL, date_of_approve_reject = SYSUTCDATETIME()';
+      if (approvalReason) {
+        updateSql += ', reason = @approvalReason';
+        request.input('approvalReason', sql.NVarChar(sql.MAX), approvalReason);
+      }
     } else if (status === 'rejected') {
       updateSql += ', rejected_at = SYSUTCDATETIME(), approved_at = NULL, date_of_approve_reject = SYSUTCDATETIME()';
       if (rejectionReason) {
