@@ -396,28 +396,21 @@ const Approved = () => {
                     const sc = statusColor('approved');
                     return (
                       <TableRow key={request.id} hover>
-                        <TableCell>
+                        <TableCell sx={{ minWidth: 260 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem' }}>
-                              {(request.employee_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
-                            </Avatar>
                             <Box>
-                              <Typography variant="subtitle2" lineHeight={1.2}>
-                                {request.employee_name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {request.employee_email}
-                              </Typography>
+                              <Typography fontWeight={600} lineHeight={1.2}>{request.employeeName}</Typography>
+                              <Typography variant="caption" color="text.secondary">{request.employeeEmail || ''}</Typography>
                             </Box>
                           </Box>
                         </TableCell>
                         <TableCell>
-                          <Tooltip title={formatDate(request.approved_at)}>
+                          <Tooltip title={formatDate(request.approvedAt)}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                               <EventAvailableIcon color="success" fontSize="small" />
                               <Typography variant="body2">
-                                {request.approved_at
-                                  ? new Date(request.approved_at).toLocaleDateString('en-US', {
+                                {request.approvedAt && request.status === 'approved'
+                                  ? new Date(request.approvedAt).toLocaleDateString('en-US', {
                                       month: 'short',
                                       day: 'numeric'
                                     })

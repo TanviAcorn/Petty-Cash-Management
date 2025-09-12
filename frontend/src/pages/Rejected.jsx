@@ -21,6 +21,7 @@ import {
   TableCell,
   TableBody,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
 import IconButton from '@mui/material/IconButton';
@@ -32,6 +33,7 @@ import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutline
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { alpha } from '@mui/material/styles';
 import axiosClient from '../api/axiosClient';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 
 // Helper to format currency consistently
 const formatCurrency = (value) =>
@@ -101,6 +103,18 @@ const Rejected = () => {
     fetchData();
     return () => controller.abort();
   }, [search, company, category, range]);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   // Derived stats
   const stats = useMemo(() => {
@@ -299,14 +313,27 @@ const Rejected = () => {
                     <TableRow key={r.id || `${r.employeeName}-${r.date}`} hover>
                       <TableCell sx={{ minWidth: 260 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Avatar sx={{ width: 28, height: 28 }}>{(r.employeeName || '?').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase()}</Avatar>
                           <Box>
                             <Typography fontWeight={600} lineHeight={1.2}>{r.employeeName}</Typography>
                             <Typography variant="caption" color="text.secondary">{r.employeeEmail || ''}</Typography>
                           </Box>
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{r.rejectedAt ? new Date(r.rejectedAt).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>
+                        <Tooltip title={formatDate(r.rejectedAt)}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <EventAvailableIcon color="error" fontSize="small" />
+                            <Typography variant="body2">
+                              {r.rejectedAt && r.status === 'rejected'
+                                ? new Date(r.rejectedAt).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })
+                                : 'N/A'}
+                            </Typography>
+                          </Box>
+                        </Tooltip>
+                      </TableCell>
                       <TableCell>{r.category}</TableCell>
                       <TableCell>{r.company}</TableCell>
                       <TableCell>{r.location}</TableCell>

@@ -269,13 +269,6 @@ const PendingApproval = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        indeterminate={selected.length > 0 && selected.length < filteredRows.length}
-                        checked={filteredRows.length > 0 && selected.length === filteredRows.length}
-                        onChange={(e) => toggleSelectAll(e.target.checked)}
-                      />
-                    </TableCell>
                     <TableCell>User</TableCell>
                     <TableCell>Date</TableCell>
                     <TableCell>Category</TableCell>
@@ -298,13 +291,8 @@ const PendingApproval = () => {
                       const sc = statusColor(r.status);
                       return (
                         <TableRow key={r.id || `${r.employeeName}-${r.createdAt}`} hover>
-                          <TableCell padding="checkbox">
-                            <Checkbox checked={selected.includes(r.id)} onChange={() => toggleSelect(r.id)} />
-                          </TableCell>
                           <TableCell sx={{ minWidth: 260 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                              <Box sx={{ width: 8, height: 8, bgcolor: `${sc.color}.main`, borderRadius: '50%' }} />
-                              <Avatar sx={{ width: 28, height: 28 }}>{(r.employeeName || '?').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase()}</Avatar>
                               <Box>
                                 <Typography fontWeight={600} lineHeight={1.2}>{r.employeeName}</Typography>
                                 <Typography variant="caption" color="text.secondary">{r.employeeEmail || ''}</Typography>
