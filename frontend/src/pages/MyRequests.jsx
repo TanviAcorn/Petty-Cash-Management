@@ -140,28 +140,21 @@ const MyRequests = () => {
   }, [rows, searchTerm, statusFilter]);
 
   const getStatusChip = (status) => {
-    const statusConfig = {
-      approved: { color: 'success', icon: <CheckCircle sx={{ fontSize: 16 }} />, label: 'approved' },
-      pending: { color: 'warning', icon: <Schedule sx={{ fontSize: 16 }} />, label: 'pending' },
-      rejected: { color: 'error', icon: <Cancel sx={{ fontSize: 16 }} />, label: 'rejected' },
-      'in-review': { color: 'info', icon: <Schedule sx={{ fontSize: 16 }} />, label: 'in-review' }
-    };
+    const s = String(status || '').toLowerCase();
+    let color = 'warning';
+    let label = 'pending';
+    if (s === 'approved') { color = 'success'; label = 'approved'; }
+    else if (s === 'rejected') { color = 'error'; label = 'rejected'; }
+    else if (s === 'intercompany') { color = 'secondary'; label = 'intercompany'; }
+    else if (s) { label = s; }
 
-    const config = statusConfig[status?.toLowerCase()] || { color: 'default', icon: null, label: status };
-    
     return (
-      <Chip
-        icon={config.icon}
-        label={config.label}
-        color={config.color}
-        size="small"
-        sx={{ textTransform: 'capitalize', fontWeight: 'medium' }}
-      />
+      <Chip size="small" label={label} color={color} variant="outlined" sx={{ textTransform: 'lowercase' }} />
     );
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 1200, mx: 'auto', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', width: '100%' }}>
       {/* Header */}
       <Box>
         <Typography variant="h5" fontWeight={700}>My Requests</Typography>
@@ -169,279 +162,233 @@ const MyRequests = () => {
       </Box>
 
       {/* Dashboard Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#fff', borderRadius: 2 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
-              <Box sx={{ 
-                bgcolor: '#e3f2fd', 
-                borderRadius: 2, 
-                p: 1.5, 
-                mr: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Description sx={{ color: '#1976d2', fontSize: 24 }} />
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Total Requests
-                </Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {stats.totalRequests}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+        <Card variant="outlined" sx={{ borderRadius: 3 }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', p: 2.5 }}>
+            <Box sx={{ 
+              bgcolor: '#e3f2fd', 
+              borderRadius: 2, 
+              p: 1.5, 
+              mr: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Description sx={{ color: '#1976d2', fontSize: 24 }} />
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Total Requests
+              </Typography>
+              <Typography variant="h6" fontWeight={800}>
+                {stats.totalRequests}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+        <Card variant="outlined" sx={{ borderRadius: 3 }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', p: 2.5 }}>
+            <Box sx={{ 
+              bgcolor: '#fff3e0', 
+              borderRadius: 2, 
+              p: 1.5, 
+              mr: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Schedule sx={{ color: '#f57c00', fontSize: 24 }} />
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Pending
+              </Typography>
+              <Typography variant="h6" fontWeight={800}>
+                {stats.pending}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+        <Card variant="outlined" sx={{ borderRadius: 3 }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', p: 2.5 }}>
+            <Box sx={{ 
+              bgcolor: '#e8f5e8', 
+              borderRadius: 2, 
+              p: 1.5, 
+              mr: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <CheckCircle sx={{ color: '#2e7d32', fontSize: 24 }} />
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Approved
+              </Typography>
+              <Typography variant="h6" fontWeight={800}>
+                {stats.approved}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+        <Card variant="outlined" sx={{ borderRadius: 3 }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', p: 2.5 }}>
+            <Box sx={{ 
+              bgcolor: '#e8f5e8', 
+              borderRadius: 2, 
+              p: 1.5, 
+              mr: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <AttachMoney sx={{ color: '#2e7d32', fontSize: 24 }} />
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Total Amount
+              </Typography>
+              <Typography variant="h6" fontWeight={800}>
+                {fmtMoney(stats.totalAmount)}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#fff', borderRadius: 2 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
-              <Box sx={{ 
-                bgcolor: '#fff3e0', 
-                borderRadius: 2, 
-                p: 1.5, 
-                mr: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Schedule sx={{ color: '#f57c00', fontSize: 24 }} />
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Pending
-                </Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {stats.pending}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+      {/* Toolbar */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          <Typography variant="h6" fontWeight="bold">Your Requests</Typography>
+          <Typography variant="body2" color="text.secondary">All your petty cash reimbursement requests</Typography>
+        </Box>
+        <Button variant="contained" startIcon={<AddIcon />} component={Link} to="/new-request">New Request</Button>
+      </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#fff', borderRadius: 2 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
-              <Box sx={{ 
-                bgcolor: '#e8f5e8', 
-                borderRadius: 2, 
-                p: 1.5, 
-                mr: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <CheckCircle sx={{ color: '#2e7d32', fontSize: 24 }} />
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Approved
-                </Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {stats.approved}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#fff', borderRadius: 2 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
-              <Box sx={{ 
-                bgcolor: '#e8f5e8', 
-                borderRadius: 2, 
-                p: 1.5, 
-                mr: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <AttachMoney sx={{ color: '#2e7d32', fontSize: 24 }} />
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Total Amount
-                </Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {fmtMoney(stats.totalAmount)}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Your Requests Section */}
-      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        {/* Section Header */}
-        <Box sx={{ p: 3, borderBottom: '1px solid #e0e0e0' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" fontWeight="bold">
-              Your Requests
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              component={Link}
-              to="/new-request"
-              sx={{ 
-                bgcolor: '#1976d2',
-                '&:hover': { bgcolor: '#1565c0' }
-              }}
+      {/* Filters Card */}
+      <Card variant="outlined">
+        <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <TextField
+            fullWidth
+            placeholder="Search requests..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ maxWidth: 520, flex: 1 }}
+          />
+          <FormControl sx={{ minWidth: 180 }}>
+            <InputLabel>Status Filter</InputLabel>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              label="Status Filter"
+              input={<OutlinedInput label="Status Filter" />}
             >
-              New Request
-            </Button>
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            All your petty cash reimbursement requests
-          </Typography>
-        </Box>
+              <MenuItem value="All Status">All Status</MenuItem>
+              <MenuItem value="Pending">Pending</MenuItem>
+              <MenuItem value="Approved">Approved</MenuItem>
+              <MenuItem value="Rejected">Rejected</MenuItem>
+              <MenuItem value="In-review">In Review</MenuItem>
+            </Select>
+          </FormControl>
+        </CardContent>
+      </Card>
 
-        {/* Search and Filter */}
-        <Box sx={{ p: 3, borderBottom: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={8}>
-              <TextField
-                fullWidth
-                placeholder="Search requests..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search sx={{ color: '#666' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'white',
-                    '&:hover fieldset': {
-                      borderColor: '#1976d2',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#1976d2',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>Status Filter</InputLabel>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  label="Status Filter"
-                  sx={{
-                    bgcolor: 'white',
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1976d2',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1976d2',
-                    },
-                  }}
-                >
-                  <MenuItem value="All Status">All Status</MenuItem>
-                  <MenuItem value="Pending">Pending</MenuItem>
-                  <MenuItem value="Approved">Approved</MenuItem>
-                  <MenuItem value="Rejected">Rejected</MenuItem>
-                  <MenuItem value="In-review">In Review</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </Box>
-
-        {/* Table Content */}
-          <Box sx={{ p: 0 }}>
-            {loading ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
-                <CircularProgress size={32} />
-              </Box>
-            ) : filteredRows.length === 0 ? (
-              <Box sx={{ textAlign: 'center', color: 'text.secondary', py: 8 }}>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-                  {rows.length === 0 ? 'No requests found' : 'No matching requests'}
-                </Typography>
-                <Typography variant="body2">
-                  {error || (rows.length === 0 ? 'Create a new petty cash request to get started.' : 'Try adjusting your search or filter criteria.')}
-                </Typography>
-              </Box>
-            ) : (
-              <Table>
-                <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Date</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Category</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Company</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Location</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="right">Amount</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="center">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredRows.map((r, index) => (
-                    <TableRow 
-                      key={r.id || index} 
-                      hover
-                      sx={{ 
-                        '&:hover': { bgcolor: '#f9f9f9' },
-                        borderBottom: '1px solid #e0e0e0'
-                      }}
-                    >
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        <Typography variant="body2" fontWeight="medium">
-                          {r.dateOfPurchase ? new Date(r.dateOfPurchase).toLocaleDateString() : 
-                           r.date ? new Date(r.date).toLocaleDateString() : '-'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Submitted: {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 
-                                     r.date ? new Date(r.date).toLocaleDateString() : '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={r.category} 
-                          size="small" 
-                          variant="outlined"
-                          sx={{ bgcolor: '#f0f0f0' }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {r.company}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {r.location}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight="bold">
-                          {fmtMoney(r.amount)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusChip(r.status)}
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          <Tooltip title="View Details">
-                            <IconButton size="small" sx={{ color: '#1976d2' }} onClick={() => navigate(`/my-requests/${r.id}`)}>
-                              <Visibility fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          {String(r.status).toLowerCase() === 'pending' && (
-                            <Tooltip title="Edit">
-                              <IconButton size="small" sx={{ color: '#f57c00' }} onClick={() => {
+      {/* Table Content */}
+      <Card variant="outlined">
+        <CardContent sx={{ p: 0 }}>
+          {loading ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : filteredRows.length === 0 ? (
+            <Box sx={{ textAlign: 'center', color: 'text.secondary', py: 8 }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+                {rows.length === 0 ? 'No requests found' : 'No matching requests'}
+              </Typography>
+              <Typography variant="body2">
+                {error || (rows.length === 0 ? 'Create a new petty cash request to get started.' : 'Try adjusting your search or filter criteria.')}
+              </Typography>
+            </Box>
+          ) : (
+            <Table>
+              <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Category</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Company</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Location</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="right">Amount</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#666' }} align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredRows.map((r, index) => (
+                  <TableRow 
+                    key={r.id || index} 
+                    hover
+                    sx={{ 
+                      '&:hover': { bgcolor: '#f9f9f9' },
+                      borderBottom: '1px solid #e0e0e0'
+                    }}
+                  >
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      <Typography variant="body2" fontWeight="medium">
+                        {r.dateOfPurchase ? new Date(r.dateOfPurchase).toLocaleDateString() : 
+                         r.date ? new Date(r.date).toLocaleDateString() : '-'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Submitted: {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : 
+                                   r.date ? new Date(r.date).toLocaleDateString() : '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={r.category} 
+                        size="small" 
+                        variant="outlined"
+                        sx={{ bgcolor: '#f0f0f0' }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {r.company}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {r.location}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" fontWeight="bold">
+                        {fmtMoney(r.amount)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {getStatusChip(r.status)}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Tooltip title="View Details">
+                          <IconButton size="small" sx={{ color: '#1976d2' }} onClick={() => navigate(`/my-requests/${r.id}`)}>
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {String(r.status).toLowerCase() === 'pending' && (
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              sx={{ color: '#f57c00' }}
+                              onClick={() => {
                                 setEditReq({
                                   id: r.id,
                                   company: r.company || '',
@@ -449,14 +396,15 @@ const MyRequests = () => {
                                   location: r.location || '',
                                   amount: r.amount || '',
                                   description: r.description || r.reason || '',
-                                  dateOfPurchase: r.dateOfPurchase || r.date || ''
+                                  dateOfPurchase: r.dateOfPurchase || r.date || '',
                                 });
                                 setEditOpen(true);
-                              }}>
-                                <Edit fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                           <Tooltip title="Delete">
                             <IconButton size="small" sx={{ color: '#d32f2f' }} onClick={async () => {
                               if (!window.confirm('Delete this request? This cannot be undone.')) return;
@@ -478,8 +426,8 @@ const MyRequests = () => {
                 </TableBody>
               </Table>
             )}
-          </Box>
-        </Paper>
+        </CardContent>
+      </Card>
 
         {/* Edit Request Dialog */}
         <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>

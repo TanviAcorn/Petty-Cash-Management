@@ -137,7 +137,8 @@ const App = () => {
           ml: { md: `${drawerWidth}px` },
           boxShadow: "none",
           borderBottom: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.paper,
+          // Let theme control background & blur via overrides
+          backgroundColor: 'transparent',
           color: theme.palette.text.primary,
         }}
       >
@@ -253,11 +254,13 @@ const App = () => {
           flexGrow: 1,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           mt: { xs: "56px", sm: "64px" },
-          p: 3,
+          p: { xs: 2, sm: 3 },
           overflowY: "auto",
           overflowX: "hidden",
           backgroundColor: theme.palette.background.default,
           minHeight: "calc(100vh - 64px)",
+          maxWidth: 1440,
+          mx: 'auto',
         }}
       >
         <Routes>

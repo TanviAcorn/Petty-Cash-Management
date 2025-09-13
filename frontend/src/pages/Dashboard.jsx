@@ -14,16 +14,35 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import axiosClient from '../api/axiosClient';
 
 const StatCard = ({ icon, label, value, deltaText, deltaColor = 'success' }) => (
-  <Card variant="outlined" sx={{ height: '100%', borderRadius: 2 }}>
+  <Card
+    variant="outlined"
+    sx={{
+      height: '100%',
+      borderRadius: 3,
+      borderColor: 'divider',
+      background: (theme) => theme.palette.mode === 'light'
+        ? 'linear-gradient(180deg, rgba(2,6,23,0.02) 0%, rgba(2,6,23,0) 100%)'
+        : 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)',
+      boxShadow: (theme) => `0 6px 16px ${theme.palette.mode==='light' ? 'rgba(2,6,23,0.05)' : 'rgba(0,0,0,0.35)'}`,
+    }}
+  >
     <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5, p: 2.5 }}>
-      <Box sx={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 1, bgcolor: 'action.hover' }}>
+      <Box sx={(theme)=>({
+        width: 44,
+        height: 44,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 2,
+        bgcolor: theme.palette.action.hover,
+      })}>
         {icon}
       </Box>
       <Box>
         <Typography variant="caption" color="text.secondary">{label}</Typography>
-        <Typography variant="h6" fontWeight={700}>{value}</Typography>
+        <Typography variant="h6" fontWeight={800}>{value}</Typography>
         {deltaText && (
-          <Typography variant="caption" sx={{ color: `${deltaColor}.main` }}>{deltaText}</Typography>
+          <Typography variant="caption" sx={{ color: `${deltaColor}.main`, fontWeight: 600 }}>{deltaText}</Typography>
         )}
       </Box>
     </CardContent>
@@ -145,7 +164,7 @@ const Dashboard = () => {
   const fmt = (n) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(n||0));
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 1200, mx: 'auto', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', width: '100%' }}>
       {/* Welcome */}
       <Box>
         <Typography variant="h4" fontWeight={800}>Welcome back, Admin!</Typography>
@@ -153,27 +172,26 @@ const Dashboard = () => {
       </Box>
 
       {/* Stats */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard icon={<PlaylistAddCheckCircleIcon color="primary" />} label="Total Requests" value={stats.totalRequests} deltaText="↑ 8.2% from last month" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard icon={<AccessTimeOutlinedIcon color="warning" />} label="Pending Approval" value={stats.pending} deltaText="↓ 2.4% from last month" deltaColor="error" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard icon={<AttachMoneyIcon color="success" />} label="Total Amount" value={fmt(stats.totalAmount)} deltaText="↑ 12.5% from last month" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard icon={<TrendingUpIcon color="secondary" />} label="This Month" value={fmt(stats.thisMonthAmount)} deltaText="↑ 5.7% from last month" />
-        </Grid>
-      </Grid>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          alignItems: 'stretch',
+        }}
+      >
+        <StatCard icon={<PlaylistAddCheckCircleIcon color="primary" />} label="Total Requests" value={stats.totalRequests} deltaText="↑ 8.2% from last month" />
+        <StatCard icon={<AccessTimeOutlinedIcon color="warning" />} label="Pending Approval" value={stats.pending} deltaText="↓ 2.4% from last month" deltaColor="error" />
+        <StatCard icon={<AttachMoneyIcon color="success" />} label="Total Amount" value={fmt(stats.totalAmount)} deltaText="↑ 12.5% from last month" />
+        <StatCard icon={<TrendingUpIcon color="secondary" />} label="This Month" value={fmt(stats.thisMonthAmount)} deltaText="↑ 5.7% from last month" />
+      </Box>
 
       {/* Charts */}
-      <Grid container spacing={2}>
+      <Grid container spacing={2.5}>
         <Grid item xs={12} md={7}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>Monthly Trends</Typography>
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography variant="subtitle1" fontWeight={800} gutterBottom>Monthly Trends</Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>Requests and amounts over time</Typography>
               <LineChart data={monthlySeries} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, mx: 4 }}>
@@ -185,11 +203,11 @@ const Dashboard = () => {
           </Card>
         </Grid>
         <Grid item xs={12} md={5}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>Category Breakdown</Typography>
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography variant="subtitle1" fontWeight={800} gutterBottom>Category Breakdown</Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>Expenses by category this month</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
                 <PieChart series={categorySeries} />
                 <Box sx={{ display: 'grid', gap: 1 }}>
                   {categorySeries.slice(0,6).map((c, idx) => (

@@ -128,8 +128,8 @@ const Companies = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 1, md: 2 } }}>
-      <Typography variant="h5" fontWeight={800} sx={{ mb: 0.5 }}>
+    <Box sx={{ p: { xs: 1, md: 2 }, maxWidth: 1400, mx: 'auto', width: '100%' }}>
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>
         Companies & Categories
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -154,7 +154,7 @@ const Companies = () => {
       </Tabs>
 
       {tab === 0 && (
-      <Card elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper' }}>
+      <Card variant="outlined">
         <CardHeader
           title={
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -245,7 +245,7 @@ const Companies = () => {
       )}
 
       {tab === 1 && (
-      <Card elevation={0} sx={{ border: "1px solid #e5e7eb", borderRadius: 2 }}>
+      <Card variant="outlined">
         <CardHeader
           title={
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>

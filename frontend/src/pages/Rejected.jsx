@@ -191,7 +191,7 @@ const Rejected = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 1200, mx: 'auto', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', width: '100%' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box>
@@ -217,72 +217,65 @@ const Rejected = () => {
         <StatCard icon={<ChatBubbleOutlineOutlinedIcon />} label="With Reasons" value={stats.withReasons} color="secondary" />
       </Box>
 
-      {/* Filters & List */}
+      {/* Filters */}
       <Card variant="outlined">
-        <CardContent>
-          {/* List header */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" fontWeight={700}>Rejected Requests</Typography>
-            <Typography variant="body2" color="text.secondary">
-              All rejected petty cash reimbursement requests with reasons
-            </Typography>
-          </Box>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <TextField
+            placeholder="Search requests..."
+            size="small"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ flex: 1, minWidth: 220 }}
+          />
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <TextField
-              placeholder="Search requests..."
-              size="small"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ flex: 1, minWidth: 220 }}
-            />
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <Select
+              input={<OutlinedInput />}
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+            >
+              {companies.map((c) => (
+                <MenuItem key={c} value={c}>{c === 'all' ? 'All Companies' : c}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <Select
-                input={<OutlinedInput />}
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              >
-                {companies.map((c) => (
-                  <MenuItem key={c} value={c}>{c === 'all' ? 'All Companies' : c}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <Select
+              input={<OutlinedInput />}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              {categories.map((c) => (
+                <MenuItem key={c} value={c}>{c === 'all' ? 'All Categories' : c}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <Select
-                input={<OutlinedInput />}
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                {categories.map((c) => (
-                  <MenuItem key={c} value={c}>{c === 'all' ? 'All Categories' : c}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <Select
+              input={<OutlinedInput />}
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+            >
+              {timeRanges.map((t) => (
+                <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </CardContent>
+      </Card>
 
-            <FormControl size="small" sx={{ minWidth: 140 }}>
-              <Select
-                input={<OutlinedInput />}
-                value={range}
-                onChange={(e) => setRange(e.target.value)}
-              >
-                {timeRanges.map((t) => (
-                  <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          <Divider sx={{ my: 2 }} />
-
+      {/* Table */}
+      <Card variant="outlined">
+        <CardContent sx={{ p: 0 }}>
           {loading ? (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
               <CircularProgress size={28} />

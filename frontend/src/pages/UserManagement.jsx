@@ -179,7 +179,7 @@ const UserManagement = () => {
   );
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 }, pb: 5, minHeight: "100%", backgroundColor: "background.default", maxWidth: 1200, mx: 'auto', width: '100%' }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, pb: 5, minHeight: "100%", backgroundColor: "background.default", maxWidth: 1400, mx: 'auto', width: '100%' }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
         <Box>
           <Typography variant="h4" fontWeight="bold">
@@ -205,7 +205,7 @@ const UserManagement = () => {
         <StatCard icon={<Apartment />} label="Companies" value={uniqueCompanies} color="secondary" />
       </Box>
 
-      <Card elevation={4}>
+      <Card variant="outlined">
         <CardHeader
           title={
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>

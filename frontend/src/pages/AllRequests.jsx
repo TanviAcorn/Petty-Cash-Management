@@ -120,11 +120,11 @@ const AllRequests = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 1200, mx: 'auto', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', width: '100%' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Request Approval</Typography>
+          <Typography variant="h5" fontWeight={700}>All Requests</Typography>
           <Typography variant="body2" color="text.secondary">Review and approve petty cash reimbursement requests</Typography>
         </Box>
       </Box>
@@ -137,37 +137,32 @@ const AllRequests = () => {
         <StatCard icon={<CancelOutlinedIcon />} label="Rejected" value={stats.rejected} color="error" />
       </Box>
 
-      {/* List Card */}
+      {/* Filters Card - compact like Approved */}
       <Card variant="outlined">
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={700}>Requests</Typography>
-              <Typography variant="body2" color="text.secondary">Manage and review all petty cash requests</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <TextField
-                placeholder="Search requests..."
-                size="small"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>) }}
-                sx={{ width: 320, maxWidth: '100%' }}
-              />
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <Select input={<OutlinedInput />} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  <MenuItem value="all">All Status</MenuItem>
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="approved">Approved</MenuItem>
-                  <MenuItem value="rejected">Rejected</MenuItem>
-                  <MenuItem value="intercompany">Intercompany</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-          </Box>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <TextField
+            placeholder="Search requests..."
+            size="small"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon color="action"/></InputAdornment>) }}
+            sx={{ width: 320, maxWidth: '100%' }}
+          />
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <Select input={<OutlinedInput />} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="approved">Approved</MenuItem>
+              <MenuItem value="rejected">Rejected</MenuItem>
+              <MenuItem value="intercompany">Intercompany</MenuItem>
+            </Select>
+          </FormControl>
+        </CardContent>
+      </Card>
 
-          <Divider sx={{ mb: 2 }} />
-
+      {/* Table Card */}
+      <Card variant="outlined">
+        <CardContent sx={{ p: 0 }}>
           {loading ? (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
               <CircularProgress size={28} />

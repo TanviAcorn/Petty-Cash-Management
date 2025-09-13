@@ -64,6 +64,11 @@ export default function RequestReview() {
   const [targetCompany, setTargetCompany] = useState('');
   const [icNote, setIcNote] = useState('');
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
+  // Reason dialogs
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [approveNote, setApproveNote] = useState('');
+  const [rejectNote, setRejectNote] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -95,12 +100,15 @@ export default function RequestReview() {
 
   const sc = useMemo(() => statusChip(req?.status), [req]);
 
-  const onStatus = async (next) => {
+  const onStatus = async (next, note) => {
     try {
       setSubmitting(true);
       // Using generic status update endpoint
       await axiosClient.put(`/requests/${id}/status`, {
         status: next,
+        note: note || null,
+        performedByEmail: user?.email || null,
+        performedByName: user ? `${user.firstName || user.name || ''} ${user.lastName || ''}`.trim() : null,
       });
       // Refetch
       const { data } = await axiosClient.get(`/requests/${id}`);
@@ -190,7 +198,7 @@ export default function RequestReview() {
                   color="success"
                   startIcon={<CheckOutlinedIcon />}
                   disabled={submitting}
-                  onClick={() => onStatus('approved')}
+                  onClick={() => setApproveOpen(true)}
                 >
                   Approve
                 </Button>
@@ -203,7 +211,7 @@ export default function RequestReview() {
                   color="error"
                   startIcon={<CloseOutlinedIcon />}
                   disabled={submitting}
-                  onClick={() => onStatus('rejected')}
+                  onClick={() => setRejectOpen(true)}
                 >
                   Reject
                 </Button>
@@ -214,131 +222,129 @@ export default function RequestReview() {
       )}
 
       <Grid container spacing={2}>
-        {/* Employee Info */}
+        {/* Left column: Employee + Meta */}
         <Grid item xs={12} md={6}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>Employee Information</Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Stack spacing={1.2}>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Avatar sx={{ width: 36, height: 36 }}>{(req.employeeName || '?').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase()}</Avatar>
+          <Stack spacing={2}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={700} gutterBottom>Employee Information</Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Stack spacing={1.2}>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Avatar sx={{ width: 36, height: 36 }}>{(req.employeeName || '?').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase()}</Avatar>
+                    <Box>
+                      <Typography fontWeight={600}>{req.employeeName}</Typography>
+                      <Typography variant="body2" color="text.secondary">{req.employeeEmail}</Typography>
+                    </Box>
+                  </Stack>
                   <Box>
-                    <Typography fontWeight={600}>{req.employeeName}</Typography>
-                    <Typography variant="body2" color="text.secondary">{req.employeeEmail}</Typography>
+                    <Typography variant="caption" color="text.secondary">Company</Typography>
+                    <Typography>{req.company || '-'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Submitted</Typography>
+                    <Typography>{req.createdAt ? new Date(req.createdAt).toLocaleString() : '-'}</Typography>
                   </Box>
                 </Stack>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Company</Typography>
-                  <Typography>{req.company || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Submitted</Typography>
-                  <Typography>{req.createdAt ? new Date(req.createdAt).toLocaleString() : '-'}</Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
+              </CardContent>
+            </Card>
 
-        {/* Request Details */}
-        <Grid item xs={12} md={6}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>Request Details</Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Stack spacing={1.2}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Amount</Typography>
-                  <Typography variant="h6" fontWeight={800} sx={{ color: 'success.main' }}>
-                    {fmtMoney(req.amount, currency)}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Currency</Typography>
-                  <Typography>{currency}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Category</Typography>
-                  <Chip size="small" label={req.category || '-'} />
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Location</Typography>
-                  <Typography>{req.location || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Description</Typography>
-                  <Typography>{req.description || '-'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Company</Typography>
-                  <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {req.company || '-'}
-                  </Typography>
-                  {req.previousCompany && (
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Previous: {req.previousCompany}
-                    </Typography>
-                  )}
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Attachments */}
-        <Grid item xs={12}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ReceiptLongOutlinedIcon /> Attachments
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              {Array.isArray(req.attachments) && req.attachments.length > 0 ? (
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                  {req.attachments.map((f, idx) => (
-                    <Button key={idx} component={Link} to={`${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`} target="_blank" rel="noopener" variant="outlined" size="small">
-                      {f.originalName || f.filename || `file-${idx+1}`}
-                    </Button>
-                  ))}
-                </Stack>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No attachments</Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Meta */}
-        <Grid item xs={12}>
-          <Card variant="outlined">
-            <CardContent>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Status</Typography>
-                  <Box><Chip size="small" color={sc.color} label={sc.label} /></Box>
-                </Grid>
-                {req.previousCompany && (
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Typography variant="caption" color="text.secondary">Previous Company</Typography>
-                    <Typography variant="body2">{req.previousCompany}</Typography>
+            <Card variant="outlined">
+              <CardContent>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary">Status</Typography>
+                    <Box><Chip size="small" color={sc.color} label={sc.label} /></Box>
                   </Grid>
+                  {req.previousCompany && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary">Previous Company</Typography>
+                      <Typography variant="body2">{req.previousCompany}</Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary">Approved At</Typography>
+                    <Typography variant="body2">{req.approvedAt ? new Date(req.approvedAt).toLocaleString() : '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary">Rejected At</Typography>
+                    <Typography variant="body2">{req.rejectedAt ? new Date(req.rejectedAt).toLocaleString() : '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary">Date of Purchase</Typography>
+                    <Typography variant="body2">{req.dateOfPurchase ? new Date(req.dateOfPurchase).toLocaleDateString() : '-'}</Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Stack>
+        </Grid>
+
+        {/* Right column: Request Details + Attachments */}
+        <Grid item xs={12} md={6}>
+          <Stack spacing={2}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={700} gutterBottom>Request Details</Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Stack spacing={1.2}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Amount</Typography>
+                    <Typography variant="h6" fontWeight={800} sx={{ color: 'success.main' }}>
+                      {fmtMoney(req.amount, currency)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Currency</Typography>
+                    <Typography>{currency}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Category</Typography>
+                    <Chip size="small" label={req.category || '-'} />
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Location</Typography>
+                    <Typography>{req.location || '-'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Description</Typography>
+                    <Typography>{req.description || '-'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Company</Typography>
+                    <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {req.company || '-'}
+                    </Typography>
+                    {req.previousCompany && (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Previous: {req.previousCompany}
+                      </Typography>
+                    )}
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={700} gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ReceiptLongOutlinedIcon /> Attachments
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {Array.isArray(req.attachments) && req.attachments.length > 0 ? (
+                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                    {req.attachments.map((f, idx) => (
+                      <Button key={idx} component={Link} to={`${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`} target="_blank" rel="noopener" variant="outlined" size="small">
+                        {f.originalName || f.filename || `file-${idx+1}`}
+                      </Button>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">No attachments</Typography>
                 )}
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Approved At</Typography>
-                  <Typography variant="body2">{req.approvedAt ? new Date(req.approvedAt).toLocaleString() : '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Rejected At</Typography>
-                  <Typography variant="body2">{req.rejectedAt ? new Date(req.rejectedAt).toLocaleString() : '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Date of Purchase</Typography>
-                  <Typography variant="body2">{req.dateOfPurchase ? new Date(req.dateOfPurchase).toLocaleDateString() : '-'}</Typography>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Stack>
         </Grid>
       </Grid>
 
@@ -365,7 +371,7 @@ export default function RequestReview() {
             </Select>
           </FormControl>
           <FormControl fullWidth size="small" sx={{ mt: 2 }}>
-            <InputLabel shrink htmlFor="ic-note">Note (optional)</InputLabel>
+           
             <OutlinedInput id="ic-note" value={icNote} onChange={(e) => setIcNote(e.target.value)} multiline minRows={2} placeholder="Add a note for the transfer..." />
           </FormControl>
         </DialogContent>
@@ -378,6 +384,36 @@ export default function RequestReview() {
       <Snackbar open={toast.open} autoHideDuration={4000} onClose={() => setToast(prev => ({ ...prev, open: false }))} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
         <Alert severity={toast.severity} onClose={() => setToast(prev => ({ ...prev, open: false }))} variant="filled">{toast.message}</Alert>
       </Snackbar>
+
+      {/* Approve Reason Dialog */}
+      <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Approve Request</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Please provide a reason or note for approval. This will be recorded in the request history.
+          </Typography>
+          <OutlinedInput value={approveNote} onChange={(e)=>setApproveNote(e.target.value)} multiline minRows={2} fullWidth placeholder="Reason for approval (required)" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={()=> setApproveOpen(false)} color="inherit">Cancel</Button>
+          <Button onClick={async ()=>{ if(!approveNote.trim()) return; await onStatus('approved', approveNote.trim()); setApproveOpen(false); setApproveNote(''); }} variant="contained" disabled={submitting || !approveNote.trim()}>Approve</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reject Reason Dialog */}
+      <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Reject Request</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Please provide a reason for rejection. This will be visible to the requester.
+          </Typography>
+          <OutlinedInput value={rejectNote} onChange={(e)=>setRejectNote(e.target.value)} multiline minRows={2} fullWidth placeholder="Reason for rejection (required)" />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={()=> setRejectOpen(false)} color="inherit">Cancel</Button>
+          <Button onClick={async ()=>{ if(!rejectNote.trim()) return; await onStatus('rejected', rejectNote.trim()); setRejectOpen(false); setRejectNote(''); }} variant="contained" color="error" disabled={submitting || !rejectNote.trim()}>Reject</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

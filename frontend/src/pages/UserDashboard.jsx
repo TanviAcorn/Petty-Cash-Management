@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Button,
-  Paper,
   Avatar,
   List,
   ListItem,
@@ -26,6 +25,35 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import axiosClient from '../api/axiosClient';
+
+// Reusable modern stat card (visual parity with Admin Dashboard)
+const StatCard = ({ icon, label, value }) => (
+  <Card
+    variant="outlined"
+    sx={{
+      height: '100%',
+      borderRadius: 3,
+      borderColor: 'divider',
+      background: (theme) => theme.palette.mode === 'light'
+        ? 'linear-gradient(180deg, rgba(2,6,23,0.02) 0%, rgba(2,6,23,0) 100%)'
+        : 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)',
+      boxShadow: (theme) => `0 6px 16px ${theme.palette.mode==='light' ? 'rgba(2,6,23,0.05)' : 'rgba(0,0,0,0.35)'}`,
+    }}
+  >
+    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5, p: 2.5 }}>
+      <Box sx={(theme)=>({
+        width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2,
+        bgcolor: theme.palette.action.hover,
+      })}>
+        {icon}
+      </Box>
+      <Box>
+        <Typography variant="caption" color="text.secondary">{label}</Typography>
+        <Typography variant="h6" fontWeight={800}>{value}</Typography>
+      </Box>
+    </CardContent>
+  </Card>
+);
 
 const UserDashboard = () => {
   const [user, setUser] = useState({});
@@ -108,7 +136,7 @@ const UserDashboard = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', width: '100%', p: 3 }}>
+    <Box sx={{ maxWidth: 1400, mx: 'auto', width: '100%', p: { xs: 2, sm: 3 } }}>
       {/* Welcome Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight="bold" sx={{ mb: 1 }}>
@@ -119,114 +147,18 @@ const UserDashboard = () => {
         </Typography>
       </Box>
 
-      {/* Stats Cards Row */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 4, alignItems: 'flex-start' }}>
-        {/* My Requests Card */}
-        <Card sx={{ 
-          bgcolor: '#1976d2',
-          color: 'white',
-          minWidth: 200,
-          height: 120
-        }}>
-          <CardContent sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center' }}>
-            <ReceiptIcon sx={{ fontSize: 40, mr: 2 }} />
-            <Box>
-              <Typography variant="h3" fontWeight="bold" sx={{ lineHeight: 1 }}>
-                {stats.totalRequests}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.875rem' }}>
-                My Requests
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Pending Card */}
-        <Card sx={{ 
-          bgcolor: '#ff9800',
-          color: 'white',
-          minWidth: 200,
-          height: 120
-        }}>
-          <CardContent sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center' }}>
-            <AccessTimeIcon sx={{ fontSize: 40, mr: 2 }} />
-            <Box>
-              <Typography variant="h3" fontWeight="bold" sx={{ lineHeight: 1 }}>
-                {stats.pending}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.875rem' }}>
-                Pending
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* This Month Card */}
-        <Card sx={{ 
-          bgcolor: '#4caf50',
-          color: 'white',
-          minWidth: 200,
-          height: 120
-        }}>
-          <CardContent sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center' }}>
-            <AttachMoneyIcon sx={{ fontSize: 40, mr: 2 }} />
-            <Box>
-              <Typography variant="h4" fontWeight="bold" sx={{ lineHeight: 1 }}>
-                {formatCurrency(stats.thisMonthAmount)}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.875rem' }}>
-                This Month
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* New Request Card */}
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center',
-          ml: 2
-        }}>
-          <Box sx={{ 
-            width: 60,
-            height: 60,
-            borderRadius: '50%',
-            border: '2px dashed #1976d2',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            '&:hover': {
-              bgcolor: '#f0f2ff'
-            }
-          }}
-          component={Link}
-          to="/new-request"
-          >
-            <AddIcon sx={{ fontSize: 30, color: '#1976d2' }} />
-          </Box>
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              mt: 1, 
-              color: '#1976d2', 
-              fontWeight: 'medium',
-              textDecoration: 'none'
-            }}
-            component={Link}
-            to="/new-request"
-          >
-            New Request
-          </Typography>
-        </Box>
+      {/* Stats Cards Row (modern) */}
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', mb: 2 }}>
+        <StatCard icon={<ReceiptIcon color="primary" />} label="My Requests" value={stats.totalRequests} />
+        <StatCard icon={<AccessTimeIcon color="warning" />} label="Pending" value={stats.pending} />
+        <StatCard icon={<AttachMoneyIcon color="success" />} label="This Month" value={formatCurrency(stats.thisMonthAmount)} />
       </Box>
 
       {/* Main Content Grid */}
-      <Grid container spacing={3}>
+      <Grid container spacing={2.5}>
         {/* Quick Actions */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: 'fit-content' }}>
+        <Grid item xs={12} md={8}>
+          <Card variant="outlined" sx={{ p: 3, height: 'fit-content' }}>
             <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
               Quick Actions
             </Typography>
@@ -239,11 +171,9 @@ const UserDashboard = () => {
                   component={Link}
                   to="/new-request"
                   sx={{ 
-                    py: 1.5,
-                    bgcolor: '#1976d2',
-                    '&:hover': { bgcolor: '#1565c0' },
-                    textTransform: 'uppercase',
-                    fontWeight: 'bold'
+                    py: 1.25,
+                    textTransform: 'none',
+                    fontWeight: 600
                   }}
                 >
                   Submit New Request
@@ -257,9 +187,9 @@ const UserDashboard = () => {
                   component={Link}
                   to="/my-requests"
                   sx={{ 
-                    py: 1.5,
-                    textTransform: 'uppercase',
-                    fontWeight: 'bold'
+                    py: 1.25,
+                    textTransform: 'none',
+                    fontWeight: 600
                   }}
                 >
                   View My Requests
@@ -273,21 +203,21 @@ const UserDashboard = () => {
                   component={Link}
                   to="/profile"
                   sx={{ 
-                    py: 1.5,
-                    textTransform: 'uppercase',
-                    fontWeight: 'bold'
+                    py: 1.25,
+                    textTransform: 'none',
+                    fontWeight: 600
                   }}
                 >
                   Update Profile
                 </Button>
               </Grid>
             </Grid>
-          </Paper>
+          </Card>
         </Grid>
 
         {/* My Requests */}
-        <Grid item xs={12} md={3}>
-          <Paper sx={{ p: 3, height: 'fit-content', textAlign: 'center' }}>
+        <Grid item xs={12} md={4}>
+          <Card variant="outlined" sx={{ p: 3, height: 'fit-content', textAlign: 'center' }}>
             <ReceiptIcon sx={{ fontSize: 60, color: '#1976d2', mb: 2 }} />
             <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
               My Requests
@@ -300,19 +230,18 @@ const UserDashboard = () => {
               component={Link}
               to="/my-requests"
               sx={{ 
-                bgcolor: '#1976d2',
-                textTransform: 'uppercase',
-                fontWeight: 'bold'
+                textTransform: 'none',
+                fontWeight: 600
               }}
             >
               View Requests
             </Button>
-          </Paper>
+          </Card>
         </Grid>
       </Grid>
 
       {/* Recent Activity */}
-      <Paper sx={{ mt: 4, p: 3 }}>
+      <Card variant="outlined" sx={{ mt: 4, p: 3 }}>
         <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
           Recent Activity
         </Typography>
@@ -384,7 +313,7 @@ const UserDashboard = () => {
             ))}
           </List>
         )}
-      </Paper>
+      </Card>
     </Box>
   );
 };

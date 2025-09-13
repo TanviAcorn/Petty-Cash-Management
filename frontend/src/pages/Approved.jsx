@@ -247,7 +247,7 @@ const Approved = () => {
   }, [filteredRequests]);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', p: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', width: '100%' }}>
       {/* Header */}
       <Box>
         <Typography variant="h5" fontWeight={700} gutterBottom>Approved Requests</Typography>

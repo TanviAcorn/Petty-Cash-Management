@@ -112,7 +112,7 @@ export default function Sidebar() {
       }}
     >
       {/* Header */}
-      <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
+      <Box sx={{ p: 2.25, display: "flex", alignItems: "center", gap: 1.25 }}>
         <Box
           sx={{
             width: 36,
@@ -134,12 +134,13 @@ export default function Sidebar() {
           <Typography
             sx={{
               fontSize: "11px",
-              bgcolor: "primary.main",
+              bgcolor: (theme) => theme.palette.mode === 'light' ? 'primary.main' : 'primary.dark',
               color: "white",
               px: 0.8,
-              py: 0.1,
+              py: 0.2,
               borderRadius: 1,
               display: "inline-block",
+              boxShadow: (theme) => `0 2px 6px ${theme.palette.primary.main}25`,
             }}
           >
             {user?.role || 'Admin'}
@@ -148,13 +149,13 @@ export default function Sidebar() {
       </Box>
 
       {/* Menu */}
-      <List sx={{ flexGrow: 1 }}>
+      <List sx={{ flexGrow: 1, px: 0.5 }}>
         {currentMenuItems.map((item) => (
           <ListItem
             key={item.text}
             disablePadding
             sx={{
-              mb: 0.5,
+              mb: 0.25,
             }}
           >
             <ListItemButton
@@ -163,19 +164,24 @@ export default function Sidebar() {
               selected={active === item.text}
               sx={{
                 borderRadius: 2,
-                mx: 1,
+                mx: 0.75,
                 width: '100%',
+                transition: 'all .15s ease-in-out',
+                '& .MuiListItemText-primary': { fontWeight: 500 },
                 "&.Mui-selected": {
-                  bgcolor: "primary.main",
+                  bgcolor: (theme) => theme.palette.mode === 'light' ? 'primary.main' : 'primary.dark',
                   color: "white",
                   "& .MuiSvgIcon-root": { color: "white" },
+                  boxShadow: (theme) => `0 6px 14px ${theme.palette.primary.main}33`,
                 },
                 '&:hover': {
                   textDecoration: 'none',
                   bgcolor: 'action.hover',
+                  transform: 'translateY(-1px)'
                 },
                 '&.Mui-selected:hover': {
-                  bgcolor: 'primary.dark',
+                  bgcolor: (theme) => theme.palette.mode === 'light' ? 'primary.main' : 'primary.dark',
+                  transform: 'translateY(-1px)'
                 },
               }}
             >
@@ -212,6 +218,7 @@ export default function Sidebar() {
           </Typography>
         </Box>
       </Box>
+
     </Drawer>
   );
 }
