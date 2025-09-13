@@ -27,44 +27,44 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[linear-gradient(180deg,#eef4ff_0%,#e9f0ff_100%)] flex flex-col items-center">
+    <div className="min-h-screen w-full bg-[linear-gradient(180deg,#eef4ff_0%,#e9f0ff_100%)] dark:bg-[linear-gradient(180deg,#0b1220_0%,#0a0f1a_100%)] flex flex-col items-center">
       {/* Brand header */}
       <div className="pt-16 px-6 text-center">
-        <div className="mx-auto w-12 h-12 rounded-xl bg-blue-900 flex items-center justify-center shadow-md">
+        <div className="mx-auto w-12 h-12 rounded-xl bg-blue-900 dark:bg-blue-600 flex items-center justify-center shadow-md">
           <Lock className="text-white w-6 h-6" />
         </div>
-        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-800">HR PettyCash</h1>
-        <p className="mt-1 text-slate-500">Sign in to your account</p>
+        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">HR PettyCash</h1>
+        <p className="mt-1 text-slate-500 dark:text-slate-400">Sign in to your account</p>
       </div>
 
       {/* Card */}
       <div className="w-full max-w-md mt-8 px-4 pb-16">
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 p-8">
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-slate-800">Sign In</h2>
-            <p className="text-slate-500">Enter your email and password to access your account</p>
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Sign In</h2>
+            <p className="text-slate-500 dark:text-slate-400">Enter your email and password to access your account</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 w-5 h-5" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder="Enter your email"
-                  className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -72,12 +72,12 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="Enter your password"
-                  className="w-full pl-3 pr-10 py-2.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-3 pr-10 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -86,7 +86,7 @@ export default function Login() {
 
             {/* Error */}
             {error && (
-              <p className="text-red-600 text-sm text-center bg-red-50 border border-red-100 rounded-md py-2">
+              <p className="text-red-600 dark:text-red-400 text-sm text-center bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-md py-2">
                 {error}
               </p>
             )}
