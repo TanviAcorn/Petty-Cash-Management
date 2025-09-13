@@ -254,20 +254,33 @@ const NewRequest = () => {
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <FormControl fullWidth error={!!errors.category} size="small">
-                      <InputLabel>Category *</InputLabel>
+                      <InputLabel id="category-label">Category *</InputLabel>
                       <Select
+                        labelId="category-label"
                         name="category"
                         value={formData.category}
                         onChange={handleChange}
                         label="Category *"
-                        displayEmpty
-                        disabled={loading} // Disable while loading
+                        sx={{
+                          '& .MuiSelect-select': {
+                            paddingRight: '120px !important'
+                          }
+                        }}
+                        disabled={loading}
                       >
-                        <MenuItem value=""><em>Select category</em></MenuItem>
+                        <MenuItem value="">
+                          <em style={{ color: '#aaa' }}>Select category</em>
+                        </MenuItem>
                         {loading ? (
-                          <MenuItem disabled><CircularProgress size={20} sx={{ mr: 1 }} /> Loading...</MenuItem>
+                          <MenuItem disabled>
+                            <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
+                          </MenuItem>
                         ) : (
-                          categories.map((category) => (<MenuItem key={category.id} value={category.name}>{category.name}</MenuItem>))
+                          categories.map((category) => (
+                            <MenuItem key={category.id} value={category.name}>
+                              {category.name}
+                            </MenuItem>
+                          ))
                         )}
                       </Select>
                       <FormHelperText>{errors.category || dataError}</FormHelperText>
@@ -275,16 +288,24 @@ const NewRequest = () => {
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <FormControl fullWidth error={!!errors.company} size="small">
-                      <InputLabel>Company *</InputLabel>
+                      <InputLabel id="company-label">Company *</InputLabel>
                       <Select
+                        labelId="company-label"
                         name="company"
                         value={formData.company}
                         onChange={handleChange}
                         label="Company *"
-                        displayEmpty
-                        disabled={loading} // Disable while loading
+                        sx={{
+                          '& .MuiSelect-select': {
+                            paddingRight: '120px !important'
+                          }
+                        }}
+                        renderValue={(value) => value || 'Select company'}
+                        disabled={loading}
                       >
-                        <MenuItem value=""><em>Select company</em></MenuItem>
+                        <MenuItem value="">
+                          <em style={{ color: '#aaa' }}>Select company</em>
+                        </MenuItem>
                         {loading ? (
                           <MenuItem disabled><CircularProgress size={20} sx={{ mr: 1 }} /> Loading...</MenuItem>
                         ) : (
@@ -296,15 +317,23 @@ const NewRequest = () => {
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <FormControl fullWidth size="small">
-                      <InputLabel>Location</InputLabel>
+                      <InputLabel id="location-label">Location *</InputLabel>
                       <Select
+                        labelId="location-label"
                         name="location"
                         value={formData.location}
                         onChange={handleChange}
                         label="Location"
-                        displayEmpty
+                        sx={{
+                          '& .MuiSelect-select': {
+                            paddingRight: '120px !important'
+                          }
+                        }}
+                        renderValue={(value) => value || 'Select location'}
                       >
-                        <MenuItem value=""><em>Select location</em></MenuItem>
+                        <MenuItem value="">
+                          <em style={{ color: '#aaa' }}>Select location</em>
+                        </MenuItem>
                         {locations.map((location) => (
                           <MenuItem key={location} value={location}>{location}</MenuItem>
                         ))}
