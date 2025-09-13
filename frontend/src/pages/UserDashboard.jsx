@@ -40,7 +40,9 @@ const UserDashboard = () => {
     // Fetch user's requests
     const fetchRequests = async () => {
       try {
-        const { data } = await axiosClient.get('/requests/user');
+        const { data } = await axiosClient.get('/requests', {
+          params: { email: userData?.email }
+        });
         setRequests(Array.isArray(data?.data || data) ? (data.data || data) : []);
       } catch (error) {
         console.error('Error fetching requests:', error);
