@@ -219,12 +219,6 @@ const AllRequests = () => {
                             <Chip size="small" label={sc.label} color={sc.color} variant="outlined" sx={{ textTransform: 'lowercase' }} />
                           </TableCell>
                           <TableCell align="center" sx={{ minWidth: 120 }}>
-                            <IconButton color="success" size="small" aria-label="approve">
-                              <CheckOutlinedIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton color="error" size="small" aria-label="reject">
-                              <CloseOutlinedIcon fontSize="small" />
-                            </IconButton>
                             <IconButton size="small" aria-label="view details" onClick={() => navigate(`/requests/${r.id}`)}>
                               <VisibilityOutlinedIcon fontSize="small" />
                             </IconButton>
