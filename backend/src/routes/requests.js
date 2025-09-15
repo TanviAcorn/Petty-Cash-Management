@@ -470,11 +470,15 @@ router.post('/:id/approve', async (req, res) => {
     const row = result.recordset?.[0] || { id };
     // Notify requester
     try {
-      if (row && row.employee_email) {
+      const recipient = row?.employee_email || row?.employeeEmail || null;
+      console.log('[MAIL][approve] to:', recipient, 'status:', row?.status, 'id:', id);
+      if (recipient) {
         const { subject, html } = buildUserStatusEmail(row);
-        sendEmail({ to: row.employee_email, subject, html }).catch((e) => console.error('Failed sending user email:', e.message));
+        await sendEmail({ to: recipient, subject, html });
+      } else {
+        console.warn('[MAIL][approve] missing employee email for request id', id);
       }
-    } catch (e) { console.error('User email error:', e); }
+    } catch (e) { console.error('[MAIL][approve] error:', e); }
     return res.json(row);
   } catch (err) {
     console.error('Error approving request:', err);
@@ -499,11 +503,15 @@ router.post('/:id/reject', async (req, res) => {
     const row = result.recordset?.[0] || { id };
     // Notify requester
     try {
-      if (row && row.employee_email) {
+      const recipient = row?.employee_email || row?.employeeEmail || null;
+      console.log('[MAIL][reject] to:', recipient, 'status:', row?.status, 'id:', id);
+      if (recipient) {
         const { subject, html } = buildUserStatusEmail(row);
-        sendEmail({ to: row.employee_email, subject, html }).catch((e) => console.error('Failed sending user email:', e.message));
+        await sendEmail({ to: recipient, subject, html });
+      } else {
+        console.warn('[MAIL][reject] missing employee email for request id', id);
       }
-    } catch (e) { console.error('User email error:', e); }
+    } catch (e) { console.error('[MAIL][reject] error:', e); }
     return res.json(row);
   } catch (err) {
     console.error('Error rejecting request:', err);
@@ -555,13 +563,17 @@ router.put('/:id/status', async (req, res) => {
       .query('SELECT * FROM petty_cash_requests WHERE id = @id');
     const row = result.recordset[0];
 
-    // Notify requester on status change (non-blocking)
+    // Notify requester on status change
     try {
-      if (row && row.employee_email) {
+      const recipient = row?.employee_email || row?.employeeEmail || null;
+      console.log('[MAIL][status] to:', recipient, 'status:', row?.status, 'id:', id);
+      if (recipient) {
         const { subject, html } = buildUserStatusEmail(row);
-        sendEmail({ to: row.employee_email, subject, html }).catch((e) => console.error('Failed sending user email:', e.message));
+        await sendEmail({ to: recipient, subject, html });
+      } else {
+        console.warn('[MAIL][status] missing employee email for request id', id);
       }
-    } catch (e) { console.error('User email error:', e); }
+    } catch (e) { console.error('[MAIL][status] error:', e); }
 
     return res.json({ 
       message: `Request ${status} successfully`,

@@ -32,7 +32,8 @@ async function sendEmail({ to, subject, html, text, from, replyTo }) {
 
 function buildAdminNewRequestEmail(newRequest) {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
-  const loginLink = `${frontendUrl}/login?next=/all-requests`;
+  // Direct link to the admin Request Review page for this request
+  const reviewLink = `${frontendUrl}/requests/${newRequest.id}`;
   const submittedAt = new Date(newRequest.created_at || Date.now()).toLocaleString();
 
   const subject = `New Petty Cash Request Submitted (#${newRequest.id})`;
@@ -48,7 +49,7 @@ function buildAdminNewRequestEmail(newRequest) {
         <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Amount</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${newRequest.amount}</td></tr>
       </table>
       <p style="margin-top:16px;">
-        <a href="${loginLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none;">Review Requests</a>
+        <a href="${reviewLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none;">Review This Request</a>
       </p>
       <p style="color:#666; font-size:12px;">If you are already logged in, you will be redirected to the All Requests page.</p>
     </div>
