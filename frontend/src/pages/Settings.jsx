@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -11,6 +11,10 @@ import {
   FormControlLabel,
   Grid,
   InputLabel,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
   MenuItem,
   Select,
   Stack,
@@ -21,6 +25,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { useColorMode } from '../theme/ColorMode.jsx';
 
 const Section = ({ title, subtitle, children }) => (
   <Card variant="outlined" sx={{ mb: 3 }}>
@@ -41,21 +46,21 @@ const Section = ({ title, subtitle, children }) => (
 );
 
 const Row = ({ label, control, right }) => (
-  <Grid container alignItems="center" spacing={2}>
+  <Grid container alignItems="center" spacing={2} sx={{ minHeight: 56 }}>
     <Grid item xs={12} md={4}>
       <Typography fontWeight={500}>{label}</Typography>
     </Grid>
-    <Grid item xs={12} md={8}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} spacing={2}>
-        <Box sx={{ flexGrow: 1 }}>{control}</Box>
-        {right}
-      </Stack>
+    <Grid item xs={12} md={8} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
+      {control}
+      {right}
     </Grid>
   </Grid>
 );
 
 const Settings = () => {
-  const [theme, setTheme] = useState('light');
+  const { mode, setMode } = useColorMode();
+  const [theme, setTheme] = useState(mode || 'light');
+  useEffect(() => { setTheme(mode); }, [mode]);
   const [showSensitive, setShowSensitive] = useState(false);
   const [emailNotif, setEmailNotif] = useState(true);
   const [requestUpdates, setRequestUpdates] = useState(true);
@@ -107,156 +112,165 @@ const Settings = () => {
 
       {/* Appearance */}
       <Section title="Appearance" subtitle="Customize how the application looks and feels.">
-        <Row
-          label="Theme"
-          control={
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Chip label={theme === 'light' ? 'Light' : 'Dark'} size="small" />
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel id="theme-label">Theme</InputLabel>
-                <Select
-                  labelId="theme-label"
-                  label="Theme"
-                  value={theme}
-                  onChange={(e) => setTheme(e.target.value)}
-                >
-                  <MenuItem value="light">Light</MenuItem>
-                  <MenuItem value="dark">Dark</MenuItem>
-                  <MenuItem value="system">System</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-          }
-        />
-        <Divider />
-        <Row
-          label="Show Sensitive Data"
-          control={
-            <FormControlLabel
-              control={<Switch checked={showSensitive} onChange={(e) => setShowSensitive(e.target.checked)} />}
-              label={showSensitive ? 'Shown' : 'Hidden'}
-            />
-          }
-        />
+        <List dense disablePadding>
+          <ListItem divider sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Chip label={(mode === 'light' ? 'Light' : 'Dark')} size="small" />
+                <FormControl size="small" sx={{ width: 260 }}>
+                  <InputLabel id="theme-label">Theme</InputLabel>
+                  <Select
+                    labelId="theme-label"
+                    label="Theme"
+                    value={theme}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTheme(val);
+                      if (val === 'system') {
+                        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        setMode(prefersDark ? 'dark' : 'light');
+                      } else {
+                        setMode(val);
+                      }
+                    }}
+                  >
+                    <MenuItem value="light">Light</MenuItem>
+                    <MenuItem value="dark">Dark</MenuItem>
+                    <MenuItem value="system">System</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="Theme" />
+          </ListItem>
+
+          <ListItem sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <Switch edge="end" checked={showSensitive} onChange={(e)=>setShowSensitive(e.target.checked)} />
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="Show Sensitive Data" secondary={showSensitive ? 'Shown' : 'Hidden'} />
+          </ListItem>
+        </List>
       </Section>
 
       {/* Notifications */}
       <Section title="Notifications" subtitle="Configure how you receive notifications.">
-        <Row
-          label="Email Notifications"
-          control={
-            <FormControlLabel
-              control={<Switch checked={emailNotif} onChange={(e) => setEmailNotif(e.target.checked)} />}
-              label={emailNotif ? 'On' : 'Off'}
-            />
-          }
-        />
-        <Divider />
-        <Row
-          label="Request Updates"
-          control={
-            <FormControlLabel
-              control={<Switch checked={requestUpdates} onChange={(e) => setRequestUpdates(e.target.checked)} />}
-              label={requestUpdates ? 'On' : 'Off'}
-            />
-          }
-        />
-        <Divider />
-        <Row
-          label="Weekly Digest"
-          control={
-            <FormControlLabel
-              control={<Switch checked={weeklyDigest} onChange={(e) => setWeeklyDigest(e.target.checked)} />}
-              label={weeklyDigest ? 'On' : 'Off'}
-            />
-          }
-        />
-        <Divider />
-        <Row
-          label="System Alerts"
-          control={
-            <FormControlLabel
-              control={<Switch checked={systemAlerts} onChange={(e) => setSystemAlerts(e.target.checked)} />}
-              label={systemAlerts ? 'On' : 'Off'}
-            />
-          }
-        />
+        <List dense disablePadding>
+          <ListItem divider sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <Switch edge="end" checked={emailNotif} onChange={(e)=>setEmailNotif(e.target.checked)} />
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="Email Notifications" secondary={emailNotif ? 'On' : 'Off'} />
+          </ListItem>
+
+          <ListItem divider sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <Switch edge="end" checked={requestUpdates} onChange={(e)=>setRequestUpdates(e.target.checked)} />
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="Request Updates" secondary={requestUpdates ? 'On' : 'Off'} />
+          </ListItem>
+
+          <ListItem divider sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <Switch edge="end" checked={weeklyDigest} onChange={(e)=>setWeeklyDigest(e.target.checked)} />
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="Weekly Digest" secondary={weeklyDigest ? 'On' : 'Off'} />
+          </ListItem>
+
+          <ListItem sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <Switch edge="end" checked={systemAlerts} onChange={(e)=>setSystemAlerts(e.target.checked)} />
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="System Alerts" secondary={systemAlerts ? 'On' : 'Off'} />
+          </ListItem>
+        </List>
       </Section>
 
       {/* Regional Settings */}
       <Section title="Regional Settings" subtitle="Configure your regional preferences.">
-        <Row
-          label="Default Currency"
-          control={
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel id="currency-label">Currency</InputLabel>
-              <Select
-                labelId="currency-label"
-                label="Currency"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-              >
-                <MenuItem value="USD">USD ($)</MenuItem>
-                <MenuItem value="EUR">EUR (€)</MenuItem>
-                <MenuItem value="INR">INR (₹)</MenuItem>
-                <MenuItem value="GBP">GBP (£)</MenuItem>
-              </Select>
-            </FormControl>
-          }
-        />
-        <Divider />
-        <Row
-          label="Language"
-          control={
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel id="language-label">Language</InputLabel>
-              <Select
-                labelId="language-label"
-                label="Language"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-              >
-                <MenuItem value="en">English</MenuItem>
-                <MenuItem value="es">Spanish</MenuItem>
-                <MenuItem value="fr">French</MenuItem>
-                <MenuItem value="de">German</MenuItem>
-              </Select>
-            </FormControl>
-          }
-        />
-        <Divider />
-        <Row
-          label="Timezone"
-          control={
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel id="tz-label">Timezone</InputLabel>
-              <Select
-                labelId="tz-label"
-                label="Timezone"
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-              >
-                <MenuItem value="UTC">UTC</MenuItem>
-                <MenuItem value="IST">IST (UTC+5:30)</MenuItem>
-                <MenuItem value="PST">PST (UTC-8)</MenuItem>
-                <MenuItem value="CET">CET (UTC+1)</MenuItem>
-              </Select>
-            </FormControl>
-          }
-        />
+        <List dense disablePadding>
+          <ListItem divider sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <FormControl size="small" sx={{ width: 260 }}>
+                <InputLabel id="currency-label">Currency</InputLabel>
+                <Select
+                  labelId="currency-label"
+                  label="Currency"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                >
+                  <MenuItem value="USD">USD ($)</MenuItem>
+                  <MenuItem value="EUR">EUR (€)</MenuItem>
+                  <MenuItem value="INR">INR (₹)</MenuItem>
+                  <MenuItem value="GBP">GBP (£)</MenuItem>
+                </Select>
+              </FormControl>
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="Default Currency" />
+          </ListItem>
+
+          <ListItem divider sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <FormControl size="small" sx={{ width: 260 }}>
+                <InputLabel id="language-label">Language</InputLabel>
+                <Select
+                  labelId="language-label"
+                  label="Language"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                >
+                  <MenuItem value="en">English</MenuItem>
+                  <MenuItem value="es">Spanish</MenuItem>
+                  <MenuItem value="fr">French</MenuItem>
+                  <MenuItem value="de">German</MenuItem>
+                </Select>
+              </FormControl>
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="Language" />
+          </ListItem>
+
+          <ListItem sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <FormControl size="small" sx={{ width: 260 }}>
+                <InputLabel id="tz-label">Timezone</InputLabel>
+                <Select
+                  labelId="tz-label"
+                  label="Timezone"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                >
+                  <MenuItem value="UTC">UTC</MenuItem>
+                  <MenuItem value="IST">IST (UTC+5:30)</MenuItem>
+                  <MenuItem value="PST">PST (UTC-8)</MenuItem>
+                  <MenuItem value="CET">CET (UTC+1)</MenuItem>
+                </Select>
+              </FormControl>
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="Timezone" />
+          </ListItem>
+        </List>
       </Section>
 
       {/* Security */}
       <Section title="Security" subtitle="Manage your security and privacy settings.">
-        <Row
-          label="Auto Logout"
-          control={
-            <FormControlLabel
-              control={<Switch checked={autoLogout} onChange={(e) => setAutoLogout(e.target.checked)} />}
-              label={autoLogout ? 'Enabled (30m)' : 'Disabled'}
-            />
-          }
-        />
+        <List dense disablePadding>
+          <ListItem sx={{ minHeight: 56 }} secondaryAction={
+            <ListItemSecondaryAction>
+              <Switch edge="end" checked={autoLogout} onChange={(e)=>setAutoLogout(e.target.checked)} />
+            </ListItemSecondaryAction>
+          }>
+            <ListItemText primary="Auto Logout" secondary={autoLogout ? 'Enabled (30m)' : 'Disabled'} />
+          </ListItem>
+        </List>
         <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
           <Stack spacing={0.5}>
             <Typography fontWeight={500}>Security Status</Typography>

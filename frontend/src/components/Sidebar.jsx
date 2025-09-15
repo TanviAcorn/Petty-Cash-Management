@@ -201,9 +201,14 @@ export default function Sidebar() {
           </ListItem>
         ))}
       </List>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography fontSize="0.8rem" color="text.secondary" noWrap sx={{ lineHeight: 1.8 }}>
+          © Acorn Universal Consultancy LLP, {new Date().getFullYear()}.
+        </Typography>
+      </Box>
 
       <Divider />
-
+        
       {/* Footer with User */}
       <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
         <Avatar sx={{ bgcolor: "primary.main" }}>
@@ -212,7 +217,7 @@ export default function Sidebar() {
         <Box sx={{ minWidth: 0 }}>
           <Typography fontSize="0.9rem" noWrap title={user?.firstName ? `${user.firstName} ${user?.lastName || ''}`.trim() : (user?.name || 'User')}>
             {user?.firstName ? `${user.firstName} ${user?.lastName || ''}`.trim() : (user?.name || 'User')}
-          </Typography>
+          </Typography> 
           <Typography fontSize="0.75rem" color="text.secondary" noWrap title={user?.email || ''}>
             {user?.email || ''}
           </Typography>

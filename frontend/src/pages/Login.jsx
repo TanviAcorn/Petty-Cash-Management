@@ -101,6 +101,11 @@ export default function Login() {
           </form>
         </div>
       </div>
+
+      {/* Company footer */}
+      <div className="w-full max-w-md px-6 pb-10 -mt-2 text-center">
+        <p className="text-sm text-slate-500 dark:text-slate-400">© Acorn Universal Consultancy LLP, {new Date().getFullYear()}.</p>
+      </div>
     </div>
   );
 }

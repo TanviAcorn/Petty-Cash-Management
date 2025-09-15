@@ -343,7 +343,15 @@ export default function RequestReview() {
                 <Grid item xs={12}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Description</Typography>
-                    <Typography sx={{ mt: 0.5, p: 1.5, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200' }}>
+                    <Typography sx={(theme)=>({
+                      mt: 0.5,
+                      p: 1.5,
+                      borderRadius: 1,
+                      border: '1px solid',
+                      // Use theme tokens so it looks good in both light and dark
+                      bgcolor: theme.palette.mode === 'dark' ? theme.palette.background.paper : 'grey.50',
+                      borderColor: theme.palette.divider,
+                    })}>
                       {req.description || '-'}
                     </Typography>
                   </Box>

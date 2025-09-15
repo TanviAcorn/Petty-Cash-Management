@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   Chip,
+  useTheme,
 } from '@mui/material';
 import PlaylistAddCheckCircleIcon from '@mui/icons-material/PlaylistAddCheckCircle';
 import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
@@ -104,6 +105,7 @@ const Dashboard = () => {
 
   // Simple SVG line chart data
   const LineChart = ({ data, width=520, height=260, stroke='#1976d2' }) => {
+    const theme = useTheme();
     const max = Math.max(...data, 1);
     const pad = 30; // padding for axes
     const w = width - pad*2;
@@ -113,16 +115,19 @@ const Dashboard = () => {
       const y = pad + (h - (v/max)*h);
       return `${x},${y}`;
     }).join(' ');
+    const bg = theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fff';
+    const axis = theme.palette.divider;
+    const grid = theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)';
     return (
       <svg width={width} height={height} role="img" aria-label="Monthly Trends">
-        <rect x={0} y={0} width={width} height={height} fill="#fff" stroke="#eee" />
+        <rect x={0} y={0} width={width} height={height} fill={bg} stroke={axis} />
         {/* axes */}
-        <line x1={pad} y1={pad} x2={pad} y2={height-pad} stroke="#ccc" />
-        <line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} stroke="#ccc" />
+        <line x1={pad} y1={pad} x2={pad} y2={height-pad} stroke={axis} />
+        <line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} stroke={axis} />
         {/* grid */}
         {[0,0.25,0.5,0.75,1].map((t,idx)=>{
           const y = pad + (h*(1-t));
-          return <line key={idx} x1={pad} y1={y} x2={width-pad} y2={y} stroke="#f0f0f0" />
+          return <line key={idx} x1={pad} y1={y} x2={width-pad} y2={y} stroke={grid} />
         })}
         {/* polyline */}
         <polyline fill="none" stroke={stroke} strokeWidth={2} points={points} />
@@ -137,6 +142,7 @@ const Dashboard = () => {
   };
 
   const PieChart = ({ series, width=360, height=260 }) => {
+    const theme = useTheme();
     const cx = width/2, cy = height/2, r = Math.min(width,height)/3;
     let startAngle = -Math.PI/2;
     const colors = ['#1976d2','#2e7d32','#ed6c02','#9c27b0','#607d8b','#ef5350'];
@@ -153,9 +159,11 @@ const Dashboard = () => {
       startAngle = endAngle;
       return path;
     });
+    const bg = theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fff';
+    const axis = theme.palette.divider;
     return (
       <svg width={width} height={height} role="img" aria-label="Category Breakdown">
-        <rect x={0} y={0} width={width} height={height} fill="#fff" stroke="#eee" />
+        <rect x={0} y={0} width={width} height={height} fill={bg} stroke={axis} />
         {arcs}
       </svg>
     );

@@ -51,7 +51,7 @@ function buildAdminNewRequestEmail(newRequest) {
       <p style="margin-top:16px;">
         <a href="${reviewLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none;">Review This Request</a>
       </p>
-      <p style="color:#666; font-size:12px;">If you are already logged in, you will be redirected to the All Requests page.</p>
+      <p style="color:#666; font-size:12px;">If you are already logged in, you will be redirected to the Requests Review page.</p>
     </div>
   `;
   return { subject, html };
