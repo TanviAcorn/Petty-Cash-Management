@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  TextField, 
-  Button, 
+import {
+  Box,
+  Typography,
+  Paper,
+  TextField,
+  Button,
   Grid,
   MenuItem,
   InputAdornment,
@@ -20,12 +20,18 @@ import {
   ListItemIcon,
   IconButton,
   CircularProgress,
-  ListItemSecondaryAction
+  ListItemSecondaryAction,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableRow,
+  Divider
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
-import { 
-  AttachMoney, 
+import {
+  AttachMoney,
   Info,
   AttachFile,
   CloudUpload,
@@ -63,9 +69,10 @@ const NewRequest = () => {
     location: '',
     description: '',
     amount: '',
-    currency: 'USD'
+    currency: 'USD',
+    attachments: ''
   });
-  
+
   const [errors, setErrors] = useState({});
   const [attachments, setAttachments] = useState([]);
   const [dragActive, setDragActive] = useState(false);
@@ -105,7 +112,7 @@ const NewRequest = () => {
       ...prev,
       [name]: value
     }));
-    
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -128,7 +135,7 @@ const NewRequest = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFiles(e.dataTransfer.files);
     }
@@ -145,7 +152,7 @@ const NewRequest = () => {
       const validTypes = [
         'application/pdf',
         'image/jpeg',
-        'image/jpg', 
+        'image/jpg',
         'image/png',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -170,6 +177,9 @@ const NewRequest = () => {
     if (!formData.amount || isNaN(formData.amount) || parseFloat(formData.amount) <= 0) {
       newErrors.amount = 'Please enter a valid amount';
     }
+    if (attachments.length === 0) {
+      newErrors.attachments = 'At least one attachment is required';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -179,13 +189,13 @@ const NewRequest = () => {
     if (validateForm()) {
       try {
         setSubmitting(true);
-        const user = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } })();
-        
+        const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+
         const formDataToSend = new FormData();
-        const employeeName = user.name || 
-                               (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) ||
-                               user.email?.split('@')[0] || 'User';
-                               
+        const employeeName = user.name ||
+          (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) ||
+          user.email?.split('@')[0] || 'User';
+
         formDataToSend.append('employeeName', employeeName);
         formDataToSend.append('employeeEmail', user.email || '');
         formDataToSend.append('company', formData.company);
@@ -194,17 +204,17 @@ const NewRequest = () => {
         formDataToSend.append('amount', formData.amount);
         formDataToSend.append('dateOfPurchase', formData.dateOfPurchase);
         formDataToSend.append('description', formData.description);
-        
+
         attachments.forEach((file) => {
           formDataToSend.append('attachments', file);
         });
-        
+
         await axiosClient.post('/requests', formDataToSend, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
-        
+
         alert('Request submitted successfully!');
         navigate('/my-requests');
       } catch (err) {
@@ -217,17 +227,63 @@ const NewRequest = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', width: '100%' }}>
-      <Box>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      minHeight: '100vh', 
+      p: 3, 
+      m: 0, 
+      maxWidth: '100%', 
+      overflowX: 'hidden',
+      backgroundColor: 'background.default'
+    }}>
+      <Box sx={{ 
+        mb: 3,
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+        backgroundColor: 'background.paper',
+        p: 2,
+        borderRadius: 2,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+      }}>
         <Typography variant="h5" fontWeight={800}>New Petty Cash Request</Typography>
         <Typography variant="body2" color="text.secondary">Submit a new reimbursement request for your business expenses</Typography>
       </Box>
-      <form onSubmit={handleSubmit}>
-        <Grid container spacing={2.5} alignItems="flex-start">
+      <form onSubmit={handleSubmit} style={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        width: '100%',
+        minHeight: 0,
+        overflow: 'hidden'
+      }}>
+        <Grid container spacing={3} sx={{ 
+          m: 0, 
+          width: '100%',
+          flex: 1,
+          minHeight: 0,
+          overflow: 'hidden',
+          alignContent: 'flex-start'
+        }}>
           {/* Left column: form sections */}
-          <Grid item xs={12} md={8}>
-            <Card variant="outlined" sx={{ borderRadius: 3, mb: 2, borderColor: 'divider', background: (t)=> t.palette.mode==='light' ? 'linear-gradient(180deg, rgba(2,6,23,0.02) 0%, rgba(2,6,23,0) 100%)' : 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)', boxShadow: (t)=>`0 6px 16px ${t.palette.mode==='light'?'rgba(2,6,23,0.05)':'rgba(0,0,0,0.35)'}` }}>
-              <CardContent>
+          <Grid item xs={12} lg={8} sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            height: '100%',
+            overflow: 'hidden',
+            '& > *': {
+              flexShrink: 0
+            },
+            '& > :last-child': {
+              mb: 2,
+              flex: 1,
+              minHeight: '200px',
+              overflow: 'auto'
+            }
+          }}>
+            <Card variant="outlined" sx={{ flex: 1, mb: 2, borderRadius: 2, borderColor: 'divider', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Info sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />
                   <Typography variant="subtitle1" fontWeight={700}>
@@ -238,7 +294,8 @@ const NewRequest = () => {
                   Provide the basic details of your expense
                 </Typography>
                 <Grid container spacing={3}>
-                  <Grid item xs={12} md={4}>
+                  {/* First row: Date, Category, Company, Location */}
+                  <Grid item xs={12} md={3}>
                     <TextField
                       fullWidth
                       label="Date of Purchase *"
@@ -250,10 +307,11 @@ const NewRequest = () => {
                       helperText={errors.dateOfPurchase}
                       InputLabelProps={{ shrink: true }}
                       size="small"
+                      sx={{ mb: 2 }}
                     />
                   </Grid>
-                  <Grid item xs={12} md={4}>
-                    <FormControl fullWidth error={!!errors.category} size="small">
+                  <Grid item xs={12} md={3}>
+                    <FormControl fullWidth error={!!errors.category} size="small" sx={{ mb: 2 }}>
                       <InputLabel id="category-label">Category *</InputLabel>
                       <Select
                         labelId="category-label"
@@ -263,7 +321,21 @@ const NewRequest = () => {
                         label="Category *"
                         sx={{
                           '& .MuiSelect-select': {
-                            paddingRight: '120px !important'
+                            minWidth: '200px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            paddingRight: '32px !important'
+                          },
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'divider'
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main'
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderWidth: '1px',
+                            borderColor: 'primary.main'
                           }
                         }}
                         disabled={loading}
@@ -297,7 +369,21 @@ const NewRequest = () => {
                         label="Company *"
                         sx={{
                           '& .MuiSelect-select': {
-                            paddingRight: '120px !important'
+                            minWidth: '200px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            paddingRight: '32px !important'
+                          },
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'divider'
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main'
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderWidth: '1px',
+                            borderColor: 'primary.main'
                           }
                         }}
                         renderValue={(value) => value || 'Select company'}
@@ -309,14 +395,18 @@ const NewRequest = () => {
                         {loading ? (
                           <MenuItem disabled><CircularProgress size={20} sx={{ mr: 1 }} /> Loading...</MenuItem>
                         ) : (
-                          companies.map((company) => (<MenuItem key={company.id} value={company.name}>{company.name}</MenuItem>))
+                          companies.map((company) => (
+                            <MenuItem key={company.id} value={company.name}>
+                              {company.name}
+                            </MenuItem>
+                          ))
                         )}
                       </Select>
                       <FormHelperText>{errors.company || dataError}</FormHelperText>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={4}>
-                    <FormControl fullWidth size="small">
+                  <Grid item xs={12} md={3}>
+                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                       <InputLabel id="location-label">Location *</InputLabel>
                       <Select
                         labelId="location-label"
@@ -326,7 +416,21 @@ const NewRequest = () => {
                         label="Location"
                         sx={{
                           '& .MuiSelect-select': {
-                            paddingRight: '120px !important'
+                            minWidth: '200px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            paddingRight: '32px !important'
+                          },
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'divider'
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'primary.main'
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderWidth: '1px',
+                            borderColor: 'primary.main'
                           }
                         }}
                         renderValue={(value) => value || 'Select location'}
@@ -340,26 +444,39 @@ const NewRequest = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={8}>
+                  
+                  {/* Description field - full width */}
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
                       label="Description *"
                       name="description"
                       multiline
-                      rows={3}
+                      rows={4}
                       value={formData.description}
                       onChange={handleChange}
                       error={!!errors.description}
-                      helperText={errors.description}
-                      placeholder="Provide a detailed description of the expense..."
+                      helperText={errors.description || "Provide a detailed description of the expense"}
+                      placeholder="Enter expense description..."
                       size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          alignItems: 'flex-start',
+                        },
+                        '& .MuiInputBase-multiline': {
+                          '& textarea': {
+                            minHeight: '100px',
+                            resize: 'vertical'
+                          }
+                        }
+                      }}
                     />
                   </Grid>
                 </Grid>
               </CardContent>
             </Card>
-            <Card variant="outlined" sx={{ borderRadius: 3, mb: 2, borderColor: 'divider', background: (t)=> t.palette.mode==='light' ? 'linear-gradient(180deg, rgba(2,6,23,0.02) 0%, rgba(2,6,23,0) 100%)' : 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)', boxShadow: (t)=>`0 6px 16px ${t.palette.mode==='light'?'rgba(2,6,23,0.05)':'rgba(0,0,0,0.35)'}` }}>
-              <CardContent>
+            <Card variant="outlined" sx={{ borderRadius: 3, mb: 2, borderColor: 'divider', background: (t) => t.palette.mode === 'light' ? 'linear-gradient(180deg, rgba(2,6,23,0.02) 0%, rgba(2,6,23,0) 100%)' : 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)', boxShadow: (t) => `0 6px 16px ${t.palette.mode === 'light' ? 'rgba(2,6,23,0.05)' : 'rgba(0,0,0,0.35)'}` }}>
+              <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <AttachMoney sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />
                   <Typography variant="subtitle1" fontWeight={700}>
@@ -408,24 +525,29 @@ const NewRequest = () => {
                 </Grid>
               </CardContent>
             </Card>
-            <Card variant="outlined" sx={{ borderRadius: 3, mb: 2, borderColor: 'divider' }}>
-              <CardContent>
+            <Card variant="outlined" sx={{ flex: 1, mb: 2, borderRadius: 2, borderColor: 'divider', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <AttachFile sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />
                   <Typography variant="subtitle1" fontWeight={700}>
                     Attachments
                   </Typography>
                 </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Upload receipts and supporting documents (PDF, JPG, PNG, DOC, DOCX, ZIP - max 10MB each)
+                <Typography variant="body2" color={errors.attachments ? 'error' : 'text.secondary'} sx={{ mb: 1 }}>
+                  Upload receipts and supporting documents (PDF, JPG, PNG, DOC, DOCX, ZIP - max 10MB each) *
                 </Typography>
+                {errors.attachments && (
+                  <Typography variant="caption" color="error" sx={{ mb: 2 }}>
+                    {errors.attachments}
+                  </Typography>
+                )}
                 <Box
                   onDragEnter={handleDrag}
                   onDragLeave={handleDrag}
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
                   sx={{
-                    border: `2px dashed ${dragActive ? '#90caf9' : '#e0e0e0'}`,
+                    border: `2px dashed ${errors.attachments ? 'error.main' : dragActive ? 'primary.main' : 'divider'}`,
                     borderRadius: 3,
                     p: 4,
                     textAlign: 'center',
@@ -434,7 +556,7 @@ const NewRequest = () => {
                     transition: 'all 0.3s ease',
                     '&:hover': {
                       bgcolor: 'action.hover',
-                      borderColor: 'primary.light',
+                      borderColor: errors.attachments ? 'error.main' : 'primary.light',
                     }
                   }}
                   onClick={() => document.getElementById('file-input').click()}
@@ -490,44 +612,261 @@ const NewRequest = () => {
           </Grid>
 
           {/* Right column: summary and actions */}
-          <Grid item xs={12} md={4}>
-            <Card variant="outlined" sx={{ borderRadius: 3, position: { md: 'sticky' }, top: { md: 16 }, borderColor: 'divider' }}>
-              <CardContent>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Request Summary</Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary">Date of Purchase</Typography>
-                    <Typography variant="body1" fontWeight="600">{formData.dateOfPurchase || 'Not specified'}</Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary">Category</Typography>
-                    <Typography variant="body1" fontWeight="600">{formData.category || 'Not specified'}</Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary">Company</Typography>
-                    <Typography variant="body1" fontWeight="600">{formData.company || 'Not specified'}</Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary">Location</Typography>
-                    <Typography variant="body1" fontWeight="600">{formData.location || 'Not specified'}</Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary">Amount</Typography>
-                    <Typography variant="body1" fontWeight="600">{formData.amount ? `${currencies.find(c => c.code === formData.currency)?.symbol || '$'}${formData.amount}` : 'Not specified'}</Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary">Description</Typography>
-                    <Typography variant="body1" fontWeight="600">{formData.description || 'Not specified'}</Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary">Attachments</Typography>
-                    <Typography variant="body1" fontWeight="600">{attachments.length} file(s) uploaded</Typography>
-                  </Grid>
-                </Grid>
-                <Box sx={{ display: 'flex', gap: 1.5, mt: 3 }}>
-                  <Button variant="outlined" fullWidth onClick={() => navigate('/my-requests')} size="large" sx={{ borderRadius: 2 }}>Cancel</Button>
-                  <Button type="submit" variant="contained" disabled={submitting} size="large" fullWidth sx={{ borderRadius: 2 }}>
-                    {submitting ? 'Submitting...' : 'Submit Request'}
+          <Grid item xs={12} lg={4} sx={{
+            position: 'sticky',
+            top: 0,
+            alignSelf: 'flex-start',
+            height: 'fit-content',
+            maxHeight: 'calc(100vh - 100px)',
+            overflowY: 'auto',
+            '&::-webkit-scrollbar': {
+              width: '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: 'rgba(0,0,0,0.1)',
+              borderRadius: '3px',
+              '&:hover': {
+                backgroundColor: 'rgba(0,0,0,0.2)'
+              }
+            }
+          }}>
+            <Card variant="outlined" sx={{ 
+              borderRadius: 2, 
+              width: '100%',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+              '&:hover': {
+                boxShadow: '0 6px 24px rgba(0,0,0,0.08)'
+              },
+              transition: 'box-shadow 0.3s ease-in-out'
+            }}>
+              <CardContent sx={{ 
+                p: 3,
+                '& > *:not(:last-child)': {
+                  mb: 2
+                }
+              }}>
+                {/* Request Summary Section */}
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Info sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Request Summary
+                  </Typography>
+                </Box>
+                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, mb: 3, width: '100%' }}>
+                  <Table size="small" sx={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '40%' }} />
+                      <col style={{ width: '60%' }} />
+                    </colgroup>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell variant="head" sx={{ 
+                          fontWeight: 500, 
+                          borderRight: '1px solid', 
+                          borderColor: 'divider', 
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          fontSize: '0.8125rem',
+                          py: 1.25
+                        }}>
+                          Date of Purchase
+                        </TableCell>
+                        <TableCell align="left" sx={{ py: 1.25, color: 'text.primary' }}>
+                          {formData.dateOfPurchase || 'Not specified'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell variant="head" sx={{ 
+                          fontWeight: 500, 
+                          borderRight: '1px solid', 
+                          borderColor: 'divider',
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          fontSize: '0.8125rem',
+                          py: 1.25
+                        }}>
+                          Category
+                        </TableCell>
+                        <TableCell align="left" sx={{ py: 1.25, color: 'text.primary' }}>
+                          {formData.category || 'Not specified'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell variant="head" sx={{ 
+                          fontWeight: 500, 
+                          borderRight: '1px solid', 
+                          borderColor: 'divider',
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          fontSize: '0.8125rem',
+                          py: 1.25
+                        }}>
+                          Company
+                        </TableCell>
+                        <TableCell align="left" sx={{ py: 1.25, color: 'text.primary' }}>
+                          {formData.company || 'Not specified'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell variant="head" sx={{ 
+                          fontWeight: 500, 
+                          borderRight: '1px solid', 
+                          borderColor: 'divider',
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          fontSize: '0.8125rem',
+                          py: 1.25
+                        }}>
+                          Location
+                        </TableCell>
+                        <TableCell align="left" sx={{ py: 1.25, color: 'text.primary' }}>
+                          {formData.location || 'Not specified'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell variant="head" sx={{ 
+                          fontWeight: 500, 
+                          borderRight: '1px solid', 
+                          borderColor: 'divider',
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          fontSize: '0.8125rem',
+                          py: 1.25
+                        }}>
+                          Description
+                        </TableCell>
+                        <TableCell align="left" sx={{ py: 1.25 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              color: 'text.primary'
+                            }}>
+                            {formData.description || 'No description'}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell variant="head" sx={{ 
+                          fontWeight: 500, 
+                          borderRight: '1px solid', 
+                          borderColor: 'divider',
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          fontSize: '0.8125rem',
+                          py: 1.25
+                        }}>
+                          Amount
+                        </TableCell>
+                        <TableCell align="left" sx={{ py: 1.25 }}>
+                          <Typography variant="body2" color="primary.main" fontWeight="bold">
+                            {formData.amount
+                              ? `${currencies.find(c => c.code === formData.currency)?.symbol || '$'}${parseFloat(formData.amount).toFixed(2)}`
+                              : 'Not specified'}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell variant="head" sx={{ 
+                          fontWeight: 500, 
+                          borderRight: '1px solid', 
+                          borderColor: 'divider',
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          fontSize: '0.8125rem',
+                          py: 1.25
+                        }}>
+                          currency
+                        </TableCell>
+                        <TableCell align="left" sx={{ py: 1.25 }}>
+                          <Typography variant="body2" color="primary.main" fontWeight="bold">
+                            {formData.currency || 'Not specified'}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell variant="head" sx={{ 
+                          fontWeight: 500, 
+                          borderRight: '1px solid', 
+                          borderColor: 'divider',
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          fontSize: '0.8125rem',
+                          py: 1.25
+                        }}>
+                          view attachments
+                        </TableCell>
+                        <TableCell align="left" sx={{ py: 1.25 }}>
+                          <Typography variant="body2" color="primary.main" fontWeight="bold">
+                            {attachments.length > 0 ? (
+                              <Box>
+                                {attachments.map((file, index) => (
+                                  <Typography key={index} variant="body2" component="div">
+                                    • {file.name}
+                                  </Typography>
+                                ))}
+                              </Box>
+                            ) : 'No attachments'}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                {/* Buttons Section */}
+                <Box sx={{ display: 'flex', gap: 2, width: '100%', pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Button 
+                    variant="outlined" 
+                    fullWidth 
+                    onClick={() => navigate('/my-requests')} 
+                    size="small" 
+                    sx={{ 
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      py: 1,
+                      '&:hover': {
+                        borderWidth: '1.5px'
+                      }
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    variant="contained" 
+                    disabled={submitting} 
+                    size="small" 
+                    fullWidth 
+                    sx={{ 
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      py: 1,
+                      boxShadow: 'none',
+                      '&:hover': {
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                      },
+                      '&.Mui-disabled': {
+                        backgroundColor: 'action.disabledBackground',
+                        color: 'action.disabled'
+                      }
+                    }}
+                  >
+                    {submitting ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        <CircularProgress size={16} color="inherit" />
+                        Submitting...
+                      </Box>
+                    ) : 'Submit Request'}
                   </Button>
                 </Box>
               </CardContent>
