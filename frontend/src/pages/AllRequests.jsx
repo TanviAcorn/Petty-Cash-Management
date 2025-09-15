@@ -24,7 +24,11 @@ import {
   IconButton,
   CircularProgress,
   Button,
+  Stack,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import SearchIcon from '@mui/icons-material/Search';
 import PlaylistAddCheckCircleIcon from '@mui/icons-material/PlaylistAddCheckCircle';
 import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
@@ -67,6 +71,10 @@ const AllRequests = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState([]);
+  const [dateRange, setDateRange] = useState({
+    startDate: null,
+    endDate: null
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -96,34 +104,81 @@ const AllRequests = () => {
   }, [rows]);
 
   const handleExportCSV = () => {
+    // Filter rows by date range for export
+    let exportRows = [...filteredRows];
+    
+    if (dateRange.startDate || dateRange.endDate) {
+      exportRows = exportRows.filter(row => {
+        const rowDate = new Date(row.date);
+        const startDate = dateRange.startDate ? new Date(dateRange.startDate) : null;
+        const endDate = dateRange.endDate ? new Date(dateRange.endDate) : null;
+        
+        if (startDate && endDate) {
+          return rowDate >= startDate && rowDate <= endDate;
+        } else if (startDate) {
+          return rowDate >= startDate;
+        } else if (endDate) {
+          return rowDate <= endDate;
+        }
+        return true;
+      });
+    }
+
     const header = ['Employee name', 'Date', 'Category', 'Company', 'Location', 'Amount', 'Status'];
     const csv = [header.join(',')] 
       .concat(
-        filteredRows.map(r => [
-          (r.employeeName ?? '').replaceAll(',', ' '),
-          r.date ?? '',
-          (r.category ?? '').replaceAll(',', ' '),
-          (r.company ?? '').replaceAll(',', ' '),
-          (r.location ?? '').replaceAll(',', ' '),
+        exportRows.map(r => [
+          `"${(r.employeeName ?? '').replace(/"/g, '""')}"`,
+          `"${r.date || ''}"`,
+          `"${(r.category ?? '').replace(/"/g, '""')}"`,
+          `"${(r.company ?? '').replace(/"/g, '""')}"`,
+          `"${(r.location ?? '').replace(/"/g, '""')}"`,
           r.amount ?? 0,
-          (r.status ?? '').replaceAll('\n', ' ').replaceAll(',', ' '),
+          `"${(r.status ?? '').replace(/"/g, '""')}"`,
         ].join(','))
       )
       .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      
+    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'all_requests.csv';
+    
+    // Generate filename with date range if specified
+    let filename = 'all_requests';
+    if (dateRange.startDate || dateRange.endDate) {
+      const start = dateRange.startDate ? new Date(dateRange.startDate).toISOString().split('T')[0] : '';
+      const end = dateRange.endDate ? new Date(dateRange.endDate).toISOString().split('T')[0] : '';
+      filename = `requests_${start || 'start'}_to_${end || 'end'}`;
+    }
+    
+    link.download = `${filename}.csv`;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleDateChange = (date, type) => {
+    setDateRange(prev => ({
+      ...prev,
+      [type]: date
+    }));
+  };
+
+  const clearDateRange = () => {
+    setDateRange({ startDate: null, endDate: null });
   };
 
   const filteredRows = useMemo(() => {
     let list = rows;
+    
+    // Apply status filter
     if (statusFilter !== 'all') {
       list = list.filter(r => String(r.status).toLowerCase() === statusFilter);
     }
+    
+    // Apply search filter
     if (search) {
       const s = search.toLowerCase();
       list = list.filter(r =>
@@ -133,8 +188,33 @@ const AllRequests = () => {
         String(r.reason || '').toLowerCase().includes(s)
       );
     }
+    
+    // Apply date range filter
+    if (dateRange.startDate || dateRange.endDate) {
+      list = list.filter(row => {
+        if (!row.date) return false;
+        
+        const rowDate = new Date(row.date);
+        const startDate = dateRange.startDate ? new Date(dateRange.startDate) : null;
+        const endDate = dateRange.endDate ? new Date(dateRange.endDate) : null;
+        
+        // Set time to start/end of day for proper date comparison
+        if (startDate) startDate.setHours(0, 0, 0, 0);
+        if (endDate) endDate.setHours(23, 59, 59, 999);
+        
+        if (startDate && endDate) {
+          return rowDate >= startDate && rowDate <= endDate;
+        } else if (startDate) {
+          return rowDate >= startDate;
+        } else if (endDate) {
+          return rowDate <= endDate;
+        }
+        return true;
+      });
+    }
+    
     return list;
-  }, [rows, statusFilter, search]);
+  }, [rows, statusFilter, search, dateRange]);
 
   const toggleSelectAll = (checked) => {
     if (checked) setSelected(filteredRows.map(r => r.id));
@@ -185,6 +265,48 @@ const AllRequests = () => {
               <MenuItem value="intercompany">Intercompany</MenuItem>
             </Select>
           </FormControl>
+          
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <DatePicker
+                label="From Date"
+                value={dateRange.startDate}
+                onChange={(date) => handleDateChange(date, 'startDate')}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    size="small" 
+                    sx={{ width: 150 }} 
+                    InputLabelProps={{ shrink: true }}
+                  />
+                )}
+              />
+              <Typography>to</Typography>
+              <DatePicker
+                label="To Date"
+                value={dateRange.endDate}
+                onChange={(date) => handleDateChange(date, 'endDate')}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    size="small" 
+                    sx={{ width: 150 }} 
+                    InputLabelProps={{ shrink: true }}
+                  />
+                )}
+                minDate={dateRange.startDate}
+              />
+              {(dateRange.startDate || dateRange.endDate) && (
+                <Button 
+                  size="small" 
+                  onClick={clearDateRange}
+                  sx={{ minWidth: 'auto', padding: '6px 8px' }}
+                >
+                  Clear
+                </Button>
+              )}
+            </Stack>
+          </LocalizationProvider>
         </CardContent>
       </Card>
 

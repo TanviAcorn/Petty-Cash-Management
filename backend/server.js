@@ -4,7 +4,16 @@ const cors = require("cors");
 const path = require("path");
 
 const app = express();
-app.use(cors());
+
+// Enhanced CORS configuration
+const corsOptions = {
+  origin: '*', // Allow all origins for now - you might want to restrict this in production
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // ✅ import once
@@ -24,5 +33,15 @@ app.use("/api/health", healthRoutes);
 // Static file hosting for uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
+});
+
+const PORT = process.env.PORT || 5005;
+const HOST = '0.0.0.0';
+app.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
+    console.log(`Access the API at http://${HOST}:${PORT}/api`);
+});

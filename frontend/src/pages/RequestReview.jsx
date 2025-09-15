@@ -35,7 +35,7 @@ import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import axiosClient from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api');
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5005/api');
 const FILE_BASE = API_BASE.replace(/\/api\/?$/, '');
 
 const fmtMoney = (n, currency = 'USD') =>

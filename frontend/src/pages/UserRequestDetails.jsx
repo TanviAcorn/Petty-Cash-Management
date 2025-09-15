@@ -17,7 +17,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import axiosClient from '../api/axiosClient';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api');
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5005/api');
 const FILE_BASE = API_BASE.replace(/\/api\/?$/, '');
 
 const fmtMoney = (n, currency = 'USD') => new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
