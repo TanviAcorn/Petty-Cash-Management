@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { poolPromise } = require('../config/db');
+const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail } = require('../utils/mailer');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -417,7 +418,22 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       // Optional: Add the uploaded file info to the response
       newRequest.uploadedFiles = attachmentPaths;
     }
-    
+    // Send admin notification email (non-blocking)
+    try {
+      const adminTo = process.env.ADMIN_EMAIL;
+      if (adminTo) {
+        const { subject, html } = buildAdminNewRequestEmail(newRequest);
+        // Use the employee's email as dynamic From/Reply-To when submitting
+        const dynamicFrom = newRequest?.employee_email || employeeEmail;
+        sendEmail({ to: adminTo, subject, html, from: dynamicFrom, replyTo: dynamicFrom })
+          .catch((e) => console.error('Failed sending admin email:', e.message));
+      } else {
+        console.warn('ADMIN_EMAIL is not set; skipping admin notification');
+      }
+    } catch (e) {
+      console.error('Admin email error:', e);
+    }
+
     return res.status(201).json(newRequest);
   } catch (err) {
     console.error('Error creating request:', err);
@@ -450,7 +466,15 @@ router.post('/:id/approve', async (req, res) => {
         WHERE id = @id;
         SELECT * FROM petty_cash_requests WHERE id = @id;
       `);
-    return res.json(result.recordset?.[0] || { id });
+    const row = result.recordset?.[0] || { id };
+    // Notify requester
+    try {
+      if (row && row.employee_email) {
+        const { subject, html } = buildUserStatusEmail(row);
+        sendEmail({ to: row.employee_email, subject, html }).catch((e) => console.error('Failed sending user email:', e.message));
+      }
+    } catch (e) { console.error('User email error:', e); }
+    return res.json(row);
   } catch (err) {
     console.error('Error approving request:', err);
     return res.status(500).json({ message: 'Failed to approve request' });
@@ -471,7 +495,15 @@ router.post('/:id/reject', async (req, res) => {
         WHERE id = @id;
         SELECT * FROM petty_cash_requests WHERE id = @id;
       `);
-    return res.json(result.recordset?.[0] || { id });
+    const row = result.recordset?.[0] || { id };
+    // Notify requester
+    try {
+      if (row && row.employee_email) {
+        const { subject, html } = buildUserStatusEmail(row);
+        sendEmail({ to: row.employee_email, subject, html }).catch((e) => console.error('Failed sending user email:', e.message));
+      }
+    } catch (e) { console.error('User email error:', e); }
+    return res.json(row);
   } catch (err) {
     console.error('Error rejecting request:', err);
     return res.status(500).json({ message: 'Failed to reject request' });
@@ -520,10 +552,19 @@ router.put('/:id/status', async (req, res) => {
     const result = await pool.request()
       .input('id', sql.Int, id)
       .query('SELECT * FROM petty_cash_requests WHERE id = @id');
-    
+    const row = result.recordset[0];
+
+    // Notify requester on status change (non-blocking)
+    try {
+      if (row && row.employee_email) {
+        const { subject, html } = buildUserStatusEmail(row);
+        sendEmail({ to: row.employee_email, subject, html }).catch((e) => console.error('Failed sending user email:', e.message));
+      }
+    } catch (e) { console.error('User email error:', e); }
+
     return res.json({ 
       message: `Request ${status} successfully`,
-      data: result.recordset[0] 
+      data: row 
     });
     
   } catch (err) {

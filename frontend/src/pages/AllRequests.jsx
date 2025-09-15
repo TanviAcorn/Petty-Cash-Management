@@ -23,6 +23,7 @@ import {
   Avatar,
   IconButton,
   CircularProgress,
+  Button,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PlaylistAddCheckCircleIcon from '@mui/icons-material/PlaylistAddCheckCircle';
@@ -94,6 +95,30 @@ const AllRequests = () => {
     return { total, pending, approved, rejected };
   }, [rows]);
 
+  const handleExportCSV = () => {
+    const header = ['Employee name', 'Date', 'Category', 'Company', 'Location', 'Amount', 'Status'];
+    const csv = [header.join(',')] 
+      .concat(
+        filteredRows.map(r => [
+          (r.employeeName ?? '').replaceAll(',', ' '),
+          r.date ?? '',
+          (r.category ?? '').replaceAll(',', ' '),
+          (r.company ?? '').replaceAll(',', ' '),
+          (r.location ?? '').replaceAll(',', ' '),
+          r.amount ?? 0,
+          (r.status ?? '').replaceAll('\n', ' ').replaceAll(',', ' '),
+        ].join(','))
+      )
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'all_requests.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const filteredRows = useMemo(() => {
     let list = rows;
     if (statusFilter !== 'all') {
@@ -127,6 +152,9 @@ const AllRequests = () => {
           <Typography variant="h5" fontWeight={700}>All Requests</Typography>
           <Typography variant="body2" color="text.secondary">Review and approve petty cash reimbursement requests</Typography>
         </Box>
+        <Button variant="contained" color="primary" onClick={handleExportCSV}>
+          Export CSV
+        </Button>
       </Box>
 
       {/* Stat Cards */}
