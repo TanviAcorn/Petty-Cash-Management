@@ -12,12 +12,14 @@ const userRoutes = require("./src/routes/users");
 const companyRoutes = require("./src/routes/companies");
 const categoryRoutes = require("./src/routes/categories");
 const requestRoutes = require("./src/routes/requests");
+const healthRoutes = require("./src/routes/health");
 
 // ✅ use it once
 app.use("/api/users", userRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/requests", requestRoutes);
+app.use("/api/health", healthRoutes);
 
 // Static file hosting for uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

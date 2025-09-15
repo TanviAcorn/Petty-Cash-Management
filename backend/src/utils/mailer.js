@@ -81,4 +81,4 @@ function buildUserStatusEmail(requestRow) {
   return { subject, html };
 }
 
-module.exports = { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail };
+module.exports = { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, getTransporter };

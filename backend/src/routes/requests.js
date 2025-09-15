@@ -423,9 +423,10 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       const adminTo = process.env.ADMIN_EMAIL;
       if (adminTo) {
         const { subject, html } = buildAdminNewRequestEmail(newRequest);
-        // Use the employee's email as dynamic From/Reply-To when submitting
-        const dynamicFrom = newRequest?.employee_email || employeeEmail;
-        sendEmail({ to: adminTo, subject, html, from: dynamicFrom, replyTo: dynamicFrom })
+        // Office 365 typically requires From to be the authenticated mailbox.
+        // Use configured sender as From and employee as Reply-To.
+        const replyTo = newRequest?.employee_email || employeeEmail;
+        sendEmail({ to: adminTo, subject, html, replyTo })
           .catch((e) => console.error('Failed sending admin email:', e.message));
       } else {
         console.warn('ADMIN_EMAIL is not set; skipping admin notification');
