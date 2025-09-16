@@ -478,7 +478,7 @@ router.post('/:id/proceed-payment', async (req, res) => {
     // Ensure payments schema is present
     await ensurePaymentsSchema(pool);
 
-    // Insert payment record
+    // Insert payment record and update sent_to_payment flag
     await pool.request()
       .input('requestId', sql.Int, id)
       .input('method', sql.NVarChar(100), String(method))
@@ -488,8 +488,18 @@ router.post('/:id/proceed-payment', async (req, res) => {
       .input('notes', sql.NVarChar(sql.MAX), notes || null)
       .input('adminEmail', sql.NVarChar(320), adminEmail || null)
       .query(`
-        INSERT INTO petty_cash_payments (request_id, method, reference, paid_amount, paid_date, notes, status, created_by_email)
-        VALUES (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'pending', @adminEmail);
+        BEGIN TRANSACTION;
+        
+        -- Insert payment record
+        INSERT INTO petty_cash_payments (request_id, method, reference, paid_amount, paid_date, notes, status, created_by_email, sent_to_payment)
+        VALUES (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'processing', @adminEmail, 1);
+        
+        -- Update the request to mark it as sent to payment
+        UPDATE petty_cash_requests 
+        SET status = 'processing'
+        WHERE id = @requestId;
+        
+        COMMIT TRANSACTION;
       `);
 
     // NOTE: Do NOT change request status; keep as 'approved' so it remains in Approved tab

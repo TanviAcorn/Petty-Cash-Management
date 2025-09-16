@@ -18,21 +18,24 @@ import {
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AttachEmailIcon from '@mui/icons-material/AttachEmail';
-import axiosClient from '../api/axiosClient';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useSnackbar } from 'notistack';
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(value || 0));
 
 export default function Payments() {
   const [loading, setLoading] = useState(true);
+  const [processingPayments, setProcessingPayments] = useState({});
   const [rows, setRows] = useState([]);
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
   const load = async () => {
     try {
       setLoading(true);
-      const { data } = await axiosClient.get('/requests/payments/list');
+      const { data } = await axios.get('/requests/payments/list');
       setRows(Array.isArray(data?.data) ? data.data : []);
     } finally {
       setLoading(false);
@@ -67,6 +70,33 @@ export default function Payments() {
         sx={{ textTransform: 'capitalize' }}
       />
     );
+  };
+
+  const handleProceedToPayment = async (requestId) => {
+    try {
+      setProcessingPayments(prev => ({ ...prev, [requestId]: true }));
+      
+      await axiosClient.post(`/requests/${requestId}/proceed-payment`, {
+        method: 'Bank Transfer', // Default value, can be made dynamic if needed
+        adminEmail: localStorage.getItem('userEmail')
+      });
+      
+      // Update the UI to show the button is disabled
+      setRows(prevRows => 
+        prevRows.map(row => 
+          row.requestId === requestId 
+            ? { ...row, sent_to_payment: 1, status: 'processing' } 
+            : row
+        )
+      );
+      
+      enqueueSnackbar('Payment processed successfully', { variant: 'success' });
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      enqueueSnackbar(error.response?.data?.message || 'Failed to process payment', { variant: 'error' });
+    } finally {
+      setProcessingPayments(prev => ({ ...prev, [requestId]: false }));
+    }
   };
 
   return (
@@ -117,12 +147,32 @@ export default function Payments() {
                       <TableCell>{p.method}</TableCell>
                       <TableCell>{p.reference || '-'}</TableCell>
                       <TableCell>{statusChip(p.status)}</TableCell>
-                      <TableCell align="center">
-                        <Tooltip title="Open request">
-                          <Button size="small" onClick={() => navigate(`/requests/${p.requestId}`)} startIcon={<VisibilityOutlinedIcon/>}>
-                            View
-                          </Button>
-                        </Tooltip>
+                      <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                          <Tooltip title="Open request">
+                            <Button 
+                              size="small" 
+                              onClick={() => navigate(`/requests/${p.requestId}`)} 
+                              startIcon={<VisibilityOutlinedIcon/>}
+                              variant="outlined"
+                            >
+                              View
+                            </Button>
+                          </Tooltip>
+                          {p.status === 'approved' && !p.sent_to_payment && (
+                            <Tooltip title="Proceed to Payment">
+                              <Button 
+                                size="small" 
+                                color="primary" 
+                                variant="contained"
+                                disabled={processingPayments[p.requestId]}
+                                onClick={() => handleProceedToPayment(p.requestId)}
+                              >
+                                {processingPayments[p.requestId] ? 'Processing...' : 'Proceed to Payment'}
+                              </Button>
+                            </Tooltip>
+                          )}
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))
