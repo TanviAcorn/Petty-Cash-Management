@@ -43,10 +43,30 @@ export default function Payments() {
     load();
   }, []);
 
-  const statusChip = (s) => {
-    const val = String(s || '').toLowerCase();
-    if (val === 'done') return <Chip size="small" color="success" label="Payment Done"/>;
-    return <Chip size="small" color="warning" label="Payment Pending"/>;
+  const statusChip = (status) => {
+    const statusValue = String(status || '').toLowerCase();
+    const statusConfig = {
+      'pending': { label: 'Pending', color: 'warning' },
+      'in_progress': { label: 'In Progress', color: 'info' },
+      'processing': { label: 'Processing', color: 'info' },
+      'completed': { label: 'Completed', color: 'success' },
+      'payment done': { label: 'Payment Done', color: 'success' },
+      'failed': { label: 'Failed', color: 'error' },
+      'declined': { label: 'Declined', color: 'error' },
+      'cancelled': { label: 'Cancelled', color: 'error' },
+      'refunded': { label: 'Refunded', color: 'secondary' },
+    };
+
+    const config = statusConfig[statusValue] || { label: statusValue || 'Unknown', color: 'default' };
+    
+    return (
+      <Chip 
+        size="small" 
+        color={config.color} 
+        label={config.label}
+        sx={{ textTransform: 'capitalize' }}
+      />
+    );
   };
 
   return (
