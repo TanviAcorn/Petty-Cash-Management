@@ -89,6 +89,7 @@ const Approved = () => {
     avgAmount: 0,
     topCategory: { name: 'N/A', count: 0 }
   });
+  const [payments, setPayments] = useState([]);
   const [company, setCompany] = useState('all');
   const [category, setCategory] = useState('all');
   const [range, setRange] = useState('all');
@@ -103,11 +104,7 @@ const Approved = () => {
         setLoading(true);
         // Fetch only approved requests
         const { data } = await axiosClient.get('/requests', { 
-          params: { status: 'approved' },
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
+          params: { status: 'approved' }
         });
         
         const requestsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
@@ -151,6 +148,13 @@ const Approved = () => {
     };
 
     fetchApprovedRequests();
+    // Load payments list for badges
+    (async () => {
+      try {
+        const { data } = await axiosClient.get('/requests/payments/list');
+        setPayments(Array.isArray(data?.data) ? data.data : []);
+      } catch {}
+    })();
   }, [timeRange]);
 
   const filteredRequests = useMemo(() => {
@@ -304,7 +308,7 @@ const Approved = () => {
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <Select
               value={timeRange}
-              onChange={(e) => setRange(e.target.value)}
+              onChange={(e) => setTimeRange(e.target.value)}
               input={<OutlinedInput />}
             >
               {timeRanges.map((range) => (
@@ -362,6 +366,7 @@ const Approved = () => {
                   <TableCell>Company</TableCell>
                   <TableCell>Location</TableCell>
                   <TableCell align="right">Amount</TableCell>
+                  <TableCell>Payment</TableCell>
                   <TableCell>Intercompany</TableCell>
                   <TableCell>Reason</TableCell>
                   <TableCell align="center">Actions</TableCell>
@@ -394,6 +399,7 @@ const Approved = () => {
                 ) : (
                   filteredRequests.map((request) => {
                     const sc = statusColor('approved');
+                    const pay = payments.find(p => p.requestId === request.id);
                     return (
                       <TableRow key={request.id} hover>
                         <TableCell sx={{ minWidth: 260 }}>
@@ -423,6 +429,13 @@ const Approved = () => {
                         <TableCell>{request.company || 'N/A'}</TableCell>
                         <TableCell>{request.location || 'N/A'}</TableCell>
                         <TableCell align="right">{formatCurrency(request.amount || 0)}</TableCell>
+                        <TableCell>
+                          {pay ? (
+                            <Chip size="small" color={String(pay.status).toLowerCase()==='done' ? 'success' : 'warning'} label={String(pay.status).toLowerCase()==='done' ? 'Payment Done' : 'Payment Pending'} />
+                          ) : (
+                            <Chip size="small" label="No Payment" />
+                          )}
+                        </TableCell>
                         <TableCell>{request.intercompany || '-'}</TableCell>
                         <TableCell>{request.reason || '-'}</TableCell>
                         <TableCell align="center">

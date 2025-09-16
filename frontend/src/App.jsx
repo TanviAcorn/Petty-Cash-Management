@@ -43,6 +43,7 @@ import NewRequest from "./pages/NewRequest";
 import Profile from "./pages/Profile";
 import RequestReview from "./pages/RequestReview";
 import UserRequestDetails from "./pages/UserRequestDetails";
+import Payments from "./pages/Payments";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
@@ -303,6 +304,11 @@ const App = () => {
           <Route path="/approved" element={
             userInfo?.role === 'Admin' ? 
             <Approved /> : 
+            <Navigate to="/user-dashboard" replace />
+          } />
+          <Route path="/payments" element={
+            userInfo?.role === 'Admin' ? 
+            <Payments /> : 
             <Navigate to="/user-dashboard" replace />
           } />
           

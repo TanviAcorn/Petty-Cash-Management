@@ -6,14 +6,16 @@ const path = require("path");
 const app = express();
 
 // Enhanced CORS configuration
+// Note: When origin is '*', credentials MUST be false per CORS spec.
 const corsOptions = {
-  origin: '*', // Allow all origins for now - you might want to restrict this in production
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Accept', 'X-Requested-With'],
+  credentials: false
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 // ✅ import once

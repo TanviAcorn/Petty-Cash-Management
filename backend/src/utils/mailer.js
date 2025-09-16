@@ -82,4 +82,36 @@ function buildUserStatusEmail(requestRow) {
   return { subject, html };
 }
 
-module.exports = { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, getTransporter };
+function buildPaymentInitiatedEmail({ request, payment }) {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+  const reviewLink = `${frontendUrl}/requests/${request.id}`;
+  const subject = `Payment Initiated: Request #${request.id} (${request.employee_name || request.employeeName || ''})`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+      <h2>Proceed to Payment Triggered</h2>
+      <p>The admin has initiated payment for the following petty cash request.</p>
+      <h3>Request Details</h3>
+      <table style="border-collapse: collapse; width: 100%; max-width: 640px;">
+        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Request ID</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">#${request.id}</td></tr>
+        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Employee</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${request.employee_name || request.employeeName} (${request.employee_email || request.employeeEmail})</td></tr>
+        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Company</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${request.company_name || request.company || '-'}</td></tr>
+        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Category</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${request.category_name || request.category || '-'}</td></tr>
+        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Amount</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${request.amount}</td></tr>
+      </table>
+      <h3 style="margin-top:16px;">Payment Details</h3>
+      <table style="border-collapse: collapse; width: 100%; max-width: 640px;">
+        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Method</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${payment.method}</td></tr>
+        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Reference</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${payment.reference || '-'}</td></tr>
+        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Paid Amount</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${payment.paidAmount}</td></tr>
+        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Paid Date</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${payment.paidDate}</td></tr>
+        ${payment.notes ? `<tr><td style=\"padding:6px 8px; border-bottom:1px solid #eee;\">Notes</td><td style=\"padding:6px 8px; border-bottom:1px solid #eee;\">${payment.notes}</td></tr>` : ''}
+      </table>
+      <p style="margin-top:16px;">
+        <a href="${reviewLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none;">Open Request</a>
+      </p>
+    </div>
+  `;
+  return { subject, html };
+}
+
+module.exports = { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, getTransporter, buildPaymentInitiatedEmail };

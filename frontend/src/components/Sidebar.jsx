@@ -26,6 +26,7 @@ import {
   Settings,
   AddCircle,
   Person,
+  AttachMoney,
 } from "@mui/icons-material";
 
 const drawerWidth = 260;
@@ -40,6 +41,7 @@ const getMenuItemsByRole = (userRole) => {
     { text: "Rejected", icon: <Cancel />, path: "/rejected" },
     { text: "User Management", icon: <People />, path: "/users" },
     { text: "Companies", icon: <Business />, path: "/companies" },
+    { text: "Payments", icon: <AttachMoney />, path: "/payments" },
     { text: "Settings", icon: <Settings />, path: "/settings" },
   ];
 
@@ -62,6 +64,7 @@ const menuItems = [
   { text: "Rejected", icon: <Cancel />, path: "/rejected" },
   { text: "User Management", icon: <People />, path: "/users" },
   { text: "Companies", icon: <Business />, path: "/companies" },
+  { text: "Payments", icon: <AttachMoney />, path: "/payments" },
   { text: "Settings", icon: <Settings />, path: "/settings" },
 ];
 

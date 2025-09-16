@@ -5,7 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { poolPromise } = require('../config/db');
-const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail } = require('../utils/mailer');
+const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail } = require('../utils/mailer');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -19,6 +19,85 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+// GET payments for a request
+router.get('/:id/payments', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ message: 'Invalid id' });
+    const pool = await poolPromise;
+    await ensurePaymentsSchema(pool);
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query(`SELECT * FROM petty_cash_payments WHERE request_id = @id ORDER BY created_at DESC`);
+    return res.json({ data: result.recordset || [] });
+  } catch (err) {
+    console.error('Error fetching payments by request:', err);
+    return res.status(500).json({ message: 'Failed to fetch payments' });
+  }
+});
+
+// GET all payments (list for Payments tab)
+router.get('/payments/list', async (_req, res) => {
+  try {
+    const pool = await poolPromise;
+    await ensurePaymentsSchema(pool);
+    const result = await pool.request().query(`
+      SELECT 
+        p.id AS paymentId,
+        p.request_id AS requestId,
+        p.method,
+        p.reference,
+        p.paid_amount AS paidAmount,
+        p.paid_date AS paidDate,
+        p.notes,
+        p.status,
+        p.receipt_filename AS receiptFilename,
+        p.created_at AS createdAt,
+        p.created_by_email AS createdByEmail,
+        r.employee_name AS employeeName,
+        r.employee_email AS employeeEmail,
+        r.company_name AS company,
+        r.category_name AS category,
+        r.location,
+        r.amount,
+        r.status AS requestStatus
+      FROM petty_cash_payments p
+      JOIN petty_cash_requests r ON r.id = p.request_id
+      ORDER BY p.created_at DESC`);
+    return res.json({ data: result.recordset || [] });
+  } catch (err) {
+    console.error('Error fetching payments list:', err);
+    return res.status(500).json({ message: 'Failed to fetch payments list' });
+  }
+});
+
+// Mark payment as done with optional receipt upload
+const receiptUpload = multer({ storage });
+router.post('/:id/payment-done', receiptUpload.single('receipt'), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ message: 'Invalid id' });
+    const pool = await poolPromise;
+    await ensurePaymentsSchema(pool);
+    // Update the latest payment row for this request
+    const receiptFilename = req.file ? req.file.filename : null;
+    await pool.request()
+      .input('id', sql.Int, id)
+      .input('receipt', sql.NVarChar(500), receiptFilename)
+      .query(`
+        UPDATE p SET status = 'done', receipt_filename = @receipt
+        FROM petty_cash_payments p
+        WHERE p.id = (
+          SELECT TOP 1 id FROM petty_cash_payments WHERE request_id = @id ORDER BY created_at DESC
+        );
+      `);
+    return res.json({ message: 'Payment marked as done', receipt: receiptFilename });
+  } catch (err) {
+    console.error('Error marking payment done:', err);
+    return res.status(500).json({ message: 'Failed to mark payment done' });
   }
 });
 
@@ -260,6 +339,40 @@ const upload = multer({
   }
 });
 
+// Ensure petty_cash_payments table and required columns exist
+async function ensurePaymentsSchema(pool) {
+  const sqlText = `
+    IF OBJECT_ID('dbo.petty_cash_payments','U') IS NULL
+    BEGIN
+      CREATE TABLE dbo.petty_cash_payments (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        request_id INT NOT NULL,
+        method NVARCHAR(100) NOT NULL,
+        reference NVARCHAR(200) NULL,
+        paid_amount DECIMAL(18,2) NULL,
+        paid_date DATETIME2 NULL,
+        notes NVARCHAR(MAX) NULL,
+        status NVARCHAR(20) NOT NULL DEFAULT 'pending',
+        receipt_filename NVARCHAR(500) NULL,
+        created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        created_by_email NVARCHAR(320) NULL
+      );
+    END;
+    -- Add missing columns if table already existed
+    IF COL_LENGTH('dbo.petty_cash_payments', 'status') IS NULL
+    BEGIN
+      ALTER TABLE dbo.petty_cash_payments ADD status NVARCHAR(20) NULL;
+      UPDATE dbo.petty_cash_payments SET status = 'pending' WHERE status IS NULL;
+      ALTER TABLE dbo.petty_cash_payments ALTER COLUMN status NVARCHAR(20) NOT NULL;
+    END;
+    IF COL_LENGTH('dbo.petty_cash_payments', 'receipt_filename') IS NULL
+    BEGIN
+      ALTER TABLE dbo.petty_cash_payments ADD receipt_filename NVARCHAR(500) NULL;
+    END;
+  `;
+  await pool.request().query(sqlText);
+}
+
 // GET /api/requests
 router.get('/', async (req, res) => {
   const { status, q, company, category, range, email, location } = req.query;
@@ -339,6 +452,60 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('Error fetching requests:', err);
     return res.status(500).json({ message: 'Failed to fetch requests' });
+  }
+});
+
+// POST /api/requests/:id/proceed-payment - capture payment details and notify payments team
+router.post('/:id/proceed-payment', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ message: 'Invalid id' });
+
+    const { method, reference, paidAmount, paidDate, notes, adminEmail } = req.body || {};
+    if (!method) return res.status(400).json({ message: 'Payment method is required' });
+
+    const pool = await poolPromise;
+
+    // Ensure the request exists and is approved
+    const { recordset } = await pool.request().input('id', sql.Int, id).query('SELECT * FROM petty_cash_requests WHERE id = @id');
+    const row = recordset?.[0];
+    if (!row) return res.status(404).json({ message: 'Request not found' });
+    if (String(row.status).toLowerCase() !== 'approved') {
+      return res.status(400).json({ message: 'Proceed to Payment is only allowed for approved requests' });
+    }
+
+    // Ensure payments schema is present
+    await ensurePaymentsSchema(pool);
+
+    // Insert payment record
+    await pool.request()
+      .input('requestId', sql.Int, id)
+      .input('method', sql.NVarChar(100), String(method))
+      .input('reference', sql.NVarChar(200), reference || null)
+      .input('paidAmount', sql.Decimal(18,2), paidAmount != null ? Number(paidAmount) : null)
+      .input('paidDate', sql.DateTime2, paidDate ? new Date(paidDate) : null)
+      .input('notes', sql.NVarChar(sql.MAX), notes || null)
+      .input('adminEmail', sql.NVarChar(320), adminEmail || null)
+      .query(`
+        INSERT INTO petty_cash_payments (request_id, method, reference, paid_amount, paid_date, notes, status, created_by_email)
+        VALUES (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'pending', @adminEmail);
+      `);
+
+    // NOTE: Do NOT change request status; keep as 'approved' so it remains in Approved tab
+
+    // Send email to payments team
+    try {
+      const to = process.env.PAYMENTS_EMAIL || 'tanvi.laddha@acornuniversalconsultancy.com';
+      const email = buildPaymentInitiatedEmail({ request: row, payment: { method, reference, paidAmount, paidDate, notes } });
+      await sendEmail({ to, subject: email.subject, html: email.html, replyTo: adminEmail || process.env.ADMIN_EMAIL });
+    } catch (e) {
+      console.error('Payment email error:', e);
+    }
+
+    return res.json({ message: 'Payment initiated and team notified' });
+  } catch (err) {
+    console.error('Error in proceed-payment:', err);
+    return res.status(500).json({ message: 'Failed to proceed payment', error: err.message });
   }
 });
 

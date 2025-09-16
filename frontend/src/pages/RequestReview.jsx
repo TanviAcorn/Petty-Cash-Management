@@ -69,6 +69,15 @@ export default function RequestReview() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [approveNote, setApproveNote] = useState('');
   const [rejectNote, setRejectNote] = useState('');
+  // Payment dialog state
+  const [payOpen, setPayOpen] = useState(false);
+  const [payMethod, setPayMethod] = useState('Bank Transfer');
+  const [payReference, setPayReference] = useState('');
+  const [payAmount, setPayAmount] = useState('');
+  const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0,10));
+  const [payNotes, setPayNotes] = useState('');
+  const [payments, setPayments] = useState([]);
+  const [receiptUploading, setReceiptUploading] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -78,6 +87,10 @@ export default function RequestReview() {
         setError('');
         const { data } = await axiosClient.get(`/requests/${id}`, { signal: controller.signal });
         setReq(data?.data || data);
+        try {
+          const payRes = await axiosClient.get(`/requests/${id}/payments`, { signal: controller.signal });
+          setPayments(Array.isArray(payRes?.data?.data) ? payRes.data.data : []);
+        } catch {}
         // preload companies for intercompany transfer
         try {
           const { data: comps } = await axiosClient.get('/companies', { signal: controller.signal });
@@ -113,9 +126,37 @@ export default function RequestReview() {
       // Refetch
       const { data } = await axiosClient.get(`/requests/${id}`);
       setReq(data?.data || data);
+      try {
+        const payRes = await axiosClient.get(`/requests/${id}/payments`);
+        setPayments(Array.isArray(payRes?.data?.data) ? payRes.data.data : []);
+      } catch {}
       setToast({ open: true, message: `Request ${next}`, severity: 'success' });
     } catch (e) {
       setError(e?.response?.data?.message || e.message || `Failed to ${next} request`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onProceedPayment = async () => {
+    try {
+      setSubmitting(true);
+      await axiosClient.post(`/requests/${id}/proceed-payment`, {
+        method: payMethod,
+        reference: payReference || null,
+        paidAmount: payAmount || null,
+        paidDate: payDate || null,
+        notes: payNotes || null,
+        adminEmail: user?.email || null,
+      });
+      const { data } = await axiosClient.get(`/requests/${id}`);
+      setReq(data?.data || data);
+      setToast({ open: true, message: 'Payment initiated and team notified', severity: 'success' });
+      setPayOpen(false);
+      setPayNotes('');
+      setPayReference('');
+    } catch (e) {
+      setToast({ open: true, message: e?.response?.data?.message || e.message || 'Failed to proceed payment', severity: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -221,6 +262,28 @@ export default function RequestReview() {
         </Card>
       )}
 
+      {String(req.status).toLowerCase() === 'approved' && (
+        <Card variant="outlined" sx={{ borderLeft: 4, borderLeftColor: (theme) => theme.palette.success.main, mb: 2 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+              <Box>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CheckOutlinedIcon color="success" /> Approved
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  This request has been approved. You can proceed to payment.
+                </Typography>
+              </Box>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Button variant="contained" color="primary" onClick={() => setPayOpen(true)}>
+                  Proceed to Payment
+                </Button>
+              </Stack>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
       <Grid container spacing={2} alignItems="stretch">
         {/* Employee Information - Full width to match Request Details */}
         <Grid
@@ -272,6 +335,60 @@ export default function RequestReview() {
                   </Typography>
                 </Box>
               </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Payment Details - Full width */}
+        <Grid item xs={12}>
+          <Card variant="outlined">
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700} gutterBottom>Payment Details</Typography>
+              <Divider sx={{ mb: 2 }} />
+              {payments.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">No payment records yet.</Typography>
+              ) : (
+                <Stack spacing={1}>
+                  {payments.map((p) => (
+                    <Box key={p.id} sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0,1fr))', gap: 1, alignItems: 'center' }}>
+                      <Typography variant="body2"><strong>Method:</strong> {p.method}</Typography>
+                      <Typography variant="body2"><strong>Ref:</strong> {p.reference || '-'}</Typography>
+                      <Typography variant="body2"><strong>Paid:</strong> {p.paid_amount ?? '-'}</Typography>
+                      <Typography variant="body2"><strong>Date:</strong> {p.paid_date ? new Date(p.paid_date).toLocaleDateString() : '-'}</Typography>
+                      <Typography variant="body2"><strong>Status:</strong> {String(p.status||'pending')}</Typography>
+                      <Typography variant="body2"><strong>Receipt:</strong> {p.receipt_filename ? 'Attached' : '-'}</Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+              {payments[0] && String(payments[0].status).toLowerCase() !== 'done' && (
+                <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Typography variant="body2">Mark latest payment as done by uploading receipt:</Typography>
+                  <input
+                    type="file"
+                    accept="application/pdf,image/*"
+                    onChange={async (e)=>{
+                      const file = e.target.files?.[0];
+                      if(!file) return;
+                      try{
+                        setReceiptUploading(true);
+                        const form = new FormData();
+                        form.append('receipt', file);
+                        await axiosClient.post(`/requests/${id}/payment-done`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+                        const payRes = await axiosClient.get(`/requests/${id}/payments`);
+                        setPayments(Array.isArray(payRes?.data?.data) ? payRes.data.data : []);
+                        setToast({ open: true, message: 'Payment marked as done', severity: 'success' });
+                      } catch(err){
+                        setToast({ open: true, message: err?.response?.data?.message || err.message || 'Failed to upload receipt', severity: 'error' });
+                      } finally {
+                        setReceiptUploading(false);
+                        e.target.value = '';
+                      }
+                    }}
+                    disabled={receiptUploading}
+                  />
+                </Box>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -451,6 +568,45 @@ export default function RequestReview() {
         <DialogActions>
           <Button onClick={() => setIcOpen(false)} color="inherit">Cancel</Button>
           <Button onClick={onIntercompany} variant="contained" disabled={!targetCompany || submitting}>Approve & Transfer</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Proceed to Payment Dialog */}
+      <Dialog open={payOpen} onClose={() => setPayOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Proceed to Payment</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Enter payment details to notify the payments team.
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="pay-method-label">Method</InputLabel>
+                <Select labelId="pay-method-label" label="Method" value={payMethod} onChange={(e)=>setPayMethod(e.target.value)}>
+                  <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
+                  <MenuItem value="Cash">Cash</MenuItem>
+                  <MenuItem value="UPI">UPI</MenuItem>
+                  <MenuItem value="Cheque">Cheque</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <OutlinedInput fullWidth size="small" placeholder="Reference (optional)" value={payReference} onChange={(e)=>setPayReference(e.target.value)} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <OutlinedInput fullWidth size="small" placeholder="Paid Amount (optional)" type="number" value={payAmount} onChange={(e)=>setPayAmount(e.target.value)} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <OutlinedInput fullWidth size="small" placeholder="Paid Date" type="date" value={payDate} onChange={(e)=>setPayDate(e.target.value)} />
+            </Grid>
+            <Grid item xs={12}>
+              <OutlinedInput fullWidth size="small" multiline minRows={2} placeholder="Notes (optional)" value={payNotes} onChange={(e)=>setPayNotes(e.target.value)} />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={()=>setPayOpen(false)} color="inherit">Cancel</Button>
+          <Button onClick={onProceedPayment} variant="contained" disabled={submitting}>Send to Payments</Button>
         </DialogActions>
       </Dialog>
 
