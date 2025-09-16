@@ -44,6 +44,7 @@ import Profile from "./pages/Profile";
 import RequestReview from "./pages/RequestReview";
 import UserRequestDetails from "./pages/UserRequestDetails";
 import Payments from "./pages/Payments";
+import UploadReceipt from "./pages/UploadReceipt";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
@@ -293,6 +294,12 @@ const App = () => {
             userInfo?.role === 'Admin' ? 
             <RequestReview /> : 
             <Navigate to="/user-dashboard" replace />
+          } />
+          
+          <Route path="/requests/:id/upload-receipt" element={
+            userInfo ? 
+            <UploadReceipt /> : 
+            <Navigate to="/login" replace />
           } />
           
           <Route path="/pending-approval" element={

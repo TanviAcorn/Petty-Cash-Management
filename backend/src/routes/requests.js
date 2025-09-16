@@ -331,11 +331,12 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit per file
+    files: 5 // Maximum 5 files per upload
   }
 });
 
@@ -802,6 +803,67 @@ router.get('/companies', async (req, res) => {
     res.status(500).json({ message: 'Error fetching companies.' });
   } finally {
     sql.close();
+  }
+});
+
+// POST /api/requests/:id/upload-receipts - Upload payment receipts and update request status
+router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res) => {  
+  const txn = new sql.Transaction(await poolPromise);
+
+  try {
+    await txn.begin();  // Start the transaction
+
+    const id = Number(req.params.id);
+    if (!id) {
+      await txn.rollback();
+      return res.status(400).json({ message: 'Invalid request ID' });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      await txn.rollback();
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+
+    const request = new sql.Request(txn);
+    
+    // Get the uploaded filenames as a single string
+    const receiptFilenames = req.files.map(file => file.filename).join(', ');
+
+    // Update the petty_cash_payments table
+    await request
+      .input('request_id', sql.Int, id)
+      .input('receipt_filename', sql.NVarChar(sql.MAX), receiptFilenames)
+      .query(`
+        UPDATE petty_cash_payments 
+        SET receipt_filename = @receipt_filename,
+        status = 'payment done'
+        WHERE request_id = @request_id
+      `);
+
+    await txn.commit();  // Commit the transaction
+
+    // Return the uploaded files info
+    const fileInfo = req.files.map(file => ({
+      filename: file.filename,
+      originalname: file.originalname,
+      size: file.size
+    }));
+
+    return res.status(200).json({ 
+      message: 'Receipts uploaded successfully',
+      files: fileInfo
+    });
+
+  } catch (error) {
+    console.error('Error uploading receipts:', error);
+    if (txn._aborted === false) {
+      await txn.rollback();
+    }
+    return res.status(500).json({ 
+      success: false,
+      message: 'Failed to upload payment receipt',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
