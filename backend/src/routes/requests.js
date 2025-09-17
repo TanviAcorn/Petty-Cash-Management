@@ -410,8 +410,17 @@ router.get('/', async (req, res) => {
   const params = {};
 
   if (status) {
-    where.push('LOWER(r.status) = LOWER(@status)');
-    params.status = { type: sql.VarChar(20), value: String(status) };
+    if (Array.isArray(status)) {
+      const statusParams = status.map((s, i) => {
+        const param = `status${i}`;
+        params[param] = { type: sql.VarChar(20), value: String(s) };
+        return `LOWER(r.status) = LOWER(@${param})`;
+      });
+      where.push(`(${statusParams.join(' OR ')})`);
+    } else {
+      where.push('LOWER(r.status) = LOWER(@status)');
+      params.status = { type: sql.VarChar(20), value: String(status) };
+    }
   }
   if (company) {
     where.push('r.company_name = @company');

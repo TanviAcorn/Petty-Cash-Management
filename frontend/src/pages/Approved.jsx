@@ -106,7 +106,7 @@ const Approved = () => {
         setLoading(true);
         // Fetch only approved requests
         const { data } = await axiosClient.get('/requests', { 
-          params: { status: 'approved' && 'intercompany' }
+          params: { status: ['approved', 'intercompany'] }
         });
         
         const requestsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
