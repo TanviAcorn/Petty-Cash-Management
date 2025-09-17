@@ -327,7 +327,7 @@ const MyRequests = () => {
                   <TableCell sx={{ fontWeight: 'bold' }}>Location</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }} align="right">Amount</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Actions</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="left">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -372,11 +372,51 @@ const MyRequests = () => {
                     <TableCell>
                       {getStatusChip(r.status)}
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="left">
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        {/* ... other buttons ... */}
-                      </Box>
-                    </TableCell>
+                        <Tooltip title="View Details">
+                          <IconButton size="small" sx={{ color: '#1976d2' }} onClick={() => navigate(`/my-requests/${r.id}`)}>
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {String(r.status).toLowerCase() === 'pending' && (
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              sx={{ color: '#f57c00' }}
+                              onClick={() => {
+                                setEditReq({
+                                  id: r.id,
+                                  company: r.company || '',
+                                  category: r.category || '',
+                                  location: r.location || '',
+                                  amount: r.amount || '',
+                                  description: r.description || r.reason || '',
+                                  dateOfPurchase: r.dateOfPurchase || r.date || '',
+                                });
+                                setEditOpen(true);
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                          <Tooltip title="Delete">
+                            <IconButton size="small" sx={{ color: '#d32f2f' }} onClick={async () => {
+                              if (!window.confirm('Delete this request? This cannot be undone.')) return;
+                              try {
+                                await axiosClient.delete(`/requests/${r.id}`);
+                                setToast({ open: true, message: 'Request deleted', severity: 'success' });
+                                load();
+                              } catch (e) {
+                                setToast({ open: true, message: e?.response?.data?.message || 'Failed to delete', severity: 'error' });
+                              }
+                            }}>
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
