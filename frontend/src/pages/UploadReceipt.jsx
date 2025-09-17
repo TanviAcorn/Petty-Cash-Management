@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
-
 import {
   Button,
   Typography,
@@ -20,13 +19,42 @@ import {
   Card,
   CardContent,
   Divider,
-  Chip
+  Chip,
+  Stack,
+  Avatar,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import { styled } from '@mui/material/styles';
+
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5005/api');
+const FILE_BASE = API_BASE.replace(/\/api\/?$/, '');
+
+const fmtMoney = (n, currency = 'USD') =>
+  new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
+
+const statusChip = (status) => {
+  switch ((status || '').toLowerCase()) {
+    case 'approved': return { color: 'success', label: 'Approved' };
+    case 'rejected': return { color: 'error', label: 'Rejected' };
+    case 'intercompany': return { color: 'secondary', label: 'Intercompany' };
+    case 'paid': return { color: 'success', label: 'Paid' };
+    case 'payment done': return { color: 'success', label: 'Payment Done' };
+    case 'processing': return { color: 'info', label: 'Processing' };
+    case 'in_progress': return { color: 'info', label: 'In Progress' };
+    case 'pending': return { color: 'warning', label: 'Pending' };
+    default: return { color: 'default', label: status || 'Unknown' };
+  }
+};
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -40,8 +68,6 @@ const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
-
 const UploadReceipt = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -53,21 +79,7 @@ const UploadReceipt = () => {
   const [files, setFiles] = useState([]);
   const [request, setRequest] = useState(null);
   const [payment, setPayment] = useState(null);
-
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount || 0);
-  };
-
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
+  const [payments, setPayments] = useState([]);
 
   // Fetch request and payment details
   useEffect(() => {
@@ -79,14 +91,22 @@ const UploadReceipt = () => {
           axios.get(`${API_BASE}/requests/${id}/payments`)
         ]);
         
-        setRequest(Array.isArray(requestRes.data) ? requestRes.data[0] : requestRes.data);
+        const reqData = Array.isArray(requestRes.data) ? requestRes.data[0] : requestRes.data?.data || requestRes.data;
+        setRequest(reqData);
         
-        if (paymentRes.data && paymentRes.data.length > 0) {
-          setPayment(Array.isArray(paymentRes.data) ? paymentRes.data[0] : paymentRes.data);
+        // Get all payments and sort by created_at in descending order
+        const payData = Array.isArray(paymentRes.data) 
+          ? paymentRes.data.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+          : paymentRes.data?.data?.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)) || [];
+        
+        setPayments(payData);
+        // Only set the most recent payment
+        if (payData.length > 0) {
+          setPayment(payData[0]);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
-        enqueueSnackbar('Failed to load request details', { variant: 'error' });
+        enqueueSnackbar(error.response?.data?.message || 'Failed to load request details', { variant: 'error' });
       } finally {
         setLoading(false);
       }
@@ -187,167 +207,271 @@ const UploadReceipt = () => {
     );
   }
 
+  if (!request) {
+    return (
+      <Box p={3} maxWidth="1200px" mx="auto">
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
+          Back
+        </Button>
+        <Typography variant="h6" color="error">Request not found</Typography>
+      </Box>
+    );
+  }
+
+  const sc = statusChip(request.status);
+  const paymentSc = payment ? statusChip(payment.status) : { color: 'default', label: 'N/A' };
+
   return (
-    <Box p={3} maxWidth="1200px" mx="auto">
-      <Box display="flex" alignItems="center" mb={3}>
-        <IconButton onClick={() => navigate(-1)} sx={{ mr: 1 }}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Typography variant="h5" component="h1">Upload Payment Receipt</Typography>
+    <Box sx={{ maxWidth: 1200, mx: 'auto', width: '100%', p: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} size="small" color="inherit">
+          Back
+        </Button>
+        <Typography variant="h5" fontWeight={800}>Upload Payment Receipt</Typography>
+        <Chip size="small" color={sc.color} label={sc.label} sx={{ ml: 'auto' }} />
       </Box>
 
       <Grid container spacing={3} mb={4}>
-        {/* Payment Details Card */}
-        <Grid item xs={12} md={6}>
-          <Card elevation={2}>
+        {/* Request Details */}
+        <Grid item xs={12} md={8}>
+          <Card variant="outlined">
             <CardContent>
-              <Box display="flex" alignItems="center" mb={2}>
-                <Box sx={{ width: 4, height: 24, bgcolor: 'primary.main', mr: 1.5 }} />
-                <Typography variant="h6" fontWeight="medium">Payment Details</Typography>
-              </Box>
+              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                Request Details
+              </Typography>
               <Divider sx={{ mb: 2 }} />
-              
-              <Grid container spacing={2}>
-                <DetailItem label="Transaction ID" value={payment?.id || 'N/A'} />
-                <DetailItem label="Payment Date" value={formatDate(payment?.paidDate)} />
-                <DetailItem label="Amount" value={formatCurrency(payment?.paidAmount || request?.amount)} bold />
-                <DetailItem label="Payment Method" value={payment?.method || 'N/A'} />
-                <DetailItem label="Status" value={
-                  <Chip 
-                    label={payment?.status || 'Pending'} 
-                    size="small" 
-                    color={
-                      payment?.status?.toLowerCase() === 'paid' ? 'success' : 
-                      payment?.status?.toLowerCase() === 'pending' ? 'warning' : 'default'
-                    }
-                  />
-                } />
-                <DetailItem label="Reference" value={payment?.reference || 'N/A'} fullWidth />
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Amount</Typography>
+                    <Typography variant="h6" fontWeight={800} sx={{ color: 'success.main' }}>
+                      {fmtMoney(request.amount, request.currency || 'USD')}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Request ID</Typography>
+                    <Typography>#{request.id}</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Date</Typography>
+                    <Typography>{request.createdAt ? new Date(request.createdAt).toLocaleString() : '-'}</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Description</Typography>
+                    <Typography sx={{ 
+                      mt: 0.5,
+                      p: 1.5,
+                      borderRadius: 1,
+                      border: '1px solid',
+                      bgcolor: 'background.paper',
+                      borderColor: 'divider',
+                    }}>
+                      {request.description || request.purpose || 'No description provided'}
+                    </Typography>
+                  </Box>
+                </Grid>
               </Grid>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Request Details Card */}
-        <Grid item xs={12} md={6}>
-          <Card elevation={2}>
+        {/* Employee Information */}
+        <Grid item xs={12} md={4}>
+          <Card variant="outlined" sx={{ height: '100%' }}>
             <CardContent>
-              <Box display="flex" alignItems="center" mb={2}>
-                <Box sx={{ width: 4, height: 24, bgcolor: 'primary.main', mr: 1.5 }} />
-                <Typography variant="h6" fontWeight="medium">Request Details</Typography>
-              </Box>
+              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                Employee Information
+              </Typography>
               <Divider sx={{ mb: 2 }} />
-              
-              <Grid container spacing={2}>
-                <DetailItem label="Request ID" value={request?.id || 'N/A'} />
-                <DetailItem label="Requested On" value={formatDate(request?.createdAt)} />
-                <DetailItem label="Requested By" value={request?.requestedBy || 'N/A'} />
-                <DetailItem label="Department" value={request?.department || 'N/A'} />
-                <DetailItem label="Project" value={request?.project || 'N/A'} />
-                <DetailItem label="Status" value={
-                  <Chip 
-                    label={request?.status || 'Pending'} 
-                    size="small" 
-                    color={
-                      request?.status?.toLowerCase() === 'approved' ? 'success' : 
-                      request?.status?.toLowerCase() === 'rejected' ? 'error' : 'warning'
-                    }
-                  />
-                } />
-                <DetailItem label="Purpose" value={request?.purpose || 'N/A'} fullWidth />
-              </Grid>
+              <Stack spacing={1.5}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Avatar>
+                    {(request.employeeName || '?')[0].toUpperCase()}
+                  </Avatar>
+                  <Box>
+                    <Typography fontWeight={600}>{request.employeeName || 'N/A'}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {request.employeeEmail || 'N/A'}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Company</Typography>
+                  <Typography>{request.company || 'N/A'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Department</Typography>
+                  <Typography>{request.department || 'N/A'}</Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Payment Information */}
+        <Grid item xs={12}>
+          <Card variant="outlined">
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                Payment Information
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              {payments.length > 0 ? (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Payment ID</TableCell>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Method</TableCell>
+                        <TableCell>Reference</TableCell>
+                        <TableCell>Amount</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Receipt</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {payments.map((pay) => (
+                        <TableRow key={pay.id}>
+                          <TableCell>#{pay.id}</TableCell>
+                          <TableCell>{pay.paidDate ? new Date(pay.paidDate).toLocaleString() : '-'}</TableCell>
+                          <TableCell>{pay.method || 'N/A'}</TableCell>
+                          <TableCell>{pay.reference || '-'}</TableCell>
+                          <TableCell>{fmtMoney(pay.paidAmount || request.amount, request.currency || 'USD')}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              size="small" 
+                              color={statusChip(pay.status).color} 
+                              label={statusChip(pay.status).label} 
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {pay.receiptFilename ? (
+                              <Button
+                                size="small"
+                                startIcon={<ReceiptLongOutlinedIcon />}
+                                onClick={() => window.open(`${FILE_BASE}/uploads/${encodeURIComponent(pay.receiptFilename)}`, '_blank')}
+                              >
+                                View
+                              </Button>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">No receipt</Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Typography variant="body2" color="text.secondary">No payment records found</Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      <Paper elevation={3} sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-        <form onSubmit={handleSubmit}>
-          <Box mb={3}>
-            <Button
-              component="label"
-              variant="outlined"
-              startIcon={<CloudUploadIcon />}
-              fullWidth
-              sx={{ py: 2 }}
-            >
-              Click to select files
-              <VisuallyHiddenInput
-                type="file"
-                multiple
-                onChange={handleFileChange}
-                accept="image/*,.pdf,.doc,.docx"
-              />
-            </Button>
-            <Typography variant="caption" display="block" textAlign="center" mt={1} color="text.secondary">
-              Supported formats: JPG, PNG, PDF, DOC, DOCX (max 5 files)
-            </Typography>
-            {files.length === 0 && (
-              <FormHelperText error sx={{ mt: 1, textAlign: 'center' }}>
-                Please upload at least one file
-              </FormHelperText>
-            )}
-          </Box>
-
-          {files.length > 0 && (
+      {/* Upload Section */}
+      <Card variant="outlined">
+        <CardContent>
+          <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+            Upload Receipt
+          </Typography>
+          <Divider sx={{ mb: 3 }} />
+          
+          <form onSubmit={handleSubmit}>
             <Box mb={3}>
-              <Typography variant="subtitle2" gutterBottom>Selected Files:</Typography>
-              <List dense>
-                {files.map((file, index) => (
-                  <ListItem
-                    key={index}
-                    sx={{
-                      bgcolor: 'action.hover',
-                      borderRadius: 1,
-                      mb: 1,
-                      '&:last-child': { mb: 0 }
-                    }}
-                    secondaryAction={
-                      <IconButton
-                        edge="end"
-                        onClick={() => handleRemoveFile(index)}
-                        size="small"
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    }
-                  >
-                    <ListItemIcon>
-                      <AttachFileIcon />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={file.name}
-                      secondary={`${(file.size / 1024).toFixed(2)} KB`}
-                      primaryTypographyProps={{ noWrap: true }}
-                      sx={{ pr: 4 }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+                fullWidth
+                sx={{ py: 2, mb: 1 }}
+              >
+                Click to select files
+                <VisuallyHiddenInput
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                  accept="image/*,.pdf"
+                />
+              </Button>
+              <Typography variant="caption" display="block" textAlign="center" color="text.secondary">
+                Supported formats: JPG, PNG, PDF (max 5 files, 10MB each)
+              </Typography>
+              {files.length === 0 && (
+                <FormHelperText error sx={{ textAlign: 'center', mt: 1 }}>
+                  Please select at least one file to upload
+                </FormHelperText>
+              )}
             </Box>
-          )}
 
-          <Box display="flex" justifyContent="flex-end" gap={2} mt={4}>
-            <Button
-              variant="outlined"
-              onClick={() => navigate(-1)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              disabled={submitting || files.length === 0}
-              startIcon={submitting ? <CircularProgress size={20} /> : null}
-            >
-              {submitting ? 'Uploading...' : 'Upload Receipts'}
-            </Button>
-          </Box>
-        </form>
-      </Paper>
+            {files.length > 0 && (
+              <Box mb={3}>
+                <Typography variant="subtitle2" gutterBottom>Selected Files:</Typography>
+                <List dense>
+                  {files.map((file, index) => (
+                    <ListItem
+                      key={index}
+                      sx={{
+                        bgcolor: 'action.hover',
+                        borderRadius: 1,
+                        mb: 1,
+                        '&:last-child': { mb: 0 }
+                      }}
+                      secondaryAction={
+                        <IconButton
+                          edge="end"
+                          onClick={() => handleRemoveFile(index)}
+                          size="small"
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemIcon>
+                        <AttachFileIcon />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={file.name}
+                        secondary={`${(file.size / (1024 * 1024)).toFixed(2)} MB`}
+                        primaryTypographyProps={{ noWrap: true }}
+                        sx={{ pr: 4 }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+
+            <Box display="flex" justifyContent="flex-end" gap={2} mt={4}>
+              <Button
+                variant="outlined"
+                onClick={() => navigate(-1)}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={submitting || files.length === 0}
+                startIcon={submitting ? <CircularProgress size={20} /> : null}
+              >
+                {submitting ? 'Uploading...' : 'Upload Receipts'}
+              </Button>
+            </Box>
+          </form>
+        </CardContent>
+      </Card>
     </Box>
   );
 };

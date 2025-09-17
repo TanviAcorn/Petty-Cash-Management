@@ -271,14 +271,19 @@ export default function RequestReview() {
                   <CheckOutlinedIcon color="success" /> Approved
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  This request has been approved. You can proceed to payment.
+                  {req.sent_to_payment 
+                    ? 'This request has been sent for payment processing.'
+                    : 'This request has been approved. You can proceed to payment.'
+                  }
                 </Typography>
               </Box>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <Button variant="contained" color="primary" onClick={() => setPayOpen(true)}>
-                  Proceed to Payment
-                </Button>
-              </Stack>
+              {!req.sent_to_payment && (
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                  <Button variant="contained" color="primary" onClick={() => setPayOpen(true)}>
+                    Proceed to Payment
+                  </Button>
+                </Stack>
+              )}
             </Box>
           </CardContent>
         </Card>
