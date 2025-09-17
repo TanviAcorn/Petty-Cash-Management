@@ -884,10 +884,16 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
       .input('request_id', sql.Int, id)
       .input('receipt_filename', sql.NVarChar(sql.MAX), receiptFilenames)
       .query(`
+        -- Update payment record with receipt and mark as done
         UPDATE petty_cash_payments 
         SET receipt_filename = @receipt_filename,
-        status = 'payment done'
-        WHERE request_id = @request_id
+            status = 'payment done'
+        WHERE request_id = @request_id;
+        
+        -- Also update the main request status to 'payment done'
+        UPDATE petty_cash_requests
+        SET status = 'payment done'
+        WHERE id = @request_id;
       `);
 
     await txn.commit();  // Commit the transaction

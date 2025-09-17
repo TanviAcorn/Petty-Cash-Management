@@ -147,6 +147,7 @@ const MyRequests = () => {
     else if (s === 'rejected') { color = 'error'; label = 'rejected'; }
     else if (s === 'intercompany') { color = 'secondary'; label = 'intercompany'; }
     else if (s === 'payment done') { color = 'success'; label = 'payment done'; }
+    else if (s === 'processing') { color = 'warning'; label = 'processing'; }
     else if (s) { label = s; }
 
     return (
