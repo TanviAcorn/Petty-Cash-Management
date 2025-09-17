@@ -264,7 +264,7 @@ export default function RequestReview() {
         </Card>
       )}
 
-      {String(req.status).toLowerCase() === 'approved' && (
+      {(String(req.status).toLowerCase() === 'approved' || String(req.status).toLowerCase() === 'intercompany') && (
         <Card variant="outlined" sx={{ borderLeft: 4, borderLeftColor: (theme) => theme.palette.success.main, mb: 2 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>

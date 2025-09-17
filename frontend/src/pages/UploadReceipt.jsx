@@ -281,39 +281,6 @@ const UploadReceipt = () => {
           </Card>
         </Grid>
 
-        {/* Employee Information */}
-        <Grid item xs={12} md={4}>
-          <Card variant="outlined" sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                Employee Information
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Stack spacing={1.5}>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Avatar>
-                    {(request.employeeName || '?')[0].toUpperCase()}
-                  </Avatar>
-                  <Box>
-                    <Typography fontWeight={600}>{request.employeeName || 'N/A'}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {request.employeeEmail || 'N/A'}
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Company</Typography>
-                  <Typography>{request.company || 'N/A'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Department</Typography>
-                  <Typography>{request.department || 'N/A'}</Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-
         {/* Payment Information */}
         <Grid item xs={12}>
           <Card variant="outlined">
