@@ -84,18 +84,32 @@ router.post('/:id/payment-done', receiptUpload.single('receipt'), async (req, re
     if (!id) return res.status(400).json({ message: 'Invalid id' });
     const pool = await poolPromise;
     await ensurePaymentsSchema(pool);
-    // Update the latest payment row for this request
+    // Update the latest payment row for this request and sync with requests table
     const receiptFilename = req.file ? req.file.filename : null;
+    
     await pool.request()
       .input('id', sql.Int, id)
       .input('receipt', sql.NVarChar(500), receiptFilename)
       .query(`
-        UPDATE p SET status = 'done', receipt_filename = @receipt
+        BEGIN TRANSACTION;
+        
+        -- Update the payment record
+        UPDATE p 
+        SET status = 'payment done', 
+            receipt_filename = @receipt,
         FROM petty_cash_payments p
         WHERE p.id = (
           SELECT TOP 1 id FROM petty_cash_payments WHERE request_id = @id ORDER BY created_at DESC
         );
+        
+        -- Update the request status to match
+        UPDATE petty_cash_requests
+        SET status = 'payment done'
+        WHERE id = @id;
+        
+        COMMIT TRANSACTION;
       `);
+      
     return res.json({ message: 'Payment marked as done', receipt: receiptFilename });
   } catch (err) {
     console.error('Error marking payment done:', err);
@@ -260,14 +274,20 @@ router.get('/:id', async (req, res) => {
           r.location            AS location,
           r.amount,
           r.reason              AS description,
-          r.status,
+          COALESCE(p.status, r.status) AS status,
           r.created_at          AS createdAt,
           r.date_of_purchase    AS dateOfPurchase,
           r.approved_at         AS approvedAt,
           r.rejected_at         AS rejectedAt,
           r.rejection_reason    AS rejectionReason,
-          r.attachments
+          r.attachments,
+          p.status AS payment_status
         FROM petty_cash_requests r
+        LEFT JOIN (
+          SELECT request_id, status,
+                 ROW_NUMBER() OVER (PARTITION BY request_id ORDER BY created_at DESC) as rn
+          FROM petty_cash_payments
+        ) p ON r.id = p.request_id AND (p.rn = 1 OR p.rn IS NULL)
         WHERE r.id = @id
       `);
 
@@ -508,7 +528,7 @@ router.post('/:id/proceed-payment', async (req, res) => {
 
     // Send email to payments team
     try {
-      const to = process.env.PAYMENTS_EMAIL || 'tanvi.laddha@acornuniversalconsultancy.com';
+      const to = process.env.PAYMENTS_EMAIL || 'priyal.makwana@acornuniversalconsultancy.com';
       const email = buildPaymentInitiatedEmail({ request: row, payment: { method, reference, paidAmount, paidDate, notes } });
       await sendEmail({ to, subject: email.subject, html: email.html, replyTo: adminEmail || process.env.ADMIN_EMAIL });
     } catch (e) {
@@ -781,7 +801,20 @@ router.get('/status/:status', async (req, res) => {
     const pool = await poolPromise;
     const result = await pool.request()
       .input('status', sql.VarChar(20), status)
-      .query('SELECT * FROM petty_cash_requests WHERE status = @status ORDER BY created_at DESC');
+      .query(`
+        SELECT 
+          r.*,
+          p.status AS payment_status,
+          p.status AS display_status
+        FROM petty_cash_requests r
+        LEFT JOIN (
+          SELECT request_id, status, 
+                 ROW_NUMBER() OVER (PARTITION BY request_id ORDER BY created_at DESC) as rn
+          FROM petty_cash_payments
+        ) p ON r.id = p.request_id AND (p.rn = 1 OR p.rn IS NULL)
+        WHERE r.status = @status 
+        ORDER BY r.created_at DESC
+      `);
     
     return res.json({ data: result.recordset });
   } catch (err) {
