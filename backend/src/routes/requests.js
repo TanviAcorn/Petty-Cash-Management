@@ -81,6 +81,7 @@ const receiptUpload = multer({ storage });
 router.post('/:id/payment-done', receiptUpload.single('receipt'), async (req, res) => {
   try {
     const id = Number(req.params.id);
+    console.log(`Processing request for ID: ${id}`);
     if (!id) return res.status(400).json({ message: 'Invalid id' });
     const pool = await poolPromise;
     await ensurePaymentsSchema(pool);
@@ -96,7 +97,7 @@ router.post('/:id/payment-done', receiptUpload.single('receipt'), async (req, re
         -- Update the payment record
         UPDATE p 
         SET status = 'payment done', 
-            receipt_filename = @receipt,
+            receipt_filename = @receipt
         FROM petty_cash_payments p
         WHERE p.id = (
           SELECT TOP 1 id FROM petty_cash_payments WHERE request_id = @id ORDER BY created_at DESC
@@ -105,10 +106,14 @@ router.post('/:id/payment-done', receiptUpload.single('receipt'), async (req, re
         -- Update the request status to match
         UPDATE petty_cash_requests
         SET status = 'payment done'
-        WHERE id = @id;
+        WHERE id = @id; 
         
         COMMIT TRANSACTION;
-      `);
+      `)
+      .catch(err => {
+        console.error('SQL query failed:', err);
+        throw err;
+    });
       
     return res.json({ message: 'Payment marked as done', receipt: receiptFilename });
   } catch (err) {

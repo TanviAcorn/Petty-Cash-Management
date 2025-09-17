@@ -48,8 +48,10 @@ const statusColor = (s) => {
   switch ((s || '').toLowerCase()) {
     case 'approved': return { color: 'success', label: 'approved' };
     case 'rejected': return { color: 'error', label: 'rejected' };
-    case 'pending': return { color: 'warning', label: 'pending' };
-    default: return { color: 'default', label: s || 'unknown' };
+    case 'intercompany': return { color: 'secondary', label: 'intercompany' };
+    case 'processing': return { color: 'warning', label: 'processing' };
+    case 'payment done': return { color: 'success', label: 'payment done' };
+    default: return { color: 'warning', label: 'pending' };
   }
 };
 
@@ -104,7 +106,7 @@ const Approved = () => {
         setLoading(true);
         // Fetch only approved requests
         const { data } = await axiosClient.get('/requests', { 
-          params: { status: 'approved' }
+          params: { status: 'approved' && 'intercompany' }
         });
         
         const requestsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
