@@ -57,6 +57,7 @@ router.get('/payments/list', async (_req, res) => {
         p.receipt_filename AS receiptFilename,
         p.created_at AS createdAt,
         p.created_by_email AS createdByEmail,
+        p.sent_to_payment AS sentToPayment,
         r.employee_name AS employeeName,
         r.employee_email AS employeeEmail,
         r.company_name AS company,
@@ -67,7 +68,8 @@ router.get('/payments/list', async (_req, res) => {
       FROM petty_cash_payments p
       JOIN petty_cash_requests r ON r.id = p.request_id
       ORDER BY p.created_at DESC`);
-    return res.json({ data: result.recordset || [] });
+    // Return the recordset directly as an array
+    return res.json(result.recordset || []);
   } catch (err) {
     console.error('Error fetching payments list:', err);
     return res.status(500).json({ message: 'Failed to fetch payments list' });

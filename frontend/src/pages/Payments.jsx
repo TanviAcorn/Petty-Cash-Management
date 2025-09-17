@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+// Corrected frontend code:
+
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Card,
@@ -17,7 +19,6 @@ import {
 } from '@mui/material';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import AttachEmailIcon from '@mui/icons-material/AttachEmail';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useSnackbar } from 'notistack';
@@ -35,8 +36,13 @@ export default function Payments() {
   const load = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get('/requests/payments/list');
-      setRows(Array.isArray(data?.data) ? data.data : []);
+      // Corrected API endpoint with the /api prefix
+      const { data } = await axios.get('/api/requests/payments/list');
+      setRows(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching payments list:', error);
+      enqueueSnackbar('Failed to fetch payments list', { variant: 'error' });
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -61,11 +67,11 @@ export default function Payments() {
     };
 
     const config = statusConfig[statusValue] || { label: statusValue || 'Unknown', color: 'default' };
-    
+
     return (
-      <Chip 
-        size="small" 
-        color={config.color} 
+      <Chip
+        size="small"
+        color={config.color}
         label={config.label}
         sx={{ textTransform: 'capitalize' }}
       />
@@ -75,21 +81,21 @@ export default function Payments() {
   const handleProceedToPayment = async (requestId) => {
     try {
       setProcessingPayments(prev => ({ ...prev, [requestId]: true }));
-      
-      await axiosClient.post(`/requests/${requestId}/proceed-payment`, {
-        method: 'Bank Transfer', // Default value, can be made dynamic if needed
+
+      // Assuming axiosClient is properly configured
+      await axios.post(`/requests/${requestId}/proceed-payment`, {
+        method: 'Bank Transfer',
         adminEmail: localStorage.getItem('userEmail')
       });
-      
-      // Update the UI to show the button is disabled
-      setRows(prevRows => 
-        prevRows.map(row => 
-          row.requestId === requestId 
-            ? { ...row, sent_to_payment: 1, status: 'processing' } 
+
+      setRows(prevRows =>
+        prevRows.map(row =>
+          row.requestId === requestId
+            ? { ...row, sent_to_payment: 1, status: 'processing' }
             : row
         )
       );
-      
+
       enqueueSnackbar('Payment processed successfully', { variant: 'success' });
     } catch (error) {
       console.error('Error processing payment:', error);
@@ -150,9 +156,9 @@ export default function Payments() {
                       <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                           <Tooltip title="Open request">
-                            <Button 
-                              size="small" 
-                              onClick={() => navigate(`/requests/${p.requestId}`)} 
+                            <Button
+                              size="small"
+                              onClick={() => navigate(`/requests/${p.requestId}`)}
                               startIcon={<VisibilityOutlinedIcon/>}
                               variant="outlined"
                             >
@@ -161,9 +167,9 @@ export default function Payments() {
                           </Tooltip>
                           {p.status === 'approved' && !p.sent_to_payment && (
                             <Tooltip title="Proceed to Payment">
-                              <Button 
-                                size="small" 
-                                color="primary" 
+                              <Button
+                                size="small"
+                                color="primary"
                                 variant="contained"
                                 disabled={processingPayments[p.requestId]}
                                 onClick={() => handleProceedToPayment(p.requestId)}
