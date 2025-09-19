@@ -36,8 +36,8 @@ import axiosClient from '../api/axiosClient';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 
 // Helper to format currency consistently
-const formatCurrency = (value) =>
-  new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(value || 0));
+const formatCurrency = (value, currency = 'USD') =>
+  new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(value || 0));
 
 const timeRanges = [
   { label: 'All Time', value: 'all' },

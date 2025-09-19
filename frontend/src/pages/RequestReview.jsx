@@ -59,6 +59,7 @@ export default function RequestReview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [req, setReq] = useState(null);
+  console.log("=======================:", req)
   const [submitting, setSubmitting] = useState(false);
   // Intercompany state
   const [icOpen, setIcOpen] = useState(false);
@@ -82,7 +83,9 @@ export default function RequestReview() {
   // Set the payment amount when the dialog opens
   const handlePayOpen = () => {
     if (req?.amount) {
-      setPayAmount(req.amount);
+      // Format the amount with the request's currency
+      const formattedAmount = fmtMoney(req.amount, req.currency || 'USD');
+      setPayAmount(formattedAmount);
     }
     setPayOpen(true);
   };
@@ -218,7 +221,8 @@ export default function RequestReview() {
 
   if (!req) return null;
 
-  const currency = 'USD'; // If you store currency, swap here
+  // Use the currency from the request data, default to 'USD' if not available
+  const currency = req.currency || 'USD';
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', width: '100%' }}>
@@ -340,6 +344,14 @@ export default function RequestReview() {
                     Company
                   </Typography>
                   <Typography>{req.company || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Currency
+                  </Typography>
+                  <Typography fontWeight={600}>
+                    {req.currency || 'USD'} ({new Intl.NumberFormat(undefined, { style: 'currency', currency: req.currency || 'USD' }).format(1).replace(/[0-9.,\s]/g, '')})
+                  </Typography>
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">
@@ -613,9 +625,20 @@ export default function RequestReview() {
                 fullWidth 
                 size="small" 
                 placeholder="Paid Amount" 
-                type="number" 
+                type="text" 
                 value={payAmount} 
-                onChange={(e)=>setPayAmount(e.target.value)} 
+                onChange={(e) => {
+                  // Allow only numbers and decimal point
+                  const value = e.target.value.replace(/[^0-9.]/g, '');
+                  setPayAmount(value);
+                }}
+                onBlur={(e) => {
+                  // Format the number with the request's currency when input loses focus
+                  const numValue = parseFloat(e.target.value.replace(/[^0-9.]/g, ''));
+                  if (!isNaN(numValue)) {
+                    setPayAmount(fmtMoney(numValue, req.currency || 'USD'));
+                  }
+                }}
                 readOnly={!!req?.amount}
                 sx={req?.amount ? { '& .MuiOutlinedInput-input': { backgroundColor: 'action.hover' } } : {}}
               />

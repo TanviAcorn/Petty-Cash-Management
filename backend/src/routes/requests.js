@@ -278,6 +278,7 @@ router.get('/:id', async (req, res) => {
           r.category_name       AS category,
           r.location            AS location,
           r.amount,
+          r.currency,
           r.reason              AS description,
           COALESCE(p.status, r.status) AS status,
           r.created_at          AS createdAt,
@@ -470,6 +471,7 @@ router.get('/', async (req, res) => {
       r.category_name AS category,
       r.location AS location,
       r.amount,
+      r.currency,
       r.created_at AS date, -- original request date
       r.approved_at AS approvedAt,
       r.rejected_at AS rejectedAt,

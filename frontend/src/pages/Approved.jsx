@@ -34,8 +34,8 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import axiosClient from '../api/axiosClient';
 
-const formatCurrency = (value) =>
-  new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(value || 0));
+const formatCurrency = (value, currency = 'USD') =>
+  new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(value || 0));
 
 const timeRanges = [
   { label: 'All Time', value: 'all' },

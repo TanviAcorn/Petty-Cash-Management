@@ -79,7 +79,7 @@ export default function UserRequestDetails() {
 
   if (!req) return null;
 
-  const currency = 'USD';
+  const currency = req.currency || 'USD';
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', width: '100%' }}>
