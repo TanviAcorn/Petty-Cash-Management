@@ -465,7 +465,7 @@ const NewRequest = () => {
                         },
                         '& .MuiInputBase-multiline': {
                           '& textarea': {
-                            minHeight: '100px',
+                            minHeight: '25px',
                             resize: 'vertical'
                           }
                         }
