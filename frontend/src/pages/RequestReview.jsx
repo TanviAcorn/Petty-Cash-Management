@@ -78,6 +78,14 @@ export default function RequestReview() {
   const [payAmount, setPayAmount] = useState('');
   const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0,10));
   const [payNotes, setPayNotes] = useState('');
+
+  // Set the payment amount when the dialog opens
+  const handlePayOpen = () => {
+    if (req?.amount) {
+      setPayAmount(req.amount);
+    }
+    setPayOpen(true);
+  };
   const [payments, setPayments] = useState([]);
   const [receiptUploading, setReceiptUploading] = useState(false);
 
@@ -281,7 +289,7 @@ export default function RequestReview() {
               </Box>
               {!req.sent_to_payment && (
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                  <Button variant="contained" color="primary" onClick={() => setPayOpen(true)}>
+                  <Button variant="contained" color="primary" onClick={handlePayOpen}>
                     Proceed to Payment
                   </Button>
                 </Stack>
@@ -601,7 +609,16 @@ export default function RequestReview() {
               <OutlinedInput fullWidth size="small" placeholder="Reference (optional)" value={payReference} onChange={(e)=>setPayReference(e.target.value)} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <OutlinedInput fullWidth size="small" placeholder="Paid Amount (optional)" type="number" value={payAmount} onChange={(e)=>setPayAmount(e.target.value)} />
+              <OutlinedInput 
+                fullWidth 
+                size="small" 
+                placeholder="Paid Amount" 
+                type="number" 
+                value={payAmount} 
+                onChange={(e)=>setPayAmount(e.target.value)} 
+                readOnly={!!req?.amount}
+                sx={req?.amount ? { '& .MuiOutlinedInput-input': { backgroundColor: 'action.hover' } } : {}}
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <OutlinedInput fullWidth size="small" placeholder="Paid Date" type="date" value={payDate} onChange={(e)=>setPayDate(e.target.value)} />
