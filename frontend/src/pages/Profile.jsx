@@ -40,7 +40,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5005/api'}/users`;
+const API_URL = `${import.meta.env.VITE_API_URL || 'http://172.30.36.47:5005/api'}/users`;
 
 const Profile = () => {
   const [editMode, setEditMode] = useState(false);

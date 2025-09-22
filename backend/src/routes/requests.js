@@ -3,6 +3,7 @@ const router = express.Router();
 const sql = require('mssql');
 const multer = require('multer');
 const path = require('path');
+const { getExchangeRate } = require('../utils/exchangeRates');
 const fs = require('fs');
 const { poolPromise } = require('../config/db');
 const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail } = require('../utils/mailer');
@@ -666,6 +667,39 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     if (newRequest) {
       // Optional: Add the uploaded file info to the response
       newRequest.uploadedFiles = attachmentPaths;
+      
+      // Update location budget if location is provided
+      if (location) {
+        try {
+          // First, find the location ID
+          const locationResult = await pool.request()
+            .input('location', sql.NVarChar(200), location)
+            .query('SELECT id FROM petty_Locations WHERE location = @location');
+            
+          if (locationResult.recordset.length > 0) {
+            const locationId = locationResult.recordset[0].id;
+            const exchangeRate = await getExchangeRate(currency, 'GBP');
+            const amountInGBP = parseFloat(amount) / exchangeRate;
+            
+            // Update the location's used amount
+            await pool.request()
+              .input('id', sql.Int, locationId)
+              .input('amount', sql.Decimal(10, 2), amountInGBP)
+              .query(`
+                UPDATE petty_Locations 
+                SET used_amount = ISNULL(used_amount, 0) + @amount,
+                    remaining_amount = 30 - (ISNULL(used_amount, 0) + @amount)
+                WHERE id = @id
+                AND (30 - (ISNULL(used_amount, 0) + @amount)) >= 0
+              `);
+              
+            console.log(`Updated budget for location ${location} (ID: ${locationId})`);
+          }
+        } catch (error) {
+          console.error('Error updating location budget:', error);
+          // Don't fail the request if budget update fails
+        }
+      }
     }
     // Send admin notification email (non-blocking)
     try {

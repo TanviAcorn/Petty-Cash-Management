@@ -56,6 +56,7 @@ const NewRequest = () => {
     description: '',
     amount: '',
     currency: 'USD',
+    selectedLocation: null, // To store the full location object
     attachments: ''
   });
 
@@ -70,6 +71,31 @@ const NewRequest = () => {
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState('');
+  
+  // Exchange rates for currency conversion (simplified - in a real app, fetch from an API)
+  const exchangeRates = {
+    'GBP': 1,
+    'USD': 1.3,
+    'EUR': 1.1,
+    'INR': 100
+  };
+  
+  // Format currency based on selected currency
+  const formatCurrency = (amount, currency = 'GBP') => {
+    const formatter = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return formatter.format(amount);
+  };
+  
+  // Convert amount to GBP
+  const convertToGBP = (amount, fromCurrency) => {
+    const rate = exchangeRates[fromCurrency] || 1;
+    return amount / rate;
+  };
 
   // Use useEffect to fetch data on component mount
   useEffect(() => {
@@ -97,10 +123,21 @@ const NewRequest = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    if (name === 'location') {
+      // Find the full location object when location changes
+      const selectedLocation = locations.find(loc => loc.name === value) || null;
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        selectedLocation
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
 
     if (errors[name]) {
       setErrors(prev => ({
@@ -434,6 +471,60 @@ const NewRequest = () => {
                           </MenuItem>
                         ))}
                       </Select>
+                      {formData.selectedLocation && (
+                        <Box sx={{ 
+                          mt: 1, 
+                          p: 1.5, 
+                          bgcolor: 'grey.50', 
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'divider'
+                        }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">Budget:</Typography>
+                            <Typography variant="caption" fontWeight="medium">
+                              {formatCurrency(30, 'GBP')}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">Used:</Typography>
+                            <Typography variant="caption" fontWeight="medium">
+                              {formatCurrency(formData.selectedLocation.usedAmount || 0, 'GBP')}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">Remaining:</Typography>
+                            <Typography 
+                              variant="caption" 
+                              fontWeight="bold"
+                              color={formData.selectedLocation.remainingAmount > 0 ? 'success.main' : 'error.main'}
+                            >
+                              {formatCurrency(formData.selectedLocation.remainingAmount || 30, 'GBP')}
+                            </Typography>
+                          </Box>
+                          {formData.amount && !isNaN(formData.amount) && formData.currency && (
+                            <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed', borderColor: 'divider' }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <Typography variant="caption" color="text.secondary">After this request:</Typography>
+                                <Typography 
+                                  variant="caption" 
+                                  fontWeight="bold"
+                                  color={
+                                    (formData.selectedLocation.remainingAmount - convertToGBP(Number(formData.amount), formData.currency)) >= 0 
+                                      ? 'success.main' 
+                                      : 'error.main'
+                                  }
+                                >
+                                  {formatCurrency(
+                                    formData.selectedLocation.remainingAmount - convertToGBP(Number(formData.amount), formData.currency), 
+                                    'GBP'
+                                  )}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          )}
+                        </Box>
+                      )}
                     </FormControl>
                   </Grid>
                   

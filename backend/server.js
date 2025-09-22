@@ -7,11 +7,15 @@ const app = express();
 
 // Enhanced CORS configuration
 // Note: When origin is '*', credentials MUST be false per CORS spec.
+// Replace the CORS configuration with:
 const corsOptions = {
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Accept', 'X-Requested-With'],
-  credentials: false
+  origin: [
+    'http://172.30.36.47:5176',  // Your frontend URL
+    'http://localhost:5176',     // Local development
+    // Add any other domains if needed
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
