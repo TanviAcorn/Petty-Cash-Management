@@ -509,7 +509,7 @@ router.post('/:id/proceed-payment', async (req, res) => {
     const { recordset } = await pool.request().input('id', sql.Int, id).query('SELECT * FROM petty_cash_requests WHERE id = @id');
     const row = recordset?.[0];
     if (!row) return res.status(404).json({ message: 'Request not found' });
-    if (String(row.status).toLowerCase() !== 'approved') {
+    if (String(row.status).toLowerCase() !== 'approved' && String(row.status).toLowerCase() !== 'intercompany') {
       return res.status(400).json({ message: 'Proceed to Payment is only allowed for approved requests' });
     }
 
@@ -542,13 +542,43 @@ router.post('/:id/proceed-payment', async (req, res) => {
 
     // NOTE: Do NOT change request status; keep as 'approved' so it remains in Approved tab
 
-    // Send email to payments team
+    // Send email to multiple recipients
     try {
-      const to = process.env.PAYMENTS_EMAIL || 'priyal.makwana@acornuniversalconsultancy.com';
-      const email = buildPaymentInitiatedEmail({ request: row, payment: { method, reference, paidAmount, paidDate, notes } });
-      await sendEmail({ to, subject: email.subject, html: email.html, replyTo: adminEmail || process.env.ADMIN_EMAIL });
+      // Define the three email recipients
+      const recipients = [
+        'priyal.makwana@acornuniversalconsultancy.com',
+        'tanvi.laddha@acornuniversalconsultancy.com',
+        'aryan.gupta@acornuniversalconsultancy.com'
+      ];
+      
+      // Build the email content
+      const email = buildPaymentInitiatedEmail({ 
+        request: row, 
+        payment: { 
+          method, 
+          reference, 
+          paidAmount, 
+          paidDate, 
+          notes,
+          processedBy: adminEmail || 'System'
+        } 
+      });
+      
+      // Send email to each recipient
+      const emailPromises = recipients.map(to => 
+        sendEmail({ 
+          to, 
+          subject: email.subject, 
+          html: email.html, 
+          replyTo: adminEmail || process.env.ADMIN_EMAIL 
+        })
+      );
+      
+      await Promise.all(emailPromises);
+      console.log('Payment notification emails sent successfully to all recipients');
     } catch (e) {
-      console.error('Payment email error:', e);
+      console.error('Error sending payment notification emails:', e);
+      // Don't fail the request if email sending fails
     }
 
     return res.json({ message: 'Payment initiated and team notified' });
