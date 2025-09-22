@@ -33,9 +33,7 @@ import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import axiosClient from '../api/axiosClient';
-
-const formatCurrency = (value, currency = 'USD') =>
-  new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(value || 0));
+import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 
 const timeRanges = [
   { label: 'All Time', value: 'all' },

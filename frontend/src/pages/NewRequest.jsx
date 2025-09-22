@@ -202,6 +202,7 @@ const NewRequest = () => {
         formDataToSend.append('category', formData.category);
         formDataToSend.append('location', formData.location);
         formDataToSend.append('amount', formData.amount);
+        formDataToSend.append('currency', formData.currency);
         formDataToSend.append('dateOfPurchase', formData.dateOfPurchase);
         formDataToSend.append('description', formData.description);
 

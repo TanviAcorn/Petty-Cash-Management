@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -73,6 +73,36 @@ const AllRequests = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState([]);
+  
+  const formatCurrency = (amount, currency) => {
+    try {
+      // Ensure amount is a valid number
+      const amountValue = Number(amount) || 0;
+      
+      // Get a safe currency code with fallbacks
+      let safeCurrency = 'USD'; // Default fallback
+      if (currency && typeof currency === 'string' && currency.trim() !== '') {
+        const trimmedCurrency = currency.trim().toUpperCase();
+        // Only use the provided currency if it's a valid ISO 4217 currency code (basic check)
+        if (/^[A-Z]{3}$/.test(trimmedCurrency)) {
+          safeCurrency = trimmedCurrency;
+        }
+      }
+      
+      // Format the amount with the currency
+      return new Intl.NumberFormat(undefined, { 
+        style: 'currency', 
+        currency: safeCurrency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amountValue);
+    } catch (error) {
+      console.error('Error formatting currency:', error, { amount, currency });
+      // Fallback to basic formatting if Intl.NumberFormat fails
+      return `$${(Number(amount) || 0).toFixed(2)}`;
+    }
+  };
+
   const [dateRange, setDateRange] = useState({
     startDate: null,
     endDate: null
@@ -361,7 +391,9 @@ const AllRequests = () => {
                           <TableCell>{r.category}</TableCell>
                           <TableCell>{r.company}</TableCell>
                           <TableCell>{r.location}</TableCell>
-                          <TableCell align="right">{new Intl.NumberFormat(undefined, { style: 'currency', currency: r.currency || 'USD' }).format(Number(r.amount || 0))}</TableCell>
+                          <TableCell align="right">
+                            {formatCurrency(r.amount, r.currency)}
+                          </TableCell>
                           <TableCell>
                             <Chip size="small" label={sc.label} color={sc.color} variant="outlined" sx={{ textTransform: 'lowercase' }} />
                           </TableCell>

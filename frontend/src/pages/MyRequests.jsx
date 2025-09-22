@@ -112,7 +112,7 @@ const MyRequests = () => {
     })();
   }, []);
 
-  const fmtMoney = (n) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(n || 0));
+  const fmtMoney = (n, currency = 'USD') => new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
 
   // Calculate dashboard stats
   const stats = useMemo(() => {

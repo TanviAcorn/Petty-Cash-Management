@@ -571,6 +571,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       company,
       category,
       amount,
+      currency,
       description,
       dateOfPurchase,
       location
@@ -582,6 +583,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       company,
       category,
       amount,
+      currency,
       description,
       dateOfPurchase,
       location
@@ -599,6 +601,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       .input('company', sql.NVarChar(200), company ? String(company) : null)
       .input('category', sql.NVarChar(200), String(category))
       .input('amount', sql.Decimal(18, 2), Number(amount))
+      .input('currency', sql.NVarChar(10), String(currency))
       .input('dateOfPurchase', sql.Date, dateOfPurchase ? new Date(dateOfPurchase) : null)
       .input('location', sql.NVarChar(200), location ? String(location) : null)
       // FIX: Map description field from frontend to reason field in the database
@@ -621,9 +624,9 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
 
     console.log('About to execute SQL insert...');
     const insertSql = `
-      INSERT INTO petty_cash_requests (employee_name, employee_email, company_name, category_name, amount, location, status, reason, created_at, approved_at, rejected_at, attachments, date_of_purchase)
+      INSERT INTO petty_cash_requests (employee_name, employee_email, company_name, category_name, amount, currency, location, status, reason, created_at, approved_at, rejected_at, attachments, date_of_purchase)
       OUTPUT INSERTED.*
-      VALUES (@employeeName, @employeeEmail, @company, @category, @amount, @location, @status, @reason, SYSUTCDATETIME(), NULL, NULL, @attachments, @dateOfPurchase)
+      VALUES (@employeeName, @employeeEmail, @company, @category, @amount, @currency, @location, @status, @reason, SYSUTCDATETIME(), NULL, NULL, @attachments, @dateOfPurchase)
     `;
 
     const result = await request.query(insertSql);
