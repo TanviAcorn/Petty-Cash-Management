@@ -46,20 +46,6 @@ const currencies = [
   { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
 ];
 
-const locations = [
-  'Unit 2B',
-  'Hitchin',
-  'TFC',
-  'TFC - Office',
-  'Acme',
-  'USA Site 1',
-  'USA Site 2',
-  'NL',
-  'PL',
-  'BE',
-  'Germany'
-];
-
 const NewRequest = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -78,9 +64,10 @@ const NewRequest = () => {
   const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Dynamic state for categories and companies
+  // Dynamic state for categories, companies, and locations
   const [categories, setCategories] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState('');
 
@@ -89,16 +76,18 @@ const NewRequest = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [categoriesRes, companiesRes] = await Promise.all([
+        const [categoriesRes, companiesRes, locationsRes] = await Promise.all([
           axiosClient.get('/categories'),
-          axiosClient.get('/companies')
+          axiosClient.get('/companies'),
+          axiosClient.get('/locations')
         ]);
         setCategories(categoriesRes.data);
         setCompanies(companiesRes.data);
+        setLocations(locationsRes.data);
         setDataError('');
       } catch (err) {
         console.error('Failed to fetch dynamic data:', err);
-        setDataError('Failed to load categories and companies. Please try again.');
+        setDataError('Failed to load required data. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -434,13 +423,15 @@ const NewRequest = () => {
                             borderColor: 'primary.main'
                           }
                         }}
-                        renderValue={(value) => value || 'Select location'}
+                        disabled={loading}
                       >
                         <MenuItem value="">
                           <em style={{ color: '#aaa' }}>Select location</em>
                         </MenuItem>
                         {locations.map((location) => (
-                          <MenuItem key={location} value={location}>{location}</MenuItem>
+                          <MenuItem key={location.id} value={location.name}>
+                            {location.name}
+                          </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
@@ -476,7 +467,7 @@ const NewRequest = () => {
                 </Grid>
               </CardContent>
             </Card>
-            <Card variant="outlined" sx={{ borderRadius: 3, mb: 2, borderColor: 'divider', background: (t) => t.palette.mode === 'light' ? 'linear-gradient(180deg, rgba(2,6,23,0.02) 0%, rgba(2,6,23,0) 100%)' : 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)', boxShadow: (t) => `0 6px 16px ${t.palette.mode === 'light' ? 'rgba(2,6,23,0.05)' : 'rgba(0,0,0,0.35)'}` }}>
+            <Card variant="outlined" sx={{ flex: 1, mb: 2, borderRadius: 2, borderColor: 'divider', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <AttachMoney sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />

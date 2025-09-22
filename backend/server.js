@@ -24,6 +24,7 @@ const companyRoutes = require("./src/routes/companies");
 const categoryRoutes = require("./src/routes/categories");
 const requestRoutes = require("./src/routes/requests");
 const healthRoutes = require("./src/routes/health");
+const locationRoutes = require("./src/routes/locations");
 
 // ✅ use it once
 app.use("/api/users", userRoutes);
@@ -31,6 +32,7 @@ app.use("/api/companies", companyRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/health", healthRoutes);
+app.use("/api/locations", locationRoutes);
 
 // Static file hosting for uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

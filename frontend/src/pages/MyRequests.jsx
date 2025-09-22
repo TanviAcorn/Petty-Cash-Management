@@ -61,9 +61,7 @@ const MyRequests = () => {
   const [editReq, setEditReq] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [locations, setLocations] = useState([
-    'Unit 2B', 'Hitchin', 'TFC', 'TFC - Office', 'Acme', 'USA Site 1', 'USA Site 2', 'NL', 'PL', 'BE', 'Germany'
-  ]);
+  const [locations, setLocations] = useState([]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
@@ -109,6 +107,19 @@ const MyRequests = () => {
         const { data } = await axiosClient.get('/categories');
         setCategories(Array.isArray(data) ? data : []);
       } catch { }
+    })();
+  }, []);
+
+  // Preload locations for edit dropdown
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await axiosClient.get('/locations');
+        setLocations(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error fetching locations:', error);
+        setLocations([]);
+      }
     })();
   }, []);
 
@@ -477,7 +488,7 @@ const MyRequests = () => {
                   input={<OutlinedInput label="Location" />}
                 >
                   {locations.map(loc => (
-                    <MenuItem key={loc} value={loc}>{loc}</MenuItem>
+                    <MenuItem key={loc.id} value={loc.name}>{loc.name}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
