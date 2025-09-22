@@ -607,17 +607,6 @@ export default function RequestReview() {
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel id="pay-method-label">Method</InputLabel>
-                <Select labelId="pay-method-label" label="Method" value={payMethod} onChange={(e)=>setPayMethod(e.target.value)}>
-                  <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
-                  <MenuItem value="Cash">Cash</MenuItem>
-                  <MenuItem value="UPI">UPI</MenuItem>
-                  <MenuItem value="Cheque">Cheque</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
               <OutlinedInput fullWidth size="small" placeholder="Reference (optional)" value={payReference} onChange={(e)=>setPayReference(e.target.value)} />
             </Grid>
             <Grid item xs={12} sm={6}>

@@ -20,7 +20,23 @@ import axiosClient from '../api/axiosClient';
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5005/api');
 const FILE_BASE = API_BASE.replace(/\/api\/?$/, '');
 
-const fmtMoney = (n, currency = 'USD') => new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
+const fmtMoney = (n, currency) => {
+  try {
+    // Default to USD if currency is not provided or invalid
+    const safeCurrency = currency && typeof currency === 'string' && /^[A-Z]{3}$/.test(currency.trim()) 
+      ? currency.trim() 
+      : 'USD';
+      
+    return new Intl.NumberFormat(undefined, { 
+      style: 'currency', 
+      currency: safeCurrency 
+    }).format(Number(n || 0));
+  } catch (error) {
+    console.error('Error formatting currency:', { amount: n, currency, error });
+    // Fallback to basic formatting
+    return `$${(Number(n) || 0).toFixed(2)}`;
+  }
+};
 
 const statusChip = (status) => {
   switch ((status || '').toLowerCase()) {
