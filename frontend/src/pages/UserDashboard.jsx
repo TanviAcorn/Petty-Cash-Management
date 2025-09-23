@@ -152,7 +152,7 @@ const UserDashboard = () => {
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', mb: 2 }}>
         <StatCard icon={<ReceiptIcon color="primary" />} label="My Requests" value={stats.totalRequests} />
         <StatCard icon={<AccessTimeIcon color="warning" />} label="Pending" value={stats.pending} />
-        <StatCard icon={<AttachMoneyIcon color="success" />} label="This Month" value={formatCurrency(stats.thisMonthAmount)} />
+        <StatCard icon={<AttachMoneyIcon color="success" />} label="This Month" value={stats.thisMonthAmount} />
       </Box>
 
       {/* Main Content Grid */}

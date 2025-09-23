@@ -190,8 +190,8 @@ const Dashboard = () => {
       >
         <StatCard icon={<PlaylistAddCheckCircleIcon color="primary" />} label="Total Requests" value={stats.totalRequests} />
         <StatCard icon={<AccessTimeOutlinedIcon color="warning" />} label="Pending Approval" value={stats.pending} />
-        <StatCard icon={<AttachMoneyIcon color="success" />} label="Total Amount" value={fmt(stats.totalAmount)} />
-        <StatCard icon={<TrendingUpIcon color="secondary" />} label="This Month" value={fmt(stats.thisMonthAmount)} />
+        <StatCard icon={<AttachMoneyIcon color="success" />} label="Total Amount" value={stats.totalAmount} />
+        <StatCard icon={<TrendingUpIcon color="secondary" />} label="This Month" value={stats.thisMonthAmount} />
       </Box>
 
       {/* Charts */}

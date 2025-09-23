@@ -271,13 +271,13 @@ const Approved = () => {
         <StatCard
           icon={<AttachMoneyIcon />}
           label="Total Amount"
-          value={formatCurrency(stats.totalAmount)}
+          value={stats.totalAmount}
           color="primary"
         />
         <StatCard
           icon={<TrendingUpIcon />}
           label="Average Amount"
-          value={formatCurrency(stats.avgAmount)}
+          value={stats.avgAmount}
           color="info"
         />
         <StatCard

@@ -263,7 +263,7 @@ const MyRequests = () => {
                 Total Amount
               </Typography>
               <Typography variant="h6" fontWeight={800}>
-                {formatCurrency(stats.totalAmount, rows[0]?.currency || 'USD')}
+                {stats.totalAmount}
               </Typography>
             </Box>
           </CardContent>

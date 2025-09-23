@@ -212,8 +212,8 @@ const Rejected = () => {
         gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))'
       }}>
         <StatCard icon={<CancelOutlinedIcon />} label="Total Rejected" value={stats.total} color="error" />
-        <StatCard icon={<AttachMoneyIcon />} label="Total Amount" value={formatCurrency(stats.totalAmount)} color="success" />
-        <StatCard icon={<ReportProblemOutlinedIcon />} label="Average Amount" value={formatCurrency(stats.avg)} color="warning" />
+        <StatCard icon={<AttachMoneyIcon />} label="Total Amount" value={stats.totalAmount} color="success" />
+        <StatCard icon={<ReportProblemOutlinedIcon />} label="Average Amount" value={stats.avg} color="warning" />
         <StatCard icon={<ChatBubbleOutlineOutlinedIcon />} label="With Reasons" value={stats.withReasons} color="secondary" />
       </Box>
 
