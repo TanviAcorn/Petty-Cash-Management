@@ -168,8 +168,20 @@ const Profile = () => {
       // Extract password fields and get the rest as profile data
       const { currentPassword, newPassword, confirmPassword, ...profileData } = user;
       
-      // Call the common service to update the profile
-      const response = await commonService.updateProfile(user.id, profileData);
+      // Get the authentication token
+      const token = localStorage.getItem('token');
+      
+      // Make the API call to update user profile
+      const response = await axios.put(
+        `${API_URL}/${user.id}`, 
+        profileData,
+        {
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
       
       console.log('Profile update response:', response);
       
@@ -185,7 +197,7 @@ const Profile = () => {
       
       setSnackbar({
         open: true,
-        message: response?.message || 'Profile updated successfully',
+        message: response.data?.message || 'Profile updated successfully',
         severity: 'success'
       });
       

@@ -188,10 +188,10 @@ const Dashboard = () => {
           alignItems: 'stretch',
         }}
       >
-        <StatCard icon={<PlaylistAddCheckCircleIcon color="primary" />} label="Total Requests" value={stats.totalRequests} deltaText="↑ 8.2% from last month" />
-        <StatCard icon={<AccessTimeOutlinedIcon color="warning" />} label="Pending Approval" value={stats.pending} deltaText="↓ 2.4% from last month" deltaColor="error" />
-        <StatCard icon={<AttachMoneyIcon color="success" />} label="Total Amount" value={fmt(stats.totalAmount)} deltaText="↑ 12.5% from last month" />
-        <StatCard icon={<TrendingUpIcon color="secondary" />} label="This Month" value={fmt(stats.thisMonthAmount)} deltaText="↑ 5.7% from last month" />
+        <StatCard icon={<PlaylistAddCheckCircleIcon color="primary" />} label="Total Requests" value={stats.totalRequests} />
+        <StatCard icon={<AccessTimeOutlinedIcon color="warning" />} label="Pending Approval" value={stats.pending} />
+        <StatCard icon={<AttachMoneyIcon color="success" />} label="Total Amount" value={fmt(stats.totalAmount)} />
+        <StatCard icon={<TrendingUpIcon color="secondary" />} label="This Month" value={fmt(stats.thisMonthAmount)} />
       </Box>
 
       {/* Charts */}

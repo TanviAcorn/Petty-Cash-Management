@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { formatCurrency } from '../utils/currency';
 import {
   Box,
   Typography,
@@ -123,7 +124,6 @@ const MyRequests = () => {
     })();
   }, []);
 
-  const fmtMoney = (n, currency = 'USD') => new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
 
   // Calculate dashboard stats
   const stats = useMemo(() => {
@@ -263,7 +263,7 @@ const MyRequests = () => {
                 Total Amount
               </Typography>
               <Typography variant="h6" fontWeight={800}>
-                {fmtMoney(stats.totalAmount)}
+                {formatCurrency(stats.totalAmount, rows[0]?.currency || 'USD')}
               </Typography>
             </Box>
           </CardContent>
@@ -308,7 +308,7 @@ const MyRequests = () => {
               <MenuItem value="Pending">Pending</MenuItem>
               <MenuItem value="Approved">Approved</MenuItem>
               <MenuItem value="Rejected">Rejected</MenuItem>
-              <MenuItem value="In-review">In Review</MenuItem>
+              <MenuItem value="In-review">Processing</MenuItem>
             </Select>
           </FormControl>
         </CardContent>
@@ -379,7 +379,7 @@ const MyRequests = () => {
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" fontWeight="bold">
-                        {fmtMoney(r.amount)}
+                        {formatCurrency(r.amount, r.currency)}
                       </Typography>
                     </TableCell>
                     <TableCell>

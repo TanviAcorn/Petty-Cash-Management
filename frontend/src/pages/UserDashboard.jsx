@@ -14,6 +14,7 @@ import {
   Chip,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
+import { formatCurrency } from '../utils/currency';
 import {
   Receipt as ReceiptIcon,
   AccessTime as AccessTimeIcon,
@@ -134,13 +135,6 @@ const UserDashboard = () => {
         return '#ff9800';
     }
   };
-
-  const formatCurrency = (amount, currency = 'USD') => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency
-    }).format(Number(amount || 0));
-  }
 
   return (
     <Box sx={{ maxWidth: 1400, mx: 'auto', width: '100%', p: { xs: 2, sm: 3 } }}>
@@ -290,7 +284,7 @@ const UserDashboard = () => {
                         {request.category || 'Office supplies request'}
                       </Typography>
                       <Typography variant="body1" fontWeight="bold">
-                        {formatCurrency(request.amount)}
+                        {formatCurrency(request.amount, request.currency)}
                       </Typography>
                     </Box>
                   }
