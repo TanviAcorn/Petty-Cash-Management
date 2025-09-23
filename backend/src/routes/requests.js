@@ -80,45 +80,95 @@ router.get('/payments/list', async (_req, res) => {
 // Mark payment as done with optional receipt upload
 const receiptUpload = multer({ storage });
 router.post('/:id/payment-done', receiptUpload.single('receipt'), async (req, res) => {
+  const pool = await poolPromise;
+  const txn = new sql.Transaction(pool);
+  
   try {
     const id = Number(req.params.id);
-    console.log(`Processing request for ID: ${id}`);
+    console.log(`Processing payment completion for request ID: ${id}`);
     if (!id) return res.status(400).json({ message: 'Invalid id' });
-    const pool = await poolPromise;
-    await ensurePaymentsSchema(pool);
-    // Update the latest payment row for this request and sync with requests table
+    
+    await txn.begin();
+    
+    // First, get the request details including location and amount
+    const requestResult = await new sql.Request(txn)
+      .input('id', sql.Int, id)
+      .query(`
+        SELECT r.amount, r.currency, r.location, l.id as locationId 
+        FROM petty_cash_requests r
+        LEFT JOIN petty_Locations l ON r.location = l.location
+        WHERE r.id = @id
+      `);
+      
+    if (requestResult.recordset.length === 0) {
+      await txn.rollback();
+      return res.status(404).json({ message: 'Request not found' });
+    }
+    
+    const request = requestResult.recordset[0];
     const receiptFilename = req.file ? req.file.filename : null;
     
-    await pool.request()
+    // Update the payment record
+    await new sql.Request(txn)
       .input('id', sql.Int, id)
       .input('receipt', sql.NVarChar(500), receiptFilename)
       .query(`
-        BEGIN TRANSACTION;
-        
-        -- Update the payment record
         UPDATE p 
         SET status = 'payment done', 
             receipt_filename = @receipt
         FROM petty_cash_payments p
         WHERE p.id = (
           SELECT TOP 1 id FROM petty_cash_payments WHERE request_id = @id ORDER BY created_at DESC
-        );
-        
-        -- Update the request status to match
+        )
+      `);
+    
+    // Update the request status
+    await new sql.Request(txn)
+      .input('id', sql.Int, id)
+      .query(`
         UPDATE petty_cash_requests
         SET status = 'payment done'
-        WHERE id = @id; 
-        
-        COMMIT TRANSACTION;
-      `)
-      .catch(err => {
-        console.error('SQL query failed:', err);
-        throw err;
-    });
+        WHERE id = @id
+      `);
+    
+    // Update the location's used amount if location exists
+    if (request.locationId) {
+      const exchangeRate = await getExchangeRate(request.currency || 'GBP', 'GBP');
+      const amountInGBP = parseFloat(request.amount) / exchangeRate;
       
+      await new sql.Request(txn)
+        .input('id', sql.Int, request.locationId)
+        .input('amount', sql.Decimal(10, 2), amountInGBP)
+        .query(`
+          UPDATE petty_Locations 
+          SET used_amount = ISNULL(used_amount, 0) + @amount,
+              remaining_amount = 30 - (ISNULL(used_amount, 0) + @amount)
+          WHERE id = @id
+          AND (30 - (ISNULL(used_amount, 0) + @amount)) >= 0;
+          
+          IF @@ROWCOUNT = 0
+          BEGIN
+            THROW 50001, 'Insufficient budget for this location', 1;
+          END
+        `);
+        
+      console.log(`Updated budget for location ${request.location} (ID: ${request.locationId})`);
+    }
+    
+    await txn.commit();
     return res.json({ message: 'Payment marked as done', receipt: receiptFilename });
+    
   } catch (err) {
     console.error('Error marking payment done:', err);
+    try {
+      await txn.rollback();
+    } catch (rollbackErr) {
+      console.error('Error rolling back transaction:', rollbackErr);
+    }
+    
+    if (err.number === 50001) {
+      return res.status(400).json({ message: err.message || 'Insufficient budget for this location' });
+    }
     return res.status(500).json({ message: 'Failed to mark payment done' });
   }
 });
@@ -678,22 +728,8 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
             
           if (locationResult.recordset.length > 0) {
             const locationId = locationResult.recordset[0].id;
-            const exchangeRate = await getExchangeRate(currency, 'GBP');
-            const amountInGBP = parseFloat(amount) / exchangeRate;
-            
-            // Update the location's used amount
-            await pool.request()
-              .input('id', sql.Int, locationId)
-              .input('amount', sql.Decimal(10, 2), amountInGBP)
-              .query(`
-                UPDATE petty_Locations 
-                SET used_amount = ISNULL(used_amount, 0) + @amount,
-                    remaining_amount = 30 - (ISNULL(used_amount, 0) + @amount)
-                WHERE id = @id
-                AND (30 - (ISNULL(used_amount, 0) + @amount)) >= 0
-              `);
-              
-            console.log(`Updated budget for location ${location} (ID: ${locationId})`);
+            // We'll update the budget when payment is marked as done
+            console.log(`Location ID ${locationId} will be updated when payment is completed`);
           }
         } catch (error) {
           console.error('Error updating location budget:', error);

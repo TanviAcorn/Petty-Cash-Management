@@ -1,15 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField, Button, MenuItem } from "@mui/material";
-
-const countries = [
-  "USA",
-  "UK",
-  "Canada",
-  "Germany",
-  "Poland",
-  "India",
-  "Australia",
-];
+import { Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField, Button } from "@mui/material";
 
 export default function AddCompanyModal({ open, onClose, onSave, initial }) {
   const [form, setForm] = useState({ name: "", code: "", country: "" });
@@ -62,17 +52,15 @@ export default function AddCompanyModal({ open, onClose, onSave, initial }) {
           </Grid>
           <Grid item xs={12}>
             <TextField
-              select
               fullWidth
               label="Country"
               name="country"
               value={form.country}
               onChange={handleChange}
-            >
-              {countries.map((c) => (
-                <MenuItem key={c} value={c}>{c}</MenuItem>
-              ))}
-            </TextField>
+              required
+              size="small"
+              placeholder="Enter country name"
+            />
           </Grid>
         </Grid>
       </DialogContent>
