@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSnackbar } from 'notistack';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -71,7 +70,8 @@ const VisuallyHiddenInput = styled('input')({
 const UploadReceipt = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  // We're no longer using useSnackbar, so it should be removed
+  // const { enqueueSnackbar } = useSnackbar();
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -106,14 +106,15 @@ const UploadReceipt = () => {
         }
       } catch (error) {
         console.error('Error fetching data:', error);
-        enqueueSnackbar(error.response?.data?.message || 'Failed to load request details', { variant: 'error' });
+        // Using alert for error message
+        alert(error.response?.data?.message || 'Failed to load request details');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [id, enqueueSnackbar]);
+  }, [id]); // Removed enqueueSnackbar from dependency array
 
   const handleFileChange = (e) => {
     if (e.target.files) {
@@ -130,16 +131,14 @@ const UploadReceipt = () => {
       const invalidFiles = newFiles.filter(file => !validTypes.includes(file.type));
 
       if (invalidFiles.length > 0) {
-        enqueueSnackbar('Invalid file type. Please upload only images, PDFs, or Word documents.', {
-          variant: 'error'
-        });
+        // Using alert for warning message
+        alert('Invalid file type. Please upload only images, PDFs, or Word documents.');
         return;
       }
 
       if (files.length + newFiles.length > 5) {
-        enqueueSnackbar('You can upload a maximum of 5 files', {
-          variant: 'warning'
-        });
+        // Using alert for warning message
+        alert('You can upload a maximum of 5 files');
         return;
       }
 
@@ -153,22 +152,16 @@ const UploadReceipt = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Starting form submission...');
-
     setSubmitting(true);
-    console.log('Form data prepared, sending to server...');
 
     try {
       const formDataToSend = new FormData();
       files.forEach((file) => {
         formDataToSend.append('receipts', file);
-        console.log('Added file:', file.name);
       });
 
-      console.log('Sending request to:', `/requests/${id}/upload-receipts`);
-
       const response = await axios.post(
-        `http://172.30.36.47:5005/api/requests/${id}/upload-receipts`,  // Updated URL
+        `http://172.30.36.47:5005/api/requests/${id}/upload-receipts`,
         formDataToSend,
         {
           headers: {
@@ -177,34 +170,33 @@ const UploadReceipt = () => {
         }
       );
 
-      console.log('Server response:', response.data);
-      enqueueSnackbar('Receipt uploaded successfully!', { variant: 'success' });
-      setTimeout(() => navigate('/my-requests'), 1500);
+      // Use alert for success message from backend
+      alert(response.data.message || 'Receipts uploaded successfully!');
+      setTimeout(() => {
+        navigate(user?.role === 'Admin' ? '/dashboard' : '/my-requests');
+      }, 1500);
+
     } catch (err) {
       console.error('Error details:', {
         message: err.message,
         response: err.response?.data,
         status: err.response?.status,
-        config: {
-          url: err.config?.url,
-          method: err.config?.method
-        }
       });
-      enqueueSnackbar(
-        err.response?.data?.message || 'Failed to upload receipt. Please check console for details.',
-        { variant: 'error' }
+
+      // Use alert for error message from backend
+      alert(
+        err.response?.data?.message || 'Failed to upload receipt. Please check console for details.'
       );
+
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleBackNavigation = () => {
-    // Check if there is a previous page in the browser history
     if (window.history.length > 1) {
       navigate(-1);
     } else {
-      // If there's no history, navigate to the user's dashboard
       navigate(user?.role === 'Admin' ? '/dashboard' : '/my-requests');
     }
   };
@@ -454,7 +446,6 @@ const UploadReceipt = () => {
   );
 };
 
-// Reusable DetailItem component
 const DetailItem = ({ label, value, fullWidth = false, bold = false }) => (
   <Grid item xs={12} sm={fullWidth ? 12 : 6}>
     <Typography
