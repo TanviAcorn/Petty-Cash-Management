@@ -24,6 +24,8 @@ import {
   OutlinedInput,
   Snackbar,
   Alert,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
@@ -32,6 +34,7 @@ import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import axiosClient from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
@@ -79,19 +82,14 @@ export default function RequestReview() {
   const [payAmount, setPayAmount] = useState('');
   const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0,10));
   const [payNotes, setPayNotes] = useState('');
-
-  // Set the payment amount when the dialog opens
-  const handlePayOpen = () => {
-    if (req?.amount) {
-      // Format the amount with the request's currency
-      const formattedAmount = fmtMoney(req.amount, req.currency || 'USD');
-      setPayAmount(formattedAmount);
-    }
-    setPayOpen(true);
-  };
-  const [payments, setPayments] = useState([]);
   const [receiptUploading, setReceiptUploading] = useState(false);
-
+  const [tabValue, setTabValue] = useState(0);
+  const [payments, setPayments] = useState([]);
+  
+  // Check if there are any payment receipts to show
+  const hasPaymentReceipts = useMemo(() => {
+    return payments && Array.isArray(payments) && payments.some(p => p.receipt_filename);
+  }, [payments]);
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
@@ -505,35 +503,97 @@ export default function RequestReview() {
           </Card>
         </Grid>
 
-        {/* Attachments - Right column beside Request Details */}
+        {/* Attachments & Receipts - Right column beside Request Details */}
         <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
-          <Card variant="outlined" sx={{ flex: 1, height: '100%' }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ReceiptLongOutlinedIcon /> Attachments
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              {Array.isArray(req.attachments) && req.attachments.length > 0 ? (
-                <Stack spacing={1}>
-                  {req.attachments.map((f, idx) => (
-                    <Button 
-                      key={idx} 
-                      component={Link} 
-                      to={`${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`} 
-                      target="_blank" 
-                      rel="noopener" 
-                      variant="outlined" 
-                      size="small"
-                      fullWidth
-                      sx={{ justifyContent: 'flex-start', textAlign: 'left' }}
-                    >
-                      {f.originalName || f.filename || `file-${idx+1}`}
-                    </Button>
-                  ))}
-                </Stack>
-              ) : (
-                <Typography variant="body2" color="text.secondary">No attachments</Typography>
-              )}
+          <Card variant="outlined" sx={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 0 }}>
+              <Tabs 
+                value={tabValue} 
+                onChange={(e, newValue) => setTabValue(newValue)}
+                variant="fullWidth"
+                sx={{ borderBottom: 1, borderColor: 'divider' }}
+              >
+                <Tab icon={<ReceiptLongOutlinedIcon />} label="Attachments" />
+                <Tab icon={<ReceiptIcon />} label="Payment Receipts" disabled={!hasPaymentReceipts} />
+              </Tabs>
+              
+              <Box sx={{ p: 2, flex: 1, overflow: 'auto' }}>
+                {tabValue === 0 ? (
+                  // Request Attachments Tab
+                  <>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Request Attachments
+                    </Typography>
+                    {Array.isArray(req.attachments) && req.attachments.length > 0 ? (
+                      <Stack spacing={1}>
+                        {req.attachments.map((f, idx) => (
+                          <Button 
+                            key={`req-${idx}`} 
+                            component={Link} 
+                            to={`${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            variant="outlined" 
+                            size="small"
+                            fullWidth
+                            sx={{ 
+                              justifyContent: 'flex-start', 
+                              textAlign: 'left',
+                              textTransform: 'none',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                          >
+                            {f.originalName || f.filename || `file-${idx+1}`}
+                          </Button>
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        No request attachments found
+                      </Typography>
+                    )}
+                  </>
+                ) : (
+                  // Payment Receipts Tab
+                  <>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Payment Receipts
+                    </Typography>
+                    {hasPaymentReceipts ? (
+                      <Stack spacing={1}>
+                        {payments
+                          .filter(p => p.receipt_filename)
+                          .map((p, idx) => (
+                            <Button
+                              key={`receipt-${idx}`}
+                              component="a"
+                              href={`${FILE_BASE}/uploads/${encodeURIComponent(p.receipt_filename)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              variant="outlined"
+                              size="small"
+                              fullWidth
+                              sx={{ 
+                                justifyContent: 'flex-start', 
+                                textAlign: 'left',
+                                textTransform: 'none',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                            >
+                              {p.receipt_originalname || p.receipt_filename || `receipt-${idx+1}`}
+                            </Button>
+                          ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        No payment receipts uploaded yet
+                      </Typography>
+                    )}
+                  </>
+                )}
+              </Box>
             </CardContent>
           </Card>
         </Grid>

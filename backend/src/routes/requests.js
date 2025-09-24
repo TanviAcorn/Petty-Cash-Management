@@ -972,10 +972,12 @@ router.get('/companies', async (req, res) => {
 
 // POST /api/requests/:id/upload-receipts - Upload payment receipts and update request status
 router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res) => {  
-  const txn = new sql.Transaction(await poolPromise);
+  const pool = await poolPromise;
+  const txn = new sql.Transaction(pool);
 
   try {
     await txn.begin();  // Start the transaction
+    const request = new sql.Request(txn);
 
     const id = Number(req.params.id);
     if (!id) {
@@ -987,8 +989,23 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
       await txn.rollback();
       return res.status(400).json({ message: 'No files uploaded' });
     }
-
-    const request = new sql.Request(txn);
+    
+    // First, get the request details including location and amount
+    const requestResult = await request
+      .input('id', sql.Int, id)
+      .query(`
+        SELECT r.amount, r.currency, r.location, l.id as locationId, r.status
+        FROM petty_cash_requests r
+        LEFT JOIN petty_Locations l ON r.location = l.location
+        WHERE r.id = @id
+      `);
+      
+    if (requestResult.recordset.length === 0) {
+      await txn.rollback();
+      return res.status(404).json({ message: 'Request not found' });
+    }
+    
+    const requestData = requestResult.recordset[0];
     
     // Get the uploaded filenames as a single string
     const receiptFilenames = req.files.map(file => file.filename).join(', ');
@@ -1009,6 +1026,52 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
         SET status = 'payment done'
         WHERE id = @request_id;
       `);
+    
+    // Update the location's used amount if location exists
+    if (requestData.locationId) {
+      const exchangeRate = await getExchangeRate(requestData.currency || 'GBP', 'GBP');
+      const amountInGBP = parseFloat(requestData.amount) / exchangeRate;
+      
+      console.log(`Updating budget for location ${requestData.location} (ID: ${requestData.locationId}) with amount:`, {
+        amount: requestData.amount,
+        currency: requestData.currency,
+        exchangeRate,
+        amountInGBP
+      });
+      
+      const budgetUpdateResult = await new sql.Request(txn)
+        .input('id', sql.Int, requestData.locationId)
+        .input('amount', sql.Decimal(10, 2), amountInGBP)
+        .query(`
+          DECLARE @currentUsed DECIMAL(10,2) = ISNULL((SELECT used_amount FROM petty_Locations WHERE id = @id), 0);
+          DECLARE @newUsed DECIMAL(10,2) = @currentUsed + @amount;
+          DECLARE @budget DECIMAL(10,2) = 30; -- Default budget
+          
+          -- Get the budget from the locations table if available
+          SELECT @budget = ISNULL(budget, 30) FROM petty_Locations WHERE id = @id;
+          
+          IF (@budget - @newUsed) < 0
+          BEGIN
+            THROW 50001, 'Insufficient budget for this location', 1;
+          END
+          
+          UPDATE petty_Locations 
+          SET used_amount = @newUsed,
+              remaining_amount = @budget - @newUsed
+          WHERE id = @id;
+          
+          SELECT @newUsed as newUsed, @budget as budget, (@budget - @newUsed) as newRemaining;
+        `);
+        
+      console.log('Budget update result:', {
+        locationId: requestData.locationId,
+        newUsed: budgetUpdateResult.recordset[0].newUsed,
+        budget: budgetUpdateResult.recordset[0].budget,
+        newRemaining: budgetUpdateResult.recordset[0].newRemaining
+      });
+    } else {
+      console.warn('No location ID found for request ID:', id);
+    }
 
     await txn.commit();  // Commit the transaction
 
@@ -1020,18 +1083,30 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
     }));
 
     return res.status(200).json({ 
-      message: 'Receipts uploaded successfully',
+      message: 'Receipts uploaded and payment processed successfully',
       files: fileInfo
     });
 
   } catch (error) {
     console.error('Error uploading receipts:', error);
-    if (txn._aborted === false) {
-      await txn.rollback();
+    try {
+      if (txn._aborted === false) {
+        await txn.rollback();
+      }
+    } catch (rollbackErr) {
+      console.error('Error rolling back transaction:', rollbackErr);
     }
+    
+    if (error.number === 50001) {
+      return res.status(400).json({ 
+        success: false,
+        message: error.message || 'Insufficient budget for this location'
+      });
+    }
+    
     return res.status(500).json({ 
       success: false,
-      message: 'Failed to upload payment receipt',
+      message: 'Failed to process payment receipt',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

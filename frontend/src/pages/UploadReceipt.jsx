@@ -90,15 +90,15 @@ const UploadReceipt = () => {
           axios.get(`${API_BASE}/requests/${id}`),
           axios.get(`${API_BASE}/requests/${id}/payments`)
         ]);
-        
+
         const reqData = Array.isArray(requestRes.data) ? requestRes.data[0] : requestRes.data?.data || requestRes.data;
         setRequest(reqData);
-        
+
         // Get all payments and sort by created_at in descending order
-        const payData = Array.isArray(paymentRes.data) 
+        const payData = Array.isArray(paymentRes.data)
           ? paymentRes.data.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
           : paymentRes.data?.data?.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)) || [];
-        
+
         setPayments(payData);
         // Only set the most recent payment
         if (payData.length > 0) {
@@ -154,19 +154,19 @@ const UploadReceipt = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('Starting form submission...');
-  
+
     setSubmitting(true);
     console.log('Form data prepared, sending to server...');
-  
+
     try {
       const formDataToSend = new FormData();
       files.forEach((file) => {
         formDataToSend.append('receipts', file);
         console.log('Added file:', file.name);
       });
-  
+
       console.log('Sending request to:', `/requests/${id}/upload-receipts`);
-      
+
       const response = await axios.post(
         `http://172.30.36.47:5005/api/requests/${id}/upload-receipts`,  // Updated URL
         formDataToSend,
@@ -176,7 +176,7 @@ const UploadReceipt = () => {
           },
         }
       );
-  
+
       console.log('Server response:', response.data);
       enqueueSnackbar('Receipt uploaded successfully!', { variant: 'success' });
       setTimeout(() => navigate('/my-requests'), 1500);
@@ -199,6 +199,16 @@ const UploadReceipt = () => {
     }
   };
 
+  const handleBackNavigation = () => {
+    // Check if there is a previous page in the browser history
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      // If there's no history, navigate to the user's dashboard
+      navigate(user?.role === 'Admin' ? '/dashboard' : '/my-requests');
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -210,7 +220,7 @@ const UploadReceipt = () => {
   if (!request) {
     return (
       <Box p={3} maxWidth="1200px" mx="auto">
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
+        <Button startIcon={<ArrowBackIcon />} onClick={handleBackNavigation} sx={{ mb: 2 }}>
           Back
         </Button>
         <Typography variant="h6" color="error">Request not found</Typography>
@@ -224,7 +234,7 @@ const UploadReceipt = () => {
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', width: '100%', p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} size="small" color="inherit">
+        <Button startIcon={<ArrowBackIcon />} onClick={handleBackNavigation} size="small" color="inherit">
           Back
         </Button>
         <Typography variant="h5" fontWeight={800}>Upload Payment Receipt</Typography>
@@ -264,7 +274,7 @@ const UploadReceipt = () => {
                 <Grid item xs={12}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Description</Typography>
-                    <Typography sx={{ 
+                    <Typography sx={{
                       mt: 0.5,
                       p: 1.5,
                       borderRadius: 1,
@@ -312,10 +322,10 @@ const UploadReceipt = () => {
                           <TableCell>{pay.reference || '-'}</TableCell>
                           <TableCell>{fmtMoney(pay.paidAmount || request.amount, request.currency || 'USD')}</TableCell>
                           <TableCell>
-                            <Chip 
-                              size="small" 
-                              color={statusChip(pay.status).color} 
-                              label={statusChip(pay.status).label} 
+                            <Chip
+                              size="small"
+                              color={statusChip(pay.status).color}
+                              label={statusChip(pay.status).label}
                             />
                           </TableCell>
                           <TableCell>
@@ -351,7 +361,7 @@ const UploadReceipt = () => {
             Upload Receipt
           </Typography>
           <Divider sx={{ mb: 3 }} />
-          
+
           <form onSubmit={handleSubmit}>
             <Box mb={3}>
               <Button
@@ -421,10 +431,11 @@ const UploadReceipt = () => {
             <Box display="flex" justifyContent="flex-end" gap={2} mt={4}>
               <Button
                 variant="outlined"
-                onClick={() => navigate(-1)}
+                onClick={handleBackNavigation}
                 disabled={submitting}
+                startIcon={<ArrowBackIcon />}
               >
-                Cancel
+                Back
               </Button>
               <Button
                 type="submit"
@@ -446,11 +457,11 @@ const UploadReceipt = () => {
 // Reusable DetailItem component
 const DetailItem = ({ label, value, fullWidth = false, bold = false }) => (
   <Grid item xs={12} sm={fullWidth ? 12 : 6}>
-    <Typography 
-      variant="caption" 
+    <Typography
+      variant="caption"
       color="textSecondary"
       display="block"
-      sx={{ 
+      sx={{
         fontSize: '0.7rem',
         textTransform: 'uppercase',
         letterSpacing: '0.5px',
@@ -460,9 +471,9 @@ const DetailItem = ({ label, value, fullWidth = false, bold = false }) => (
     >
       {label}
     </Typography>
-    <Typography 
-      variant="body2" 
-      sx={{ 
+    <Typography
+      variant="body2"
+      sx={{
         fontWeight: bold ? 600 : 'normal',
         wordBreak: 'break-word',
         fontSize: '0.9rem'
