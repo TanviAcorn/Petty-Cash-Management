@@ -7,6 +7,7 @@ const { getExchangeRate } = require('../utils/exchangeRates');
 const fs = require('fs');
 const { poolPromise } = require('../config/db');
 const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail } = require('../utils/mailer');
+const { getUserById } = require('../utils/userUtils');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -597,9 +598,9 @@ router.post('/:id/proceed-payment', async (req, res) => {
     try {
       // Define the three email recipients
       const recipients = [
-        'priyal.makwana@acornuniversalconsultancy.com',
-        'tanvi.laddha@acornuniversalconsultancy.com',
-        'aryan.gupta@acornuniversalconsultancy.com'
+        'Payment@acornuniversalconsultancy.com',
+        'posting@acornuniversalconsultancy.com',
+        'ishika.gupta@astutehealthcare.co.uk'
       ];
       
       // Build the email content
@@ -772,71 +773,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
   }
 });
 
-// POST /api/requests/:id/approve - mark a request as approved
-router.post('/:id/approve', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ message: 'Invalid id' });
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query(`
-        UPDATE petty_cash_requests
-        SET status = 'approved', approved_at = SYSUTCDATETIME()
-        WHERE id = @id;
-        SELECT * FROM petty_cash_requests WHERE id = @id;
-      `);
-    const row = result.recordset?.[0] || { id };
-    // Notify requester
-    try {
-      const recipient = row?.employee_email || row?.employeeEmail || null;
-      console.log('[MAIL][approve] to:', recipient, 'status:', row?.status, 'id:', id);
-      if (recipient) {
-        const { subject, html } = buildUserStatusEmail(row);
-        await sendEmail({ to: recipient, subject, html });
-      } else {
-        console.warn('[MAIL][approve] missing employee email for request id', id);
-      }
-    } catch (e) { console.error('[MAIL][approve] error:', e); }
-    return res.json(row);
-  } catch (err) {
-    console.error('Error approving request:', err);
-    return res.status(500).json({ message: 'Failed to approve request' });
-  }
-});
-
-// POST /api/requests/:id/reject - mark a request as rejected
-router.post('/:id/reject', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ message: 'Invalid id' });
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query(`
-        UPDATE petty_cash_requests
-        SET status = 'rejected', rejected_at = SYSUTCDATETIME()
-        WHERE id = @id;
-        SELECT * FROM petty_cash_requests WHERE id = @id;
-      `);
-    const row = result.recordset?.[0] || { id };
-    // Notify requester
-    try {
-      const recipient = row?.employee_email || row?.employeeEmail || null;
-      console.log('[MAIL][reject] to:', recipient, 'status:', row?.status, 'id:', id);
-      if (recipient) {
-        const { subject, html } = buildUserStatusEmail(row);
-        await sendEmail({ to: recipient, subject, html });
-      } else {
-        console.warn('[MAIL][reject] missing employee email for request id', id);
-      }
-    } catch (e) { console.error('[MAIL][reject] error:', e); }
-    return res.json(row);
-  } catch (err) {
-    console.error('Error rejecting request:', err);
-    return res.status(500).json({ message: 'Failed to reject request' });
-  }
-});
+// The approve and reject functionality has been consolidated into the PUT /:id/status endpoint
 
 // PUT /api/requests/:id/status - Update request status (approve/reject)
 router.put('/:id/status', async (req, res) => {
@@ -876,23 +813,35 @@ router.put('/:id/status', async (req, res) => {
     
     await request.query(updateSql);
     
-    // Return the updated request
+    // Return the updated request with all fields including the rejection reason
     const result = await pool.request()
       .input('id', sql.Int, id)
-      .query('SELECT * FROM petty_cash_requests WHERE id = @id');
+      .query(`
+        SELECT 
+          r.*,
+          CASE 
+            WHEN r.status = 'rejected' THEN r.rejection_reason 
+            WHEN r.status = 'approved' AND r.reason IS NOT NULL THEN r.reason
+            ELSE NULL 
+          END as reason
+        FROM petty_cash_requests r 
+        WHERE r.id = @id
+      `);
     const row = result.recordset[0];
 
     // Notify requester on status change
     try {
       const recipient = row?.employee_email || row?.employeeEmail || null;
-      console.log('[MAIL][status] to:', recipient, 'status:', row?.status, 'id:', id);
+      console.log('[MAIL][status] to:', recipient, 'status:', row?.status, 'id:', id, 'reason:', row?.rejection_reason || row?.reason || 'none');
       if (recipient) {
         const { subject, html } = buildUserStatusEmail(row);
         await sendEmail({ to: recipient, subject, html });
       } else {
         console.warn('[MAIL][status] missing employee email for request id', id);
       }
-    } catch (e) { console.error('[MAIL][status] error:', e); }
+    } catch (e) { 
+      console.error('[MAIL][status] error:', e);
+    }
 
     return res.json({ 
       message: `Request ${status} successfully`,

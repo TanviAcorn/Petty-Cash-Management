@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { getUserEmail } = require('./userUtils');
 
 // Create a reusable transporter using SMTP settings from environment
 // Required env vars:
@@ -22,11 +23,38 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendEmail({ to, subject, html, text, from, replyTo }) {
+/**
+ * Send an email
+ * @param {Object} options - Email options
+ * @param {string|Array<string>} options.to - Recipient email(s)
+ * @param {string} options.subject - Email subject
+ * @param {string} options.html - HTML email content
+ * @param {string} [options.text] - Plain text email content
+ * @param {string} [options.from] - Sender email (will be overridden by user email if provided)
+ * @param {string} [options.replyTo] - Reply-to email
+ * @param {Object} [options.user] - User object containing email and name for sender
+ * @returns {Promise} Nodemailer sendMail result
+ */
+async function sendEmail({ to, subject, html, text, from, replyTo, user }) {
   const tx = getTransporter();
-  // Prefer dynamic from if provided, otherwise fall back to configured sender
-  const sender = from || process.env.FROM_EMAIL || process.env.SMTP_USER;
-  const info = await tx.sendMail({ from: sender, to, subject, html, text, replyTo });
+  
+  // Get the sender's email - use user's email if available, otherwise use provided from or default
+  const sender = user ? getUserEmail(user) : (from || process.env.FROM_EMAIL || process.env.SMTP_USER);
+  
+  // Format the 'from' field with user's name if available
+  const fromField = user?.firstName 
+    ? `"${user.firstName}${user.lastName ? ' ' + user.lastName : ''}" <${sender}>`
+    : sender;
+  
+  const info = await tx.sendMail({ 
+    from: fromField, 
+    to, 
+    subject, 
+    html, 
+    text,
+    replyTo: replyTo || sender
+  });
+  
   return info;
 }
 
@@ -35,7 +63,11 @@ function buildAdminNewRequestEmail(newRequest) {
   // Direct link to the admin Request Review page for this request
   const reviewLink = `${frontendUrl}/requests/${newRequest.id}`;
   const submittedAt = new Date(newRequest.created_at || Date.now()).toLocaleString();
+  
+  // Use the ADMIN_EMAIL from environment variables
+  const adminEmail = process.env.ADMIN_EMAIL;
 
+  const to = adminEmail || 'admin@example.com';
   const subject = `New Petty Cash Request Submitted (#${newRequest.id})`;
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.5;">

@@ -127,23 +127,47 @@ export default function RequestReview() {
   const onStatus = async (next, note) => {
     try {
       setSubmitting(true);
-      // Using generic status update endpoint
-      await axiosClient.put(`/requests/${id}/status`, {
+      // Close any open dialogs first
+      setApproveOpen(false);
+      setRejectOpen(false);
+      
+      // Use the appropriate reason based on status
+      const requestData = {
         status: next,
-        note: note || null,
+        [next === 'approved' ? 'approvalReason' : 'rejectionReason']: note || null,
         performedByEmail: user?.email || null,
         performedByName: user ? `${user.firstName || user.name || ''} ${user.lastName || ''}`.trim() : null,
-      });
-      // Refetch
-      const { data } = await axiosClient.get(`/requests/${id}`);
+      };
+      
+      // Make a single API call to update the status
+      const { data } = await axiosClient.put(`/requests/${id}/status`, requestData);
+      
+      // Update local state with the response
       setReq(data?.data || data);
-      try {
-        const payRes = await axiosClient.get(`/requests/${id}/payments`);
-        setPayments(Array.isArray(payRes?.data?.data) ? payRes.data.data : []);
-      } catch {}
-      setToast({ open: true, message: `Request ${next}`, severity: 'success' });
+      
+      // Show success message
+      setToast({ 
+        open: true, 
+        message: `Request ${next} successfully`, 
+        severity: 'success' 
+      });
+      
+      // Refresh payments data if needed
+      if (next === 'approved') {
+        try {
+          const payRes = await axiosClient.get(`/requests/${id}/payments`);
+          setPayments(Array.isArray(payRes?.data?.data) ? payRes.data.data : []);
+        } catch (e) {
+          console.error('Error refreshing payments:', e);
+        }
+      }
     } catch (e) {
-      setError(e?.response?.data?.message || e.message || `Failed to ${next} request`);
+      console.error('Error updating request status:', e);
+      setToast({ 
+        open: true, 
+        message: e?.response?.data?.message || e.message || `Failed to ${next} request`,
+        severity: 'error' 
+      });
     } finally {
       setSubmitting(false);
     }
