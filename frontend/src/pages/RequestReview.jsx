@@ -62,7 +62,6 @@ export default function RequestReview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [req, setReq] = useState(null);
-  console.log("=======================:", req)
   const [submitting, setSubmitting] = useState(false);
   // Intercompany state
   const [icOpen, setIcOpen] = useState(false);
@@ -79,12 +78,30 @@ export default function RequestReview() {
   const [payOpen, setPayOpen] = useState(false);
   const [payMethod, setPayMethod] = useState('Bank Transfer');
   const [payReference, setPayReference] = useState('');
-  const [payAmount, setPayAmount] = useState('');
+  // Initialize payAmount with null instead of empty string to distinguish between not loaded and zero amount
+  const [payAmount, setPayAmount] = useState(null);
   const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0,10));
   const [payNotes, setPayNotes] = useState('');
   const [receiptUploading, setReceiptUploading] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [payments, setPayments] = useState([]);
+  
+  // Handle opening the payment dialog
+  const handlePayOpen = () => {
+    // Format the amount with the request's currency when opening the dialog
+    if (req?.amount != null) {
+      // Use the same formatting as in the onBlur handler
+      const numValue = parseFloat(req.amount);
+      if (!isNaN(numValue)) {
+        setPayAmount(fmtMoney(numValue, req.currency || 'USD'));
+      } else {
+        setPayAmount('');
+      }
+    } else {
+      setPayAmount('');
+    }
+    setPayOpen(true);
+  };
   
   // Check if there are any payment receipts to show
   const hasPaymentReceipts = useMemo(() => {
