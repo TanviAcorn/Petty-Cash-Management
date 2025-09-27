@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -38,8 +38,26 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import axiosClient from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://172.30.36.47:5005/api');
-const FILE_BASE = API_BASE.replace(/\/api\/?$/, '');
+// Robust API/FILE base resolution across environments
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const FILE_BASE = (() => {
+  const backendFromEnv = (import.meta.env.VITE_API_BACKEND || '').replace(/\/$/, '');
+  if (/^https?:\/\//i.test(API_BASE)) {
+    return API_BASE.replace(/\/api\/?$/, '');
+  }
+  if (backendFromEnv) {
+    return backendFromEnv;
+  }
+  try {
+    const url = new URL(window.location.href);
+    return `${url.protocol}//${url.hostname}:5005`;
+  } catch {
+    return '';
+  }
+})();
+
+// Optional public base for outsiders if provided
+const PUBLIC_FILE_BASE = (import.meta.env.VITE_PUBLIC_FILE_BASE || '').replace(/\/$/, '');
 
 const fmtMoney = (n, currency = 'USD') =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
@@ -296,10 +314,6 @@ export default function RequestReview() {
                 >
                   Approve
                 </Button>
-                {/* Placeholder for intercompany transfer action */}
-                <Button variant="outlined" color="info" startIcon={<ApartmentOutlinedIcon />} onClick={() => setIcOpen(true)}>
-                  Approve with Intercompany Transfer
-                </Button>
                 <Button
                   variant="outlined"
                   color="error"
@@ -337,6 +351,28 @@ export default function RequestReview() {
                   </Button>
                 </Stack>
               )}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {String(req.status).toLowerCase() === 'payment done' && (
+        <Card variant="outlined" sx={{ borderLeft: 4, borderLeftColor: (theme) => theme.palette.info.main, mb: 2 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+              <Box>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ApartmentOutlinedIcon color="info" /> Payment Completed
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Payment has been marked as done. You may now transfer this request to another company.
+                </Typography>
+              </Box>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Button variant="outlined" color="info" startIcon={<ApartmentOutlinedIcon />} onClick={() => setIcOpen(true)}>
+                  Intercompany Transfer
+                </Button>
+              </Stack>
             </Box>
           </CardContent>
         </Card>
@@ -411,6 +447,15 @@ export default function RequestReview() {
             <CardContent>
               <Typography variant="subtitle1" fontWeight={700} gutterBottom>Payment Details</Typography>
               <Divider sx={{ mb: 2 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                <Button 
+                  variant="outlined" 
+                  size="small"
+                  onClick={() => navigate(`/requests/${id}/upload-receipt`)}
+                >
+                  Upload Payment Receipt
+                </Button>
+              </Box>
               {payments.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">No payment records yet.</Typography>
               ) : (
@@ -567,27 +612,38 @@ export default function RequestReview() {
                     </Typography>
                     {Array.isArray(req.attachments) && req.attachments.length > 0 ? (
                       <Stack spacing={1}>
-                        {req.attachments.map((f, idx) => (
-                          <Button 
-                            key={`req-${idx}`} 
-                            component={Link} 
-                            to={`${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            variant="outlined" 
-                            size="small"
-                            fullWidth
-                            sx={{ 
-                              justifyContent: 'flex-start', 
-                              textAlign: 'left',
-                              textTransform: 'none',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
-                            }}
-                          >
-                            {f.originalName || f.filename || `file-${idx+1}`}
-                          </Button>
-                        ))}
+                        {req.attachments.map((f, idx) => {
+                          const name = f.originalName || f.filename || `file-${idx+1}`;
+                          const localUrl = `${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`;
+                          const publicUrl = PUBLIC_FILE_BASE ? `${PUBLIC_FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}` : null;
+                          return (
+                            <Box key={`req-${idx}`} sx={{ display: 'flex', gap: 1 }}>
+                              <Button 
+                                component="a"
+                                href={localUrl}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                variant="outlined" 
+                                size="small"
+                                sx={{ flex: 1, justifyContent: 'flex-start', textAlign: 'left', textTransform: 'none', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                              >
+                                {name} (Local)
+                              </Button>
+                              {publicUrl && (
+                                <Button 
+                                  component="a"
+                                  href={publicUrl}
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  variant="outlined" 
+                                  size="small"
+                                >
+                                  Public
+                                </Button>
+                              )}
+                            </Box>
+                          );
+                        })}
                       </Stack>
                     ) : (
                       <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
@@ -605,27 +661,38 @@ export default function RequestReview() {
                       <Stack spacing={1}>
                         {payments
                           .filter(p => p.receipt_filename)
-                          .map((p, idx) => (
-                            <Button
-                              key={`receipt-${idx}`}
-                              component="a"
-                              href={`${FILE_BASE}/uploads/${encodeURIComponent(p.receipt_filename)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              variant="outlined"
-                              size="small"
-                              fullWidth
-                              sx={{ 
-                                justifyContent: 'flex-start', 
-                                textAlign: 'left',
-                                textTransform: 'none',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }}
-                            >
-                              {p.receipt_originalname || p.receipt_filename || `receipt-${idx+1}`}
-                            </Button>
-                          ))}
+                          .map((p, idx) => {
+                            const name = p.receipt_originalname || p.receipt_filename || `receipt-${idx+1}`;
+                            const localUrl = `${FILE_BASE}/uploads/${encodeURIComponent(p.receipt_filename)}`;
+                            const publicUrl = PUBLIC_FILE_BASE ? `${PUBLIC_FILE_BASE}/uploads/${encodeURIComponent(p.receipt_filename)}` : null;
+                            return (
+                              <Box key={`receipt-${idx}`} sx={{ display: 'flex', gap: 1 }}>
+                                <Button
+                                  component="a"
+                                  href={localUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  variant="outlined"
+                                  size="small"
+                                  sx={{ flex: 1, justifyContent: 'flex-start', textAlign: 'left', textTransform: 'none', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                >
+                                  {name} (Local)
+                                </Button>
+                                {publicUrl && (
+                                  <Button
+                                    component="a"
+                                    href={publicUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    variant="outlined"
+                                    size="small"
+                                  >
+                                    Public
+                                  </Button>
+                                )}
+                              </Box>
+                            );
+                          })}
                       </Stack>
                     ) : (
                       <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>

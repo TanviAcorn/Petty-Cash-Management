@@ -29,14 +29,28 @@ import {
   TableBody,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import DeleteIcon from '@mui/icons-material/Delete';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import { styled } from '@mui/material/styles';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://172.30.36.47:5005/api');
-const FILE_BASE = API_BASE.replace(/\/api\/?$/, '');
+// Robust API/FILE base resolution across environments
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const FILE_BASE = (() => {
+  const backendFromEnv = (import.meta.env.VITE_API_BACKEND || '').replace(/\/$/, '');
+  if (/^https?:\/\//i.test(API_BASE)) {
+    return API_BASE.replace(/\/api\/?$/, '');
+  }
+  if (backendFromEnv) {
+    return backendFromEnv;
+  }
+  try {
+    const url = new URL(window.location.href);
+    return `${url.protocol}//${url.hostname}:5005`;
+  } catch {
+    return '';
+  }
+})();
 
 const fmtMoney = (n, currency = 'USD') =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
@@ -161,7 +175,7 @@ const UploadReceipt = () => {
       });
 
       const response = await axios.post(
-        `http://172.30.36.47:5005/api/requests/${id}/upload-receipts`,
+        `${API_BASE}/requests/${id}/payment-done`,
         formDataToSend,
         {
           headers: {

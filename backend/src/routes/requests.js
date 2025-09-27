@@ -240,7 +240,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// PUT /api/requests/:id/intercompany - Approve with intercompany transfer
+// PUT /api/requests/:id/intercompany - Transfer to another company (only after payment done)
 router.put('/:id/intercompany', async (req, res) => {
   try {
     const { id } = req.params;
@@ -250,23 +250,52 @@ router.put('/:id/intercompany', async (req, res) => {
     }
 
     const pool = await poolPromise;
+
+    // Validate request exists and that payment has been completed
+    const reqRow = await pool.request()
+      .input('id', sql.Int, id)
+      .query(`
+        SELECT r.status AS requestStatus
+        FROM petty_cash_requests r
+        WHERE r.id = @id
+      `);
+
+    const requestStatus = (reqRow.recordset?.[0]?.requestStatus || '').toLowerCase();
+
+    // Check latest payment status if payments table exists
+    let latestPaymentStatus = null;
+    try {
+      const pay = await pool.request()
+        .input('id', sql.Int, id)
+        .query(`
+          IF OBJECT_ID('dbo.petty_cash_payments','U') IS NOT NULL
+          BEGIN
+            SELECT TOP 1 status FROM petty_cash_payments WHERE request_id = @id ORDER BY created_at DESC
+          END
+          ELSE BEGIN
+            SELECT CAST(NULL AS NVARCHAR(20)) AS status
+          END
+        `);
+      latestPaymentStatus = (pay.recordset?.[0]?.status || '').toLowerCase();
+    } catch {}
+
+    if (requestStatus !== 'payment done' && latestPaymentStatus !== 'payment done') {
+      return res.status(400).json({ message: 'Intercompany transfer is only allowed after payment has been marked as done by the original company' });
+    }
+
     // Read previous company before update for audit trail
     const prev = await pool.request()
       .input('id', sql.Int, id)
       .query('SELECT company_name FROM petty_cash_requests WHERE id = @id');
     const previousCompany = prev.recordset?.[0]?.company_name || null;
 
-    // Update request to intercompany
+    // Update request: change company only, DO NOT change status (keep as payment done)
     await pool.request()
       .input('id', sql.Int, id)
       .input('company', sql.NVarChar(200), String(company).trim())
       .query(`
         UPDATE petty_cash_requests
-        SET status = 'intercompany',
-            company_name = @company,
-            approved_at = SYSUTCDATETIME(),
-            rejected_at = NULL,
-            date_of_approve_reject = SYSUTCDATETIME()
+        SET company_name = @company
         WHERE id = @id;
       `);
 
@@ -594,15 +623,14 @@ router.post('/:id/proceed-payment', async (req, res) => {
 
     // NOTE: Do NOT change request status; keep as 'approved' so it remains in Approved tab
 
-    // Send email to multiple recipients
+    // Send a single email with multiple recipients
     try {
-      // Define the three email recipients
-      const recipients = [
+      const toRecipients = [
         'Payment@acornuniversalconsultancy.com',
-        'posting@acornuniversalconsultancy.com',
-        'ishika.gupta@astutehealthcare.co.uk'
+        'posting@acornuniversalconsultancy.com'
       ];
-      
+      const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
+
       // Build the email content
       const email = buildPaymentInitiatedEmail({ 
         request: row, 
@@ -615,19 +643,16 @@ router.post('/:id/proceed-payment', async (req, res) => {
           processedBy: adminEmail || 'System'
         } 
       });
-      
-      // Send email to each recipient
-      const emailPromises = recipients.map(to => 
-        sendEmail({ 
-          to, 
-          subject: email.subject, 
-          html: email.html, 
-          replyTo: adminEmail || process.env.ADMIN_EMAIL 
-        })
-      );
-      
-      await Promise.all(emailPromises);
-      console.log('Payment notification emails sent successfully to all recipients');
+
+      await sendEmail({
+        to: toRecipients,
+        cc: ccRecipients,
+        subject: email.subject,
+        html: email.html,
+        replyTo: adminEmail || process.env.ADMIN_EMAIL
+      });
+
+      console.log('Payment notification email sent to all recipients in a single message');
     } catch (e) {
       console.error('Error sending payment notification emails:', e);
       // Don't fail the request if email sending fails

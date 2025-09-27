@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -17,8 +17,27 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import axiosClient from '../api/axiosClient';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://172.30.36.47:5005/api');
-const FILE_BASE = API_BASE.replace(/\/api\/?$/, '');
+// Build a robust file base URL that works in both dev and prod
+// Priority:
+// 1) If VITE_API_URL is absolute, use its origin (strip trailing /api)
+// 2) Else, if VITE_API_BACKEND is provided, use it
+// 3) Else, fall back to current host with backend port 5005 (dev default)
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const FILE_BASE = (() => {
+  const backendFromEnv = (import.meta.env.VITE_API_BACKEND || '').replace(/\/$/, '');
+  if (/^https?:\/\//i.test(API_BASE)) {
+    return API_BASE.replace(/\/api\/?$/, '');
+  }
+  if (backendFromEnv) {
+    return backendFromEnv;
+  }
+  try {
+    const url = new URL(window.location.href);
+    return `${url.protocol}//${url.hostname}:5005`;
+  } catch {
+    return '';
+  }
+})();
 
 const fmtMoney = (n, currency) => {
   try {
@@ -180,7 +199,15 @@ export default function UserRequestDetails() {
               {Array.isArray(req.attachments) && req.attachments.length > 0 ? (
                 <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                   {req.attachments.map((f, idx) => (
-                    <Button key={idx} component={Link} to={`${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`} target="_blank" rel="noopener" variant="outlined" size="small">
+                    <Button
+                      key={idx}
+                      component="a"
+                      href={`${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="outlined"
+                      size="small"
+                    >
                       {f.originalName || f.filename || `file-${idx+1}`}
                     </Button>
                   ))}

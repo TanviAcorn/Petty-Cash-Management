@@ -30,12 +30,14 @@ function getTransporter() {
  * @param {string} options.subject - Email subject
  * @param {string} options.html - HTML email content
  * @param {string} [options.text] - Plain text email content
+ * @param {string|Array<string>} [options.cc] - CC email(s)
+ * @param {string|Array<string>} [options.bcc] - BCC email(s)
  * @param {string} [options.from] - Sender email (will be overridden by user email if provided)
  * @param {string} [options.replyTo] - Reply-to email
  * @param {Object} [options.user] - User object containing email and name for sender
  * @returns {Promise} Nodemailer sendMail result
  */
-async function sendEmail({ to, subject, html, text, from, replyTo, user }) {
+async function sendEmail({ to, subject, html, text, from, replyTo, user, cc, bcc }) {
   const tx = getTransporter();
   
   // Get the sender's email - use user's email if available, otherwise use provided from or default
@@ -49,6 +51,8 @@ async function sendEmail({ to, subject, html, text, from, replyTo, user }) {
   const info = await tx.sendMail({ 
     from: fromField, 
     to, 
+    cc,
+    bcc,
     subject, 
     html, 
     text,
