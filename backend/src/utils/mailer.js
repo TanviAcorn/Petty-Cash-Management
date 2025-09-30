@@ -1,6 +1,23 @@
 const nodemailer = require('nodemailer');
 const { getUserEmail } = require('./userUtils');
 
+// Normalize FRONTEND_URL: support comma-separated values and pick the first valid URL
+function getFrontendBaseUrl() {
+  const raw = process.env.FRONTEND_URL || 'http://localhost:5174';
+  // If multiple URLs are provided, separated by commas, pick the first one
+  const first = String(raw).split(',')[0].trim();
+  return first || 'http://localhost:5174';
+}
+
+// Return all configured frontend URLs (first assumed public, second internal if present)
+function getFrontendUrls() {
+  const raw = process.env.FRONTEND_URL || 'http://localhost:5174';
+  return String(raw)
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
 // Create a reusable transporter using SMTP settings from environment
 // Required env vars:
 // SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE(optional), FROM_EMAIL(optional), ADMIN_EMAIL, FRONTEND_URL
@@ -63,9 +80,9 @@ async function sendEmail({ to, subject, html, text, from, replyTo, user, cc, bcc
 }
 
 function buildAdminNewRequestEmail(newRequest) {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
-  // Direct link to the admin Request Review page for this request
-  const reviewLink = `${frontendUrl}/requests/${newRequest.id}`;
+  const urls = getFrontendUrls();
+  const publicLink = `${urls[0]}/requests/${newRequest.id}`;
+  const internalLink = urls[1] ? `${urls[1]}/requests/${newRequest.id}` : null;
   const submittedAt = new Date(newRequest.created_at || Date.now()).toLocaleString();
   
   // Use the ADMIN_EMAIL from environment variables
@@ -84,9 +101,11 @@ function buildAdminNewRequestEmail(newRequest) {
         <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Company</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${newRequest.company_name || '-'}</td></tr>
         <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Amount</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${newRequest.amount}</td></tr>
       </table>
-      <p style="margin-top:16px;">
-        <a href="${reviewLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none;">Review This Request</a>
-      </p>
+      <div style="margin-top:16px;">
+        <p>Please review the request using the appropriate link below:</p>
+        <a href="${publicLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block; margin-right: 10px;">Review (Public)</a>
+        ${internalLink ? `<a href="${internalLink}" style="background:#455a64; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block;">Review (Internal)</a>` : ''}
+      </div>
       <p style="color:#666; font-size:12px;">If you are already logged in, you will be redirected to the Requests Review page.</p>
     </div>
   `;
@@ -97,8 +116,9 @@ function buildUserStatusEmail(requestRow) {
   const status = String(requestRow.status || '').toLowerCase();
   const subject = `Your Petty Cash Request (#${requestRow.id}) has been ${status}`;
   const message = status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : 'updated';
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
-  const link = `${frontendUrl}/my-requests`;
+  const urls = getFrontendUrls();
+  const publicLink = `${urls[0]}/my-requests`;
+  const internalLink = urls[1] ? `${urls[1]}/my-requests` : null;
 
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.5;">
@@ -110,17 +130,22 @@ function buildUserStatusEmail(requestRow) {
         <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Company</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${requestRow.company_name || '-'}</td></tr>
         <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Amount</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${requestRow.amount}</td></tr>
       </table>
-      <p style="margin-top:16px;">
-        <a href="${link}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none;">View My Requests</a>
-      </p>
+      <div style="margin-top:16px;">
+         <p>You can view your requests using the appropriate link below:</p>
+        <a href="${publicLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block; margin-right: 10px;">View My Requests (Public)</a>
+        ${internalLink ? `<a href="${internalLink}" style="background:#455a64; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block;">View My Requests (Internal)</a>` : ''}
+      </div>
     </div>
   `;
   return { subject, html };
 }
 
 function buildPaymentInitiatedEmail({ request, payment }) {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
-  const viewRequestLink = `${frontendUrl}/requests/${request.id}/upload-receipt`;
+  const urls = getFrontendUrls();
+  const publicUrl = urls[0] || 'http://localhost:5174';
+  const internalUrl = urls[1] || null;
+  const publicLink = `${publicUrl}/requests/${request.id}/upload-receipt`;
+  const internalLink = internalUrl ? `${internalUrl}/requests/${request.id}/upload-receipt` : null;
   const subject = `Payment Initiated: Request #${request.id} (${request.employee_name || request.employeeName || ''})`;
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.6;">
@@ -142,12 +167,18 @@ function buildPaymentInitiatedEmail({ request, payment }) {
         <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Paid Date</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${payment.paidDate}</td></tr>
         ${payment.notes ? `<tr><td style=\"padding:6px 8px; border-bottom:1px solid #eee;\">Notes</td><td style=\"padding:6px 8px; border-bottom:1px solid #eee;\">${payment.notes}</td></tr>` : ''}
       </table>
-      <p style="margin-top:16px;">
-        <a href="${viewRequestLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none;">Upload Payment Receipt</a>
-      </p>
+      <div style="margin-top:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <a href="${publicLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block;">Upload Receipt (Public)</a>
+        ${internalLink ? `<a href="${internalLink}" style="background:#455a64; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block;">Upload Receipt (Internal)</a>` : ''}
+      </div>
       <p style="color:#666; font-size:14px; margin-top:8px;">
         Please upload the payment receipt after completing the transaction.
       </p>
+      <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; font-size: 12px; color: #777;">
+        <p>If the buttons do not work, use the links below:</p>
+        <p><b>Public URL (for external access):</b> <a href="${publicLink}">${publicLink}</a></p>
+        ${internalLink ? `<p><b>Internal URL (for local network access):</b> <a href="${internalLink}">${internalLink}</a></p>` : ''}
+      </div>
     </div>
   `;
   return { subject, html };

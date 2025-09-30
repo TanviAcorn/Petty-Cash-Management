@@ -80,7 +80,7 @@ router.get('/payments/list', async (_req, res) => {
 
 // Mark payment as done with optional receipt upload
 const receiptUpload = multer({ storage });
-router.post('/:id/payment-done', receiptUpload.single('receipt'), async (req, res) => {
+router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req, res) => {
   const pool = await poolPromise;
   const txn = new sql.Transaction(pool);
   
@@ -107,12 +107,12 @@ router.post('/:id/payment-done', receiptUpload.single('receipt'), async (req, re
     }
     
     const request = requestResult.recordset[0];
-    const receiptFilename = req.file ? req.file.filename : null;
+    const receiptFilenames = req.files && req.files.length > 0 ? JSON.stringify(req.files.map(f => f.filename)) : null;
     
     // Update the payment record
     await new sql.Request(txn)
       .input('id', sql.Int, id)
-      .input('receipt', sql.NVarChar(500), receiptFilename)
+      .input('receipt', sql.NVarChar(sql.MAX), receiptFilenames)
       .query(`
         UPDATE p 
         SET status = 'payment done', 
@@ -157,7 +157,7 @@ router.post('/:id/payment-done', receiptUpload.single('receipt'), async (req, re
     }
     
     await txn.commit();
-    return res.json({ message: 'Payment marked as done', receipt: receiptFilename });
+    return res.json({ message: 'Payment marked as done', receipts: receiptFilenames ? JSON.parse(receiptFilenames) : [] });
     
   } catch (err) {
     console.error('Error marking payment done:', err);
@@ -289,13 +289,14 @@ router.put('/:id/intercompany', async (req, res) => {
       .query('SELECT company_name FROM petty_cash_requests WHERE id = @id');
     const previousCompany = prev.recordset?.[0]?.company_name || null;
 
-    // Update request: change company only, DO NOT change status (keep as payment done)
+    // Update request: change company and mark status as 'intercompany' so admins can find it easily
     await pool.request()
       .input('id', sql.Int, id)
       .input('company', sql.NVarChar(200), String(company).trim())
       .query(`
         UPDATE petty_cash_requests
-        SET company_name = @company
+        SET company_name = @company,
+            status = 'intercompany'
         WHERE id = @id;
       `);
 
@@ -477,7 +478,11 @@ async function ensurePaymentsSchema(pool) {
     END;
     IF COL_LENGTH('dbo.petty_cash_payments', 'receipt_filename') IS NULL
     BEGIN
-      ALTER TABLE dbo.petty_cash_payments ADD receipt_filename NVARCHAR(500) NULL;
+      ALTER TABLE dbo.petty_cash_payments ADD receipt_filename NVARCHAR(MAX) NULL;
+    END;
+    IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'petty_cash_payments' AND COLUMN_NAME = 'receipt_filename' AND DATA_TYPE = 'nvarchar' AND CHARACTER_MAXIMUM_LENGTH = 500)
+    BEGIN
+        ALTER TABLE dbo.petty_cash_payments ALTER COLUMN receipt_filename NVARCHAR(MAX) NULL;
     END;
   `;
   await pool.request().query(sqlText);
@@ -553,6 +558,7 @@ router.get('/', async (req, res) => {
       r.location AS location,
       r.amount,
       r.currency,
+      r.date_of_purchase AS dateOfPurchase,
       r.created_at AS date, -- original request date
       r.approved_at AS approvedAt,
       r.rejected_at AS rejectedAt,
@@ -1019,10 +1025,7 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
         .query(`
           DECLARE @currentUsed DECIMAL(10,2) = ISNULL((SELECT used_amount FROM petty_Locations WHERE id = @id), 0);
           DECLARE @newUsed DECIMAL(10,2) = @currentUsed + @amount;
-          DECLARE @budget DECIMAL(10,2) = 30; -- Default budget
-          
-          -- Get the budget from the locations table if available
-          SELECT @budget = ISNULL(budget, 30) FROM petty_Locations WHERE id = @id;
+          DECLARE @budget DECIMAL(10,2) = ISNULL((SELECT budget FROM petty_Locations WHERE id = @id), 30);
           
           IF (@budget - @newUsed) < 0
           BEGIN

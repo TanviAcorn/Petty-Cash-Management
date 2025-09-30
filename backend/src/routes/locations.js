@@ -215,8 +215,8 @@ router.delete("/:id", async (req, res) => {
 router.patch("/:id/update-budget", async (req, res) => {
     try {
         const { id } = req.params;
-        const { amount, currency } = req.body;
-        
+        const { amount, currency, category } = req.body;
+
         if (!amount || isNaN(amount) || amount <= 0) {
             return res.status(400).json({ 
                 success: false,
@@ -225,60 +225,70 @@ router.patch("/:id/update-budget", async (req, res) => {
         }
 
         const pool = await poolPromise;
-        
-        // Get current location data
+
+        // Get location details
         const locationResult = await pool.request()
-            .input('id', sql.Int, id)
-            .query('SELECT * FROM petty_Locations WHERE id = @id');
-            
+            .input("id", sql.Int, id)
+            .query("SELECT * FROM petty_Locations WHERE id = @id");
+
         if (locationResult.recordset.length === 0) {
-            return res.status(404).json({ 
-                success: false,
-                message: "Location not found" 
-            });
+            return res.status(404).json({ success: false, message: "Location not found" });
         }
-        
+
         const location = locationResult.recordset[0];
-        const exchangeRate = await getExchangeRate(currency, 'GBP'); // Function to get exchange rate
-        
-        // Convert amount to GBP
+
+        // Restricted locations
+        const restrictedLocations = ["Unit 2B", "Hitchin", "TFC", "TFC - Office"];
+        const restrictedCategory = "Amenities";
+
+        // Decide which budget to enforce
+        let effectiveBudget = location.budget;
+        if (restrictedLocations.includes(location.location) && category === restrictedCategory) {
+            effectiveBudget = 30;
+        }
+
+        // Exchange rate (stubbed for now)
+        const exchangeRate = typeof getExchangeRate === "function" 
+            ? await getExchangeRate(currency, "GBP") 
+            : 1;
+
         const amountInGBP = parseFloat(amount) / exchangeRate;
+
         const newUsedAmount = parseFloat(location.used_amount) + amountInGBP;
-        const remainingAmount = 30 - newUsedAmount; // Fixed £30 budget
-        
+        const remainingAmount = effectiveBudget - newUsedAmount;
+
         if (remainingAmount < 0) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 success: false,
-                message: "Insufficient budget for this location" 
+                message: `Insufficient budget. Max allowed: £${effectiveBudget}`
             });
         }
-        
-        // Update the location's budget
+
+        // Update DB
         await pool.request()
-            .input('id', sql.Int, id)
-            .input('usedAmount', sql.Decimal(10, 2), newUsedAmount)
-            .input('remainingAmount', sql.Decimal(10, 2), remainingAmount)
+            .input("id", sql.Int, id)
+            .input("usedAmount", sql.Decimal(10, 2), newUsedAmount)
+            .input("remainingAmount", sql.Decimal(10, 2), remainingAmount)
             .query(`
                 UPDATE petty_Locations 
-                SET used_amount = @usedAmount, 
-                    remaining_amount = @remainingAmount 
+                SET used_amount = @usedAmount, remaining_amount = @remainingAmount
                 WHERE id = @id
             `);
-            
-        res.json({ 
+
+        res.json({
             success: true,
             data: {
                 id: location.id,
                 name: location.location,
-                budget: 30,
+                budget: effectiveBudget,
                 usedAmount: newUsedAmount,
-                remainingAmount: remainingAmount
+                remainingAmount
             }
         });
-        
+
     } catch (err) {
         console.error("Error updating location budget:", err?.message || err);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
             message: "Failed to update location budget",
             error: err?.message

@@ -28,7 +28,7 @@ import {
   TableRow,
   Divider
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import {
   AttachMoney,
@@ -48,17 +48,69 @@ const currencies = [
 
 const NewRequest = () => {
   const navigate = useNavigate();
+  const { id } = useParams(); // Get the request ID from the URL if in edit mode
+  const restrictedLocations = ["Unit 2B", "Hitchin", "TFC", "TFC - Office"];
+  const restrictedCategory = "Amenities";
+  const restrictedBudget = 30;
+  
+  // Format date to YYYY-MM-DD for the date input
+  const formatDateForInput = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return ''; // Return empty string for invalid dates
+    
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [formData, setFormData] = useState({
-    dateOfPurchase: new Date().toISOString().split('T')[0],
+    dateOfPurchase: formatDateForInput(new Date()),
     category: '',
     company: '',
     location: '',
     description: '',
     amount: '',
     currency: 'USD',
-    selectedLocation: null, // To store the full location object
+    selectedLocation: null,
     attachments: ''
   });
+  
+  // Fetch request data if in edit mode
+  useEffect(() => {
+    if (id) {
+      const fetchRequest = async () => {
+        try {
+          const { data } = await axiosClient.get(`/requests/${id}`);
+          const request = data?.data || data;
+          
+          setFormData({
+            dateOfPurchase: formatDateForInput(request.dateOfPurchase) || formatDateForInput(new Date()),
+            category: request.category || '',
+            company: request.company || '',
+            location: request.location || '',
+            description: request.description || '',
+            amount: request.amount || '',
+            currency: request.currency || 'USD',
+            selectedLocation: request.location ? { name: request.location } : null
+          });
+          
+          // Handle existing attachments if any
+          if (request.attachments && request.attachments.length > 0) {
+            // Note: You might need to handle existing attachments differently
+            // This is just a placeholder
+            console.log('Existing attachments:', request.attachments);
+          }
+        } catch (error) {
+          console.error('Failed to fetch request:', error);
+          alert('Failed to load request details');
+        }
+      };
+      
+      fetchRequest();
+    }
+  }, [id]);
 
   const [errors, setErrors] = useState({});
   const [attachments, setAttachments] = useState([]);
@@ -91,6 +143,11 @@ const NewRequest = () => {
     return formatter.format(amount);
   };
   
+  // Helper function to get currency symbol
+  const getCurrencySymbol = (currency = 'GBP') => {
+    return currencies.find(c => c.code === currency)?.symbol || '£';
+  };
+
   // Convert amount to GBP
   const convertToGBP = (amount, fromCurrency) => {
     const rate = exchangeRates[fromCurrency] || 1;
@@ -123,29 +180,45 @@ const NewRequest = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
-    if (name === 'location') {
-      // Find the full location object when location changes
+  
+    let newFormData = { ...formData, [name]: value };
+  
+    // If location is changed, also store full location object
+    if (name === "location") {
       const selectedLocation = locations.find(loc => loc.name === value) || null;
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        selectedLocation
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      newFormData.selectedLocation = selectedLocation;
     }
-
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+  
+    // Check budget rule
+    if (name === "amount" || name === "category" || name === "location") {
+      // Clear any existing amount errors when changing category or location
+      if (name !== "amount") {
+        setErrors(prev => ({ ...prev, amount: "" }));
+      }
+      
+      if (
+        newFormData.location &&
+        restrictedLocations.includes(newFormData.location) &&
+        newFormData.category === restrictedCategory
+      ) {
+        const amount = parseFloat(newFormData.amount);
+        if (newFormData.amount !== '' && !isNaN(amount) && amount > restrictedBudget) {
+          setErrors(prev => ({
+            ...prev,
+            amount: `Maximum allowed is £${restrictedBudget} for ${restrictedCategory} in ${newFormData.location}`
+          }));
+        } else if (errors.amount) {
+          // Clear error if amount is now valid
+          setErrors(prev => ({ ...prev, amount: "" }));
+        }
+      } else if (errors.amount && errors.amount.includes('Maximum allowed')) {
+        // Clear the budget restriction error if conditions are no longer met
+        setErrors(prev => ({ ...prev, amount: "" }));
+      }
     }
-  };
+  
+    setFormData(newFormData);
+  };  
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -197,15 +270,30 @@ const NewRequest = () => {
 
   const validateForm = () => {
     const newErrors = {};
+    
     if (!formData.dateOfPurchase) newErrors.dateOfPurchase = 'Date of purchase is required';
     if (!formData.category) newErrors.category = 'Category is required';
     if (!formData.company) newErrors.company = 'Company is required';
     if (!formData.amount || isNaN(formData.amount) || parseFloat(formData.amount) <= 0) {
       newErrors.amount = 'Please enter a valid amount';
     }
+  
+    // Budget restriction check
+    if (
+      formData.location &&
+      restrictedLocations.includes(formData.location) &&
+      formData.category === restrictedCategory &&
+      formData.amount &&
+      !isNaN(parseFloat(formData.amount)) &&
+      parseFloat(formData.amount) > restrictedBudget
+    ) {
+      newErrors.amount = `You cannot request more than £${restrictedBudget} for ${restrictedCategory} in ${formData.location}`;
+    }
+  
     if (attachments.length === 0) {
       newErrors.attachments = 'At least one attachment is required';
     }
+  
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -222,6 +310,11 @@ const NewRequest = () => {
           (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) ||
           user.email?.split('@')[0] || 'User';
 
+        // Format the date to ISO string for the backend
+        const formattedDate = formData.dateOfPurchase ? 
+          new Date(formData.dateOfPurchase).toISOString() : 
+          new Date().toISOString();
+
         formDataToSend.append('employeeName', employeeName);
         formDataToSend.append('employeeEmail', user.email || '');
         formDataToSend.append('company', formData.company);
@@ -229,20 +322,32 @@ const NewRequest = () => {
         formDataToSend.append('location', formData.location);
         formDataToSend.append('amount', formData.amount);
         formDataToSend.append('currency', formData.currency);
-        formDataToSend.append('dateOfPurchase', formData.dateOfPurchase);
+        formDataToSend.append('dateOfPurchase', formattedDate);
         formDataToSend.append('description', formData.description);
 
+        // Add existing attachments if any (for edit mode)
+        if (id) {
+          formDataToSend.append('_method', 'PUT'); // For Laravel's API to handle as PUT request
+        }
+
+        // Add new attachments
         attachments.forEach((file) => {
           formDataToSend.append('attachments', file);
         });
 
-        await axiosClient.post('/requests', formDataToSend, {
+        const endpoint = id ? `/requests/${id}` : '/requests';
+        const method = id ? 'post' : 'post'; // Using POST with _method=PUT for Laravel
+        
+        await axiosClient({
+          method,
+          url: endpoint,
+          data: formDataToSend,
           headers: {
             'Content-Type': 'multipart/form-data',
           },
         });
 
-        alert('Request submitted successfully!');
+        alert(id ? 'Request updated successfully!' : 'Request submitted successfully!');
         navigate('/my-requests');
       } catch (err) {
         console.error('Submit failed', err);
@@ -328,11 +433,16 @@ const NewRequest = () => {
                       label="Date of Purchase *"
                       name="dateOfPurchase"
                       type="date"
-                      value={formData.dateOfPurchase}
+                      value={formData.dateOfPurchase || ''}
                       onChange={handleChange}
                       error={!!errors.dateOfPurchase}
                       helperText={errors.dateOfPurchase}
-                      InputLabelProps={{ shrink: true }}
+                      InputLabelProps={{
+                        shrink: true,
+                      }}
+                      inputProps={{
+                        max: formatDateForInput(new Date()) // Prevent future dates
+                      }}
                       size="small"
                       sx={{ mb: 2 }}
                     />
@@ -460,7 +570,6 @@ const NewRequest = () => {
                             borderColor: 'primary.main'
                           }
                         }}
-                        disabled={loading}
                       >
                         <MenuItem value="">
                           <em style={{ color: '#aaa' }}>Select location</em>
@@ -471,7 +580,9 @@ const NewRequest = () => {
                           </MenuItem>
                         ))}
                       </Select>
-                      {formData.selectedLocation && (
+                      {formData.selectedLocation &&
+                        restrictedLocations.includes(formData.location) &&
+                        formData.category === restrictedCategory && (
                         <Box sx={{ 
                           mt: 1, 
                           p: 1.5, 
@@ -571,26 +682,48 @@ const NewRequest = () => {
                 </Typography>
                 <Grid container spacing={3}>
                   <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Amount *"
-                      name="amount"
-                      value={formData.amount}
-                      onChange={handleChange}
-                      error={!!errors.amount}
-                      helperText={errors.amount}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            {currencies.find(c => c.code === formData.currency)?.symbol || '$'}
-                          </InputAdornment>
-                        ),
-                      }}
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      size="small"
-                    />
+                  <TextField
+                    fullWidth
+                    label="Amount *"
+                    name="amount"
+                    value={formData.amount}
+                    onChange={handleChange}
+                    error={!!errors.amount}
+                    helperText={
+                      errors.amount || 
+                      (formData.location && 
+                      restrictedLocations.includes(formData.location) && 
+                      formData.category === restrictedCategory
+                        ? `Note: Maximum £${restrictedBudget} allowed for ${restrictedCategory} in ${formData.location}`
+                        : '')
+                    }
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          {getCurrencySymbol(formData.currency)}
+                        </InputAdornment>
+                      ),
+                      inputProps: { 
+                        min: 0, 
+                        step: 0.01,
+                        max: formData.location && 
+                            restrictedLocations.includes(formData.location) && 
+                            formData.category === restrictedCategory 
+                          ? restrictedBudget 
+                          : undefined
+                      }
+                    }}
+                    margin="normal"
+                    FormHelperTextProps={{
+                      style: {
+                        color: formData.location && 
+                              restrictedLocations.includes(formData.location) && 
+                              formData.category === restrictedCategory 
+                          ? '#1976d2' // Blue color for informational message
+                          : '#d32f2f' // Red color for error message
+                      }
+                    }}
+                  />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <FormControl fullWidth size="small">

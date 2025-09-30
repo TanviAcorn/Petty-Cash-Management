@@ -29,6 +29,7 @@ import {
   TableBody,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteIcon from '@mui/icons-material/Delete';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
