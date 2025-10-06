@@ -36,28 +36,11 @@ import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import axiosClient from '../api/axiosClient';
+import { getFileUrl } from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
-// Robust API/FILE base resolution across environments
+// Use getFileUrl from axiosClient for all file URLs
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
-const FILE_BASE = (() => {
-  const backendFromEnv = (import.meta.env.VITE_API_BACKEND || '').replace(/\/$/, '');
-  if (/^https?:\/\//i.test(API_BASE)) {
-    return API_BASE.replace(/\/api\/?$/, '');
-  }
-  if (backendFromEnv) {
-    return backendFromEnv;
-  }
-  try {
-    const url = new URL(window.location.href);
-    return `${url.protocol}//${url.hostname}:5005`;
-  } catch {
-    return '';
-  }
-})();
-
-// Optional public base for outsiders if provided
-const PUBLIC_FILE_BASE = (import.meta.env.VITE_PUBLIC_FILE_BASE || '').replace(/\/$/, '');
 
 const fmtMoney = (n, currency = 'USD') =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
@@ -614,33 +597,29 @@ export default function RequestReview() {
                       <Stack spacing={1}>
                         {req.attachments.map((f, idx) => {
                           const name = f.originalName || f.filename || `file-${idx+1}`;
-                          const localUrl = `${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`;
-                          const publicUrl = PUBLIC_FILE_BASE ? `${PUBLIC_FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}` : null;
+                          // Construct the file URL using the getFileUrl helper
+                          const fileUrl = getFileUrl(f.filename ? `/uploads/${f.filename}` : '');
                           return (
                             <Box key={`req-${idx}`} sx={{ display: 'flex', gap: 1 }}>
                               <Button 
                                 component="a"
-                                href={localUrl}
+                                href={fileUrl}
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 variant="outlined" 
                                 size="small"
-                                sx={{ flex: 1, justifyContent: 'flex-start', textAlign: 'left', textTransform: 'none', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                sx={{ 
+                                  flex: 1, 
+                                  justifyContent: 'flex-start', 
+                                  textAlign: 'left', 
+                                  textTransform: 'none', 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
                               >
-                                {name} (Local)
+                                {name}
                               </Button>
-                              {publicUrl && (
-                                <Button 
-                                  component="a"
-                                  href={publicUrl}
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  variant="outlined" 
-                                  size="small"
-                                >
-                                  Public
-                                </Button>
-                              )}
                             </Box>
                           );
                         })}
@@ -663,33 +642,29 @@ export default function RequestReview() {
                           .filter(p => p.receipt_filename)
                           .map((p, idx) => {
                             const name = p.receipt_originalname || p.receipt_filename || `receipt-${idx+1}`;
-                            const localUrl = `${FILE_BASE}/uploads/${encodeURIComponent(p.receipt_filename)}`;
-                            const publicUrl = PUBLIC_FILE_BASE ? `${PUBLIC_FILE_BASE}/uploads/${encodeURIComponent(p.receipt_filename)}` : null;
+                            // Construct the file URL using the getFileUrl helper
+                            const fileUrl = getFileUrl(`/uploads/${p.receipt_filename}`);
                             return (
                               <Box key={`receipt-${idx}`} sx={{ display: 'flex', gap: 1 }}>
                                 <Button
                                   component="a"
-                                  href={localUrl}
+                                  href={fileUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   variant="outlined"
                                   size="small"
-                                  sx={{ flex: 1, justifyContent: 'flex-start', textAlign: 'left', textTransform: 'none', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                  sx={{ 
+                                    flex: 1, 
+                                    justifyContent: 'flex-start', 
+                                    textAlign: 'left', 
+                                    textTransform: 'none', 
+                                    overflow: 'hidden', 
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}
                                 >
-                                  {name} (Local)
+                                  {name}
                                 </Button>
-                                {publicUrl && (
-                                  <Button
-                                    component="a"
-                                    href={publicUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    variant="outlined"
-                                    size="small"
-                                  >
-                                    Public
-                                  </Button>
-                                )}
                               </Box>
                             );
                           })}

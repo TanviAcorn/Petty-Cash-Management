@@ -69,7 +69,7 @@ app.use("/api/health", healthRoutes);
 app.use("/api/locations", locationRoutes);
 
 // Static file hosting for uploads
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use(express.static(path.join(__dirname, "../frontend/dist")));
 

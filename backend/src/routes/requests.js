@@ -725,8 +725,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     if (req.files && req.files.length > 0) {
       attachmentPaths = req.files.map(file => ({
         originalName: file.originalname,
-        filename: file.filename,
-        path: file.path,
+        filename: file.filename, // Store only the filename, not the full path
         size: file.size,
         mimetype: file.mimetype
       }));
@@ -747,25 +746,31 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     const newRequest = result.recordset?.[0] || null;
     
     if (newRequest) {
-      // Optional: Add the uploaded file info to the response
-      newRequest.uploadedFiles = attachmentPaths;
+      // Add the uploaded file info to the response with relative paths
+      newRequest.attachments = attachmentPaths.map(attachment => ({
+        ...attachment,
+        // Ensure we're only sending the filename, not the full path
+        filename: path.basename(attachment.filename),
+        // Store only the relative path to the file
+        filepath: path.relative(process.cwd(), attachment.path)
+      }));
       
-      // Update location budget if location is provided
+      // Check location and log if exists
       if (location) {
         try {
           // First, find the location ID
           const locationResult = await pool.request()
-            .input('location', sql.NVarChar(200), location)
+            .input('location', sql.VarChar(200), location)
             .query('SELECT id FROM petty_Locations WHERE location = @location');
-            
+          
           if (locationResult.recordset.length > 0) {
             const locationId = locationResult.recordset[0].id;
             // We'll update the budget when payment is marked as done
             console.log(`Location ID ${locationId} will be updated when payment is completed`);
           }
         } catch (error) {
-          console.error('Error updating location budget:', error);
-          // Don't fail the request if budget update fails
+          console.error('Error checking location:', error);
+          // Don't fail the request if location check fails
         }
       }
     }
@@ -1086,6 +1091,52 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
       message: 'Failed to process payment receipt',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+
+// Serve uploaded files
+router.get('/files/:filename', (req, res) => {
+  try {
+    const filename = req.params.filename;
+    if (!filename) {
+      return res.status(400).json({ message: 'Filename is required' });
+    }
+
+    // Prevent directory traversal attacks
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(400).json({ message: 'Invalid filename' });
+    }
+
+    const filePath = path.join(__dirname, '../../uploads', filename);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      console.error('File not found:', filePath);
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Set appropriate headers
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    
+    // Handle stream errors
+    fileStream.on('error', (err) => {
+      console.error('Error streaming file:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error reading file' });
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in file download:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Internal server error' });
+    }
   }
 });
 
