@@ -747,13 +747,19 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     
     if (newRequest) {
       // Add the uploaded file info to the response with relative paths
-      newRequest.attachments = attachmentPaths.map(attachment => ({
-        ...attachment,
-        // Ensure we're only sending the filename, not the full path
-        filename: path.basename(attachment.filename),
-        // Store only the relative path to the file
-        filepath: path.relative(process.cwd(), attachment.path)
-      }));
+      newRequest.attachments = attachmentPaths.map((attachment, index) => {
+        // Get the file object from req.files if it exists
+        const file = req.files && req.files[index] ? req.files[index] : null;
+        const filePath = file ? file.path : '';
+        
+        return {
+          ...attachment,
+          // Ensure we're only sending the filename, not the full path
+          filename: path.basename(attachment.filename),
+          // Store only the relative path to the file if it exists
+          filepath: filePath ? path.relative(process.cwd(), filePath) : ''
+        };
+      });
       
       // Check location and log if exists
       if (location) {
