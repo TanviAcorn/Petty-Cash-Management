@@ -26,6 +26,10 @@ import {
   Alert,
   Tabs,
   Tab,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
@@ -35,6 +39,9 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import ReceiptIcon from '@mui/icons-material/Receipt';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import CloseIcon from '@mui/icons-material/Close';
 import axiosClient from '../api/axiosClient';
 import { getFileUrl } from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext.jsx';
@@ -83,6 +90,7 @@ export default function RequestReview() {
   const [payAmount, setPayAmount] = useState(null);
   const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0,10));
   const [payNotes, setPayNotes] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const [receiptUploading, setReceiptUploading] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [payments, setPayments] = useState([]);
@@ -194,20 +202,33 @@ export default function RequestReview() {
   const onProceedPayment = async () => {
     try {
       setSubmitting(true);
-      await axiosClient.post(`/requests/${id}/proceed-payment`, {
-        method: payMethod,
-        reference: payReference || null,
-        paidAmount: payAmount || null,
-        paidDate: payDate || null,
-        notes: payNotes || null,
-        adminEmail: user?.email || null,
+      
+      // Create FormData to handle file uploads
+      const formData = new FormData();
+      formData.append('method', payMethod);
+      formData.append('reference', payReference || '');
+      formData.append('paidAmount', payAmount || '');
+      formData.append('paidDate', payDate || '');
+      formData.append('notes', payNotes || '');
+      formData.append('adminEmail', user?.email || '');
+      
+      // Append each file to the form data
+      attachments.forEach((file, index) => {
+        formData.append('attachments', file);
       });
-      const { data } = await axiosClient.get(`/requests/${id}`);
+
+      const { data } = await axiosClient.post(`/requests/${id}/proceed-payment`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
       setReq(data?.data || data);
-      setToast({ open: true, message: 'Payment initiated and team notified', severity: 'success' });
+      setToast({ open: true, message: 'Payment initiated and team notified with attachments', severity: 'success' });
       setPayOpen(false);
       setPayNotes('');
       setPayReference('');
+      setAttachments([]);
     } catch (e) {
       setToast({ open: true, message: e?.response?.data?.message || e.message || 'Failed to proceed payment', severity: 'error' });
     } finally {
@@ -425,7 +446,7 @@ export default function RequestReview() {
         </Grid>
 
         {/* Payment Details - Full width */}
-        <Grid item xs={12}>
+        {/* <Grid item xs={12}>
           <Card variant="outlined">
             <CardContent>
               <Typography variant="subtitle1" fontWeight={700} gutterBottom>Payment Details</Typography>
@@ -485,7 +506,7 @@ export default function RequestReview() {
               )}
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> */}
         {/* Right spacer to keep row width consistent with below 8/4 layout */}
         <Grid item xs={12} md={4} sx={{ display: { xs: 'none', md: 'block' } }}>
           <Box />
@@ -750,7 +771,13 @@ export default function RequestReview() {
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <OutlinedInput fullWidth size="small" placeholder="Reference (optional)" value={payReference} onChange={(e)=>setPayReference(e.target.value)} />
+              <OutlinedInput 
+                fullWidth 
+                size="small" 
+                placeholder="Reference (optional)" 
+                value={payReference} 
+                onChange={(e) => setPayReference(e.target.value)} 
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <OutlinedInput 
@@ -776,16 +803,95 @@ export default function RequestReview() {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <OutlinedInput fullWidth size="small" placeholder="Paid Date" type="date" value={payDate} onChange={(e)=>setPayDate(e.target.value)} />
+              <OutlinedInput 
+                fullWidth 
+                size="small" 
+                placeholder="Paid Date" 
+                type="date" 
+                value={payDate} 
+                onChange={(e) => setPayDate(e.target.value)} 
+              />
             </Grid>
             <Grid item xs={12}>
-              <OutlinedInput fullWidth size="small" multiline minRows={2} placeholder="Notes (optional)" value={payNotes} onChange={(e)=>setPayNotes(e.target.value)} />
+              <OutlinedInput 
+                fullWidth 
+                size="small" 
+                multiline 
+                minRows={2} 
+                placeholder="Notes (optional)" 
+                value={payNotes} 
+                onChange={(e) => setPayNotes(e.target.value)} 
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <input
+                accept="image/*,.pdf,.doc,.docx"
+                style={{ display: 'none' }}
+                id="payment-attachments"
+                multiple
+                type="file"
+                onChange={(e) => setAttachments(Array.from(e.target.files))}
+              />
+              <label htmlFor="payment-attachments">
+                <Button 
+                  variant="outlined" 
+                  component="span"
+                  startIcon={<AttachFileIcon />}
+                  sx={{ mb: 1 }}
+                >
+                  Add Attachments
+                </Button>
+              </label>
+              {attachments.length > 0 && (
+                <Box sx={{ mt: 1, border: '1px solid rgba(0, 0, 0, 0.23)', borderRadius: 1, p: 1 }}>
+                  <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 1 }}>
+                    {attachments.length} file(s) selected
+                  </Typography>
+                  <List dense>
+                    {attachments.map((file, index) => (
+                      <ListItem 
+                        key={index}
+                        secondaryAction={
+                          <IconButton 
+                            edge="end" 
+                            size="small" 
+                            onClick={() => {
+                              const newAttachments = [...attachments];
+                              newAttachments.splice(index, 1);
+                              setAttachments(newAttachments);
+                            }}
+                          >
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        }
+                        sx={{ py: 0.5 }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36 }}>
+                          <InsertDriveFileIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={file.name} 
+                          primaryTypographyProps={{ variant: 'caption' }}
+                          secondary={`${(file.size / 1024).toFixed(1)} KB`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+              )}
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={()=>setPayOpen(false)} color="inherit">Cancel</Button>
-          <Button onClick={onProceedPayment} variant="contained" disabled={submitting}>Send to Payments</Button>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button onClick={() => { setPayOpen(false); setAttachments([]); }} color="inherit">Cancel</Button>
+          <Button 
+            onClick={onProceedPayment} 
+            variant="contained" 
+            disabled={submitting || !payMethod}
+            startIcon={submitting ? <CircularProgress size={20} /> : null}
+          >
+            {submitting ? 'Processing...' : 'Send to Payments'}
+          </Button>
         </DialogActions>
       </Dialog>
 

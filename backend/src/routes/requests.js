@@ -3,11 +3,14 @@ const router = express.Router();
 const sql = require('mssql');
 const multer = require('multer');
 const path = require('path');
-const { getExchangeRate } = require('../utils/exchangeRates');
 const fs = require('fs');
+const { getExchangeRate } = require('../utils/exchangeRates');
 const { poolPromise } = require('../config/db');
 const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail } = require('../utils/mailer');
 const { getUserById } = require('../utils/userUtils');
+
+// Define uploads directory
+const UPLOADS_DIR = path.join(__dirname, '../../uploads');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -19,10 +22,17 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    // Keep original filename but add a unique prefix to prevent collisions
+    const uniquePrefix = Date.now() + '-' + Math.round(Math.random() * 1E9) + '-';
+    const safeFilename = file.originalname.replace(/[^\w\d.-]/g, '_'); // Replace special chars
+    cb(null, uniquePrefix + safeFilename);
   }
 });
+
+// Ensure uploads directory exists
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 // GET payments for a request
 router.get('/:id/payments', async (req, res) => {
@@ -107,7 +117,9 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
     }
     
     const request = requestResult.recordset[0];
-    const receiptFilenames = req.files && req.files.length > 0 ? JSON.stringify(req.files.map(f => f.filename)) : null;
+    const receiptFilenames = req.files && req.files.length > 0 
+      ? req.files.map(f => f.filename).join(',') 
+      : null;
     
     // Update the payment record
     await new sql.Request(txn)
@@ -581,94 +593,163 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/requests/:id/proceed-payment - capture payment details and notify payments team
-router.post('/:id/proceed-payment', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ message: 'Invalid id' });
-
-    const { method, reference, paidAmount, paidDate, notes, adminEmail } = req.body || {};
-    if (!method) return res.status(400).json({ message: 'Payment method is required' });
-
-    const pool = await poolPromise;
-
-    // Ensure the request exists and is approved
-    const { recordset } = await pool.request().input('id', sql.Int, id).query('SELECT * FROM petty_cash_requests WHERE id = @id');
-    const row = recordset?.[0];
-    if (!row) return res.status(404).json({ message: 'Request not found' });
-    if (String(row.status).toLowerCase() !== 'approved' && String(row.status).toLowerCase() !== 'intercompany') {
-      return res.status(400).json({ message: 'Proceed to Payment is only allowed for approved requests' });
-    }
-
-    // Ensure payments schema is present
-    await ensurePaymentsSchema(pool);
-
-    // Insert payment record and update sent_to_payment flag
-    await pool.request()
-      .input('requestId', sql.Int, id)
-      .input('method', sql.NVarChar(100), String(method))
-      .input('reference', sql.NVarChar(200), reference || null)
-      .input('paidAmount', sql.Decimal(18,2), paidAmount != null ? Number(paidAmount) : null)
-      .input('paidDate', sql.DateTime2, paidDate ? new Date(paidDate) : null)
-      .input('notes', sql.NVarChar(sql.MAX), notes || null)
-      .input('adminEmail', sql.NVarChar(320), adminEmail || null)
-      .query(`
-        BEGIN TRANSACTION;
-        
-        -- Insert payment record
-        INSERT INTO petty_cash_payments (request_id, method, reference, paid_amount, paid_date, notes, status, created_by_email, sent_to_payment)
-        VALUES (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'processing', @adminEmail, 1);
-        
-        -- Update the request to mark it as sent to payment
-        UPDATE petty_cash_requests 
-        SET status = 'processing'
-        WHERE id = @requestId;
-        
-        COMMIT TRANSACTION;
-      `);
-
-    // NOTE: Do NOT change request status; keep as 'approved' so it remains in Approved tab
-
-    // Send a single email with multiple recipients
-    try {
-      const toRecipients = [
-        'Payment@acornuniversalconsultancy.com',
-        'posting@acornuniversalconsultancy.com'
-      ];
-      const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
-
-      // Build the email content
-      const email = buildPaymentInitiatedEmail({ 
-        request: row, 
-        payment: { 
-          method, 
-          reference, 
-          paidAmount, 
-          paidDate, 
-          notes,
-          processedBy: adminEmail || 'System'
-        } 
-      });
-
-      await sendEmail({
-        to: toRecipients,
-        cc: ccRecipients,
-        subject: email.subject,
-        html: email.html,
-        replyTo: adminEmail || process.env.ADMIN_EMAIL
-      });
-
-      console.log('Payment notification email sent to all recipients in a single message');
-    } catch (e) {
-      console.error('Error sending payment notification emails:', e);
-      // Don't fail the request if email sending fails
-    }
-
-    return res.json({ message: 'Payment initiated and team notified' });
-  } catch (err) {
-    console.error('Error in proceed-payment:', err);
-    return res.status(500).json({ message: 'Failed to proceed payment', error: err.message });
+// Create a separate multer instance for payment attachments
+const paymentAttachmentUpload = multer({
+  storage: storage,
+  fileFilter: fileFilter, // Assuming fileFilter is defined elsewhere
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max file size
+    files: 5 // Max 5 files
   }
+});  
+
+// POST /api/requests/:id/proceed-payment - capture payment details and notify payments team
+router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments', 5), async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!id) return res.status(400).json({ message: 'Invalid id' });
+  
+      const { method, reference, paidAmount, paidDate, notes, adminEmail } = req.body || {};
+      if (!method) return res.status(400).json({ message: 'Payment method is required' });
+      
+      // Get uploaded files (payment proof attachments)
+      const uploadedFiles = req.files || [];
+  
+      const pool = await poolPromise;
+  
+      // Ensure the request exists and is approved
+      const { recordset } = await pool.request().input('id', sql.Int, id).query('SELECT * FROM petty_cash_requests WHERE id = @id');
+      const row = recordset?.[0];
+      if (!row) return res.status(404).json({ message: 'Request not found' });
+      if (String(row.status).toLowerCase() !== 'approved' && String(row.status).toLowerCase() !== 'intercompany') {
+        return res.status(400).json({ message: 'Proceed to Payment is only allowed for approved requests' });
+      }
+  
+      // Ensure payments schema is present
+      await ensurePaymentsSchema(pool);
+  
+      // --- ATTACHMENT PROCESSING LOGIC ---
+      const paymentProofAttachments = [];
+      const dbAttachmentFilenames = [];
+  
+      for (const file of uploadedFiles) {
+        try {
+          const filePath = path.join(UPLOADS_DIR, file.filename);
+          const fileContent = await fs.promises.readFile(filePath);
+          
+          if (fileContent.byteLength === 0) {
+            console.warn(`Attachment file is empty: ${file.filename}. Skipping.`);
+            continue;
+          }
+
+          // For database
+          dbAttachmentFilenames.push(file.filename);
+          
+          // For email
+          paymentProofAttachments.push({
+            filename: file.originalname,
+            content: fileContent,
+            contentType: file.mimetype || 'application/octet-stream'
+          });
+        } catch (err) {
+          console.error(`Error processing file ${file.filename}:`, err);
+        }
+      }
+  
+      const attachmentFilenames = dbAttachmentFilenames.join(',');
+      // --- END ATTACHMENT PROCESSING LOGIC ---
+      
+      // Insert payment record and update sent_to_payment flag
+      await pool.request()
+        .input('requestId', sql.Int, id)
+        .input('method', sql.NVarChar(100), String(method))
+        .input('reference', sql.NVarChar(200), reference || null)
+        .input('paidAmount', sql.Decimal(18,2), paidAmount != null ? Number(paidAmount) : null)
+        .input('paidDate', sql.DateTime2, paidDate ? new Date(paidDate) : null)
+        .input('notes', sql.NVarChar(sql.MAX), notes || null)
+        .input('adminEmail', sql.NVarChar(320), adminEmail || null)
+        .input('attachments', sql.NVarChar(sql.MAX), attachmentFilenames || null)
+        .query(`
+          BEGIN TRANSACTION;
+          INSERT INTO petty_cash_payments 
+            (request_id, method, reference, paid_amount, paid_date, notes, status, created_by_email, sent_to_payment, attachments)
+          VALUES 
+            (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'processing', @adminEmail, 1, @attachments);
+          UPDATE petty_cash_requests 
+          SET status = 'processing'
+          WHERE id = @requestId;
+          COMMIT TRANSACTION;
+        `);
+  
+      // Send email to payment team with specified recipients
+      try {
+        const toRecipients = [
+          'Payment@acornuniversalconsultancy.com',
+          'posting@acornuniversalconsultancy.com'
+        ];
+        const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
+
+        const { subject, html } = buildPaymentInitiatedEmail({ 
+          request: row, 
+          payment: { 
+            method,
+            reference,
+            paidAmount: paidAmount || row.amount,
+            paidDate: paidDate || new Date().toISOString(),
+            notes,
+            processedBy: adminEmail || 'System',
+            receiptAttachments: paymentProofAttachments
+          } 
+        });
+
+        // Debug log for attachments
+        console.log('Preparing to send email with attachments:', {
+          attachmentCount: paymentProofAttachments.length,
+          attachmentDetails: paymentProofAttachments.map(a => ({
+            filename: a.filename,
+            size: a.content ? a.content.length : 'no content',
+            type: a.contentType
+          }))
+        });
+
+        try {
+          // Send email with attachments and CC
+          await sendEmail({
+            to: toRecipients,
+            cc: ccRecipients,
+            subject,
+            html,
+            attachments: paymentProofAttachments,
+            user: {
+              firstName: 'Payment',
+              lastName: 'System',
+              email: process.env.FROM_EMAIL || process.env.SMTP_USER
+            }
+          });
+          console.log(`Payment notification sent to ${toRecipients.join(', ')} (CC: ${ccRecipients.join(', ')}) with ${paymentProofAttachments.length} attachments`);
+        } catch (emailError) {
+          console.error('Error sending email:', emailError);
+          throw emailError;
+        }
+  
+      } catch (e) {
+        console.error('Error sending payment notification email:', e);
+        // Don't fail the whole request if email fails
+      }
+  
+      return res.json({ 
+        success: true,
+        message: 'Payment initiated and team notified',
+        attachmentsProcessed: paymentProofAttachments.length
+      });
+    } catch (err) {
+      console.error('Error in proceed-payment:', err);
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to process payment',
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+      });
+    }
 });
 
 // POST /api/requests - create a new petty cash request with file uploads
@@ -1101,7 +1182,7 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
 });
 
 
-// Serve uploaded files
+// Serve uploaded files with proper filename handling
 router.get('/files/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
@@ -1114,7 +1195,7 @@ router.get('/files/:filename', (req, res) => {
       return res.status(400).json({ message: 'Invalid filename' });
     }
 
-    const filePath = path.join(__dirname, '../../uploads', filename);
+    const filePath = path.join(UPLOADS_DIR, filename);
     
     // Check if file exists
     if (!fs.existsSync(filePath)) {
@@ -1122,26 +1203,59 @@ router.get('/files/:filename', (req, res) => {
       return res.status(404).json({ message: 'File not found' });
     }
 
-    // Set appropriate headers
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Type', 'application/octet-stream');
+    // Extract the original filename from the stored filename
+    // Format: timestamp-randomNumber-originalfilename.ext
+    const originalName = filename.includes('-') 
+      ? filename.split('-').slice(2).join('_')
+      : filename;
     
-    // Stream the file
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
-    
-    // Handle stream errors
-    fileStream.on('error', (err) => {
-      console.error('Error streaming file:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ message: 'Error reading file' });
+    // Set headers for file download
+    res.download(filePath, originalName, (err) => {
+      if (err) {
+        console.error('Error downloading file:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Error downloading file' });
+        }
       }
     });
     
-  } catch (error) {
-    console.error('Error in file download:', error);
+  } catch (err) {
+    console.error('Download error:', err);
     if (!res.headersSent) {
-      res.status(500).json({ message: 'Internal server error' });
+      res.status(500).json({ message: 'Error processing download' });
+    }
+  }
+});
+
+// Endpoint to get file by original filename (for backward compatibility)
+router.get('/file/:originalName', async (req, res) => {
+  try {
+    const originalName = req.params.originalName;
+    const files = fs.readdirSync(UPLOADS_DIR);
+    
+    // Find the file that matches the original name (case insensitive)
+    const file = files.find(f => f.toLowerCase().endsWith(originalName.toLowerCase()));
+    
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    
+    const filePath = path.join(UPLOADS_DIR, file);
+    const originalNameFromFile = file.split('-').slice(2).join('_');
+    
+    res.download(filePath, originalNameFromFile, (err) => {
+      if (err) {
+        console.error('Error downloading file:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ message: 'Error downloading file' });
+        }
+      }
+    });
+    
+  } catch (err) {
+    console.error('File retrieval error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Error retrieving file' });
     }
   }
 });
