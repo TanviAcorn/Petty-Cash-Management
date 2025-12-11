@@ -458,7 +458,7 @@ const upload = multer({
   fileFilter: fileFilter,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit per file
-    files: 5 // Maximum 5 files per upload
+    files: 10 // Maximum 5 files per upload
   }
 });
 
@@ -478,7 +478,9 @@ async function ensurePaymentsSchema(pool) {
         status NVARCHAR(20) NOT NULL DEFAULT 'pending',
         receipt_filename NVARCHAR(500) NULL,
         created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-        created_by_email NVARCHAR(320) NULL
+        created_by_email NVARCHAR(320) NULL,
+        sent_to_payment BIT NULL DEFAULT 0,
+        attachments NVARCHAR(MAX) NULL
       );
     END;
     -- Add missing columns if table already existed
@@ -495,6 +497,16 @@ async function ensurePaymentsSchema(pool) {
     IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'petty_cash_payments' AND COLUMN_NAME = 'receipt_filename' AND DATA_TYPE = 'nvarchar' AND CHARACTER_MAXIMUM_LENGTH = 500)
     BEGIN
         ALTER TABLE dbo.petty_cash_payments ALTER COLUMN receipt_filename NVARCHAR(MAX) NULL;
+    END;
+    -- Add sent_to_payment column if missing
+    IF COL_LENGTH('dbo.petty_cash_payments', 'sent_to_payment') IS NULL
+    BEGIN
+      ALTER TABLE dbo.petty_cash_payments ADD sent_to_payment BIT NULL DEFAULT 0;
+    END;
+    -- Add attachments column if missing
+    IF COL_LENGTH('dbo.petty_cash_payments', 'attachments') IS NULL
+    BEGIN
+      ALTER TABLE dbo.petty_cash_payments ADD attachments NVARCHAR(MAX) NULL;
     END;
   `;
   await pool.request().query(sqlText);
