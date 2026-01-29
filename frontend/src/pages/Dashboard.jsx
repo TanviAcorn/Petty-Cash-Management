@@ -59,7 +59,11 @@ const Dashboard = () => {
     const controller = new AbortController();
     (async () => {
       try {
-        const { data } = await axiosClient.get('/requests', { signal: controller.signal });
+        // Fetch all requests without pagination for dashboard charts
+        const { data } = await axiosClient.get('/requests', { 
+          signal: controller.signal,
+          params: { limit: 10000 } // Get all requests for dashboard calculations
+        });
         setRows(Array.isArray(data?.data || data) ? (data.data || data) : []);
       } catch (e) {
         setRows([]);
@@ -83,12 +87,16 @@ const Dashboard = () => {
   }, [rows]);
 
   const monthlySeries = useMemo(() => {
-    // Sum by month for current year
+    // Sum by month for current year, handling multiple currencies
     const byMonth = new Array(12).fill(0);
     const year = new Date().getFullYear();
+    
     rows.forEach(r => {
       const d = r.date ? new Date(r.date) : null;
-      if (d && d.getFullYear() === year) byMonth[d.getMonth()] += Number(r.amount || 0);
+      if (d && d.getFullYear() === year) {
+        // Store amount in original currency - no conversion
+        byMonth[d.getMonth()] += Number(r.amount || 0);
+      }
     });
     return byMonth;
   }, [rows]);
@@ -103,40 +111,116 @@ const Dashboard = () => {
     return Array.from(map.entries()).map(([name, value]) => ({ name, value, pct: (value/total)*100 }));
   }, [rows]);
 
-  // Simple SVG line chart data
+  // Enhanced SVG line chart with live data features
   const LineChart = ({ data, width=520, height=260, stroke='#1976d2' }) => {
     const theme = useTheme();
     const max = Math.max(...data, 1);
-    const pad = 30; // padding for axes
+    const pad = 40; // Increased padding for better labels
     const w = width - pad*2;
     const h = height - pad*2;
+    
+    // Generate points for the line
     const points = data.map((v,i)=>{
       const x = pad + (i*(w/(data.length-1 || 1)));
       const y = pad + (h - (v/max)*h);
       return `${x},${y}`;
     }).join(' ');
+    
+    // Generate points for area fill
+    const areaPoints = points + ` ${pad + w},${height - pad} ${pad},${height - pad}`;
+    
     const bg = theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fff';
     const axis = theme.palette.divider;
     const grid = theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)';
+    const gradientId = 'chart-gradient';
+    
     return (
       <svg width={width} height={height} role="img" aria-label="Monthly Trends">
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={stroke} stopOpacity="0.3" />
+            <stop offset="100%" stopColor={stroke} stopOpacity="0.05" />
+          </linearGradient>
+        </defs>
         <rect x={0} y={0} width={width} height={height} fill={bg} stroke={axis} />
-        {/* axes */}
-        <line x1={pad} y1={pad} x2={pad} y2={height-pad} stroke={axis} />
-        <line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} stroke={axis} />
-        {/* grid */}
+        
+        {/* Grid lines */}
         {[0,0.25,0.5,0.75,1].map((t,idx)=>{
           const y = pad + (h*(1-t));
-          return <line key={idx} x1={pad} y1={y} x2={width-pad} y2={y} stroke={grid} />
+          return (
+            <g key={idx}>
+              <line x1={pad} y1={y} x2={width-pad} y2={y} stroke={grid} strokeDasharray="2,2" />
+              <text x={pad-5} y={y+3} textAnchor="end" fill={theme.palette.text.secondary} fontSize="10">
+                {Math.round(max * t)}
+              </text>
+            </g>
+          );
         })}
-        {/* polyline */}
-        <polyline fill="none" stroke={stroke} strokeWidth={2} points={points} />
-        {/* points */}
+        
+        {/* Area fill under the line */}
+        <polygon 
+          points={areaPoints} 
+          fill={`url(#${gradientId})`}
+          opacity={0.8}
+        />
+        
+        {/* Main line */}
+        <polyline 
+          fill="none" 
+          stroke={stroke} 
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={points} 
+        />
+        
+        {/* Data points with hover effect */}
         {data.map((v,i)=>{
           const x = pad + (i*(w/(data.length-1 || 1)));
           const y = pad + (h - (v/Math.max(max,1))*h);
-          return <circle key={i} cx={x} cy={y} r={3} fill={stroke} />
+          const hasData = v > 0;
+          
+          return (
+            <g key={i}>
+              {/* Outer glow for data points */}
+              {hasData && (
+                <circle 
+                  cx={x} 
+                  cy={y} 
+                  r={6} 
+                  fill={stroke} 
+                  opacity={0.2}
+                />
+              )}
+              {/* Main data point */}
+              <circle 
+                cx={x} 
+                cy={y} 
+                r={hasData ? 4 : 2} 
+                fill={hasData ? stroke : theme.palette.text.disabled}
+                stroke={bg}
+                strokeWidth={2}
+              />
+              {/* Value label for non-zero points */}
+              {hasData && (
+                <text 
+                  x={x} 
+                  y={y-10} 
+                  textAnchor="middle" 
+                  fill={stroke} 
+                  fontSize="10" 
+                  fontWeight="600"
+                >
+                  {Math.round(v)}
+                </text>
+              )}
+            </g>
+          );
         })}
+        
+        {/* Axes */}
+        <line x1={pad} y1={pad} x2={pad} y2={height-pad} stroke={axis} strokeWidth={2} />
+        <line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} stroke={axis} strokeWidth={2} />
       </svg>
     );
   };
@@ -145,7 +229,19 @@ const Dashboard = () => {
     const theme = useTheme();
     const cx = width/2, cy = height/2, r = Math.min(width,height)/3;
     let startAngle = -Math.PI/2;
-    const colors = ['#1976d2','#2e7d32','#ed6c02','#9c27b0','#607d8b','#ef5350'];
+    // Enhanced color palette with better contrast and visual appeal
+    const colors = [
+      '#1976d2', // Blue
+      '#2e7d32', // Green
+      '#ed6c02', // Orange
+      '#9c27b0', // Purple
+      '#607d8b', // Blue Grey
+      '#ef5350', // Red
+      '#00acc1', // Cyan
+      '#7cb342', // Light Green
+      '#f57c00', // Deep Orange
+      '#5e35b1', // Deep Purple
+    ];
     const arcs = series.map((s,idx)=>{
       const angle = (s.pct/100)*2*Math.PI;
       const endAngle = startAngle + angle;
@@ -190,22 +286,67 @@ const Dashboard = () => {
       >
         <StatCard icon={<PlaylistAddCheckCircleIcon color="primary" />} label="Total Requests" value={stats.totalRequests} />
         <StatCard icon={<AccessTimeOutlinedIcon color="warning" />} label="Pending Approval" value={stats.pending} />
-        <StatCard icon={<AttachMoneyIcon color="success" />} label="Total Amount" value={stats.totalAmount} />
-        <StatCard icon={<TrendingUpIcon color="secondary" />} label="This Month" value={stats.thisMonthAmount} />
+        <StatCard icon={<AttachMoneyIcon color="success" />} label="Total Amount" value={Math.round(stats.totalAmount)} />
+        <StatCard icon={<TrendingUpIcon color="secondary" />} label="This Month" value={Math.round(stats.thisMonthAmount)} />
       </Box>
 
       {/* Charts */}
       <Grid container spacing={2.5}>
         <Grid item xs={12} md={7}>
-          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+          <Card variant="outlined" sx={{ borderRadius: 3, position: 'relative', overflow: 'hidden' }}>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="subtitle1" fontWeight={800} gutterBottom>Monthly Trends</Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>Requests and amounts over time</Typography>
-              <LineChart data={monthlySeries} />
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, mx: 4 }}>
-                {months.map((m,i)=> (
-                  <Typography key={i} variant="caption" color="text.secondary">{m}</Typography>
-                ))}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={800} gutterBottom>Monthly Trends</Typography>
+                  <Typography variant="body2" color="text.secondary">Requests and amounts over time (Mixed Currencies)</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box 
+                    sx={{ 
+                      width: 8, 
+                      height: 8, 
+                      borderRadius: '50%',
+                      backgroundColor: '#4caf50',
+                      animation: 'pulse 2s infinite'
+                    }} 
+                  />
+                  <Typography variant="caption" color="success.main" fontWeight={600}>
+                    Live Data
+                  </Typography>
+                </Box>
+              </Box>
+              
+              <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center', mb: 2 }}>
+                <LineChart data={monthlySeries} />
+              </Box>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2, mx: 4 }}>
+                {months.map((m,i)=> {
+                  const hasData = monthlySeries[i] > 0;
+                  return (
+                    <Box key={i} sx={{ textAlign: 'center' }}>
+                      <Typography 
+                        variant="caption" 
+                        color={hasData ? 'text.primary' : 'text.disabled'}
+                        sx={{ 
+                          fontWeight: hasData ? 600 : 400,
+                          display: 'block'
+                        }}
+                      >
+                        {m}
+                      </Typography>
+                      {hasData && (
+                        <Typography 
+                          variant="caption" 
+                          color="primary.main"
+                          sx={{ fontSize: '0.7rem', fontWeight: 500 }}
+                        >
+                          {Math.round(monthlySeries[i])}
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                })}
               </Box>
             </CardContent>
           </Card>
@@ -217,10 +358,56 @@ const Dashboard = () => {
               <Typography variant="body2" color="text.secondary" gutterBottom>Expenses by category this month</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
                 <PieChart series={categorySeries} />
-                <Box sx={{ display: 'grid', gap: 1 }}>
-                  {categorySeries.slice(0,6).map((c, idx) => (
-                    <Chip key={c.name+idx} label={`${c.name} ${Math.round(c.pct)}%`} variant="outlined" />
-                  ))}
+                <Box sx={{ display: 'grid', gap: 1, maxHeight: 300, overflowY: 'auto' }}>
+                  {categorySeries.map((c, idx) => {
+                    const colors = [
+                      '#1976d2', // Blue
+                      '#2e7d32', // Green
+                      '#ed6c02', // Orange
+                      '#9c27b0', // Purple
+                      '#607d8b', // Blue Grey
+                      '#ef5350', // Red
+                      '#00acc1', // Cyan
+                      '#7cb342', // Light Green
+                      '#f57c00', // Deep Orange
+                      '#5e35b1', // Deep Purple
+                    ];
+                    return (
+                      <Box 
+                        key={c.name+idx}
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 1,
+                          px: 1,
+                          py: 0.5,
+                          borderRadius: 1,
+                          border: `1px solid ${colors[idx % colors.length]}20`,
+                          backgroundColor: `${colors[idx % colors.length]}08`
+                        }}
+                      >
+                        <Box 
+                          sx={{ 
+                            width: 8, 
+                            height: 8, 
+                            borderRadius: '50%',
+                            backgroundColor: colors[idx % colors.length],
+                            flexShrink: 0
+                          }} 
+                        />
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: colors[idx % colors.length],
+                            fontWeight: 500,
+                            fontSize: '0.8125rem'
+                          }}
+                        >
+                          {c.name} {Math.round(c.pct)}%
+                        </Typography>
+                      </Box>
+                    );
+                  })}
                 </Box>
               </Box>
             </CardContent>
