@@ -52,11 +52,43 @@ router.get('/:id/payments', async (req, res) => {
 });
 
 // GET all payments (list for Payments tab)
-router.get('/payments/list', async (_req, res) => {
+router.get('/payments/list', async (req, res) => {
+  const { page = 1, limit = 10, search } = req.query;
+  
+  // Convert pagination parameters to numbers
+  const currentPage = parseInt(page, 10);
+  const itemsPerPage = parseInt(limit, 10);
+  const offset = (currentPage - 1) * itemsPerPage;
+
+  // Build WHERE clause for search
+  let whereClause = "";
+  const params = {};
+  
+  if (search) {
+    whereClause = "WHERE (LOWER(r.employee_name) LIKE @search OR LOWER(r.employee_email) LIKE @search OR LOWER(r.company_name) LIKE @search OR LOWER(r.category_name) LIKE @search OR LOWER(p.status) LIKE @search)";
+    params.search = `%${search.toLowerCase()}%`;
+  }
+
   try {
     const pool = await poolPromise;
     await ensurePaymentsSchema(pool);
-    const result = await pool.request().query(`
+    
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM petty_cash_payments p
+      JOIN petty_cash_requests r ON r.id = p.request_id
+      ${whereClause}
+    `;
+    const countRequest = pool.request();
+    if (search) {
+      countRequest.input('search', sql.NVarChar, params.search);
+    }
+    const countResult = await countRequest.query(countQuery);
+    const totalItems = countResult.recordset[0].total;
+    
+    // Get paginated data
+    const dataQuery = `
       SELECT 
         p.id AS paymentId,
         p.request_id AS requestId,
@@ -79,9 +111,32 @@ router.get('/payments/list', async (_req, res) => {
         r.status AS requestStatus
       FROM petty_cash_payments p
       JOIN petty_cash_requests r ON r.id = p.request_id
-      ORDER BY p.created_at DESC`);
-    // Return the recordset directly as an array
-    return res.json(result.recordset || []);
+      ${whereClause}
+      ORDER BY p.created_at DESC
+      OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `;
+    
+    const dataRequest = pool.request();
+    if (search) {
+      dataRequest.input('search', sql.NVarChar, params.search);
+    }
+    dataRequest.input('offset', sql.Int, offset);
+    dataRequest.input('limit', sql.Int, itemsPerPage);
+    const result = await dataRequest.query(dataQuery);
+    
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    return res.json({
+      data: result.recordset || [],
+      pagination: {
+        currentPage,
+        itemsPerPage,
+        totalItems,
+        totalPages,
+        hasNextPage: currentPage < totalPages,
+        hasPreviousPage: currentPage > 1
+      }
+    });
   } catch (err) {
     console.error('Error fetching payments list:', err);
     return res.status(500).json({ message: 'Failed to fetch payments list' });
@@ -514,7 +569,12 @@ async function ensurePaymentsSchema(pool) {
 
 // GET /api/requests
 router.get('/', async (req, res) => {
-  const { status, q, company, category, range, email, location } = req.query;
+  const { status, q, company, category, range, email, location, page = 1, limit = 10 } = req.query;
+  
+  // Convert pagination parameters to numbers
+  const currentPage = parseInt(page, 10);
+  const itemsPerPage = parseInt(limit, 10);
+  const offset = (currentPage - 1) * itemsPerPage;
 
   // Build dynamic WHERE clause safely
   const where = [];
@@ -591,14 +651,47 @@ router.get('/', async (req, res) => {
     FROM petty_cash_requests r
     ${whereSql}
     ORDER BY ${orderParts.join(', ')}
+    OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+  `;
+
+  // Count query for total items
+  const countQuery = `
+    SELECT COUNT(*) as total
+    FROM petty_cash_requests r
+    ${whereSql}
   `;
 
   try {
     const pool = await poolPromise;
-    const request = pool.request();
-    Object.entries(params).forEach(([key, { type, value }]) => request.input(key, type, value));
-    const result = await request.query(query);
-    return res.json({ data: result.recordset || [] });
+    
+    // Execute count query first
+    const countRequest = pool.request();
+    Object.entries(params).forEach(([key, { type, value }]) => countRequest.input(key, type, value));
+    countRequest.input('offset', sql.Int, offset);
+    countRequest.input('limit', sql.Int, itemsPerPage);
+    const countResult = await countRequest.query(countQuery);
+    const totalItems = countResult.recordset[0].total;
+    
+    // Execute main query with pagination
+    const dataRequest = pool.request();
+    Object.entries(params).forEach(([key, { type, value }]) => dataRequest.input(key, type, value));
+    dataRequest.input('offset', sql.Int, offset);
+    dataRequest.input('limit', sql.Int, itemsPerPage);
+    const result = await dataRequest.query(query);
+    
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    return res.json({ 
+      data: result.recordset || [],
+      pagination: {
+        currentPage,
+        itemsPerPage,
+        totalItems,
+        totalPages,
+        hasNextPage: currentPage < totalPages,
+        hasPreviousPage: currentPage > 1
+      }
+    });
   } catch (err) {
     console.error('Error fetching requests:', err);
     return res.status(500).json({ message: 'Failed to fetch requests' });

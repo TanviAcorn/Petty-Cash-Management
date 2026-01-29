@@ -1,6 +1,6 @@
 // Corrected frontend code:
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -22,6 +22,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useSnackbar } from 'notistack';
+import Pagination from '../components/Pagination';
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(value || 0));
@@ -30,15 +31,32 @@ export default function Payments() {
   const [loading, setLoading] = useState(true);
   const [processingPayments, setProcessingPayments] = useState({});
   const [rows, setRows] = useState([]);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+    totalPages: 0,
+  });
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
 
-  const load = async () => {
+  const load = useCallback(async (page = pagination.currentPage, limit = pagination.itemsPerPage) => {
     try {
       setLoading(true);
       // Corrected API endpoint with the /api prefix
-      const { data } = await axios.get('/api/requests/payments/list');
-      setRows(Array.isArray(data) ? data : []);
+      const params = {
+        page,
+        limit,
+      };
+      
+      const { data } = await axios.get('/api/requests/payments/list', { params });
+      const paymentsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
+      setRows(paymentsList);
+      
+      // Update pagination state if pagination data is available
+      if (data?.pagination) {
+        setPagination(data.pagination);
+      }
     } catch (error) {
       console.error('Error fetching payments list:', error);
       enqueueSnackbar('Failed to fetch payments list', { variant: 'error' });
@@ -46,11 +64,11 @@ export default function Payments() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.currentPage, pagination.itemsPerPage, enqueueSnackbar]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const statusChip = (status) => {
     const statusValue = String(status || '').toLowerCase();
@@ -103,6 +121,16 @@ export default function Payments() {
     } finally {
       setProcessingPayments(prev => ({ ...prev, [requestId]: false }));
     }
+  };
+
+  const handlePageChange = (page) => {
+    setPagination(prev => ({ ...prev, currentPage: page }));
+    load(page);
+  };
+
+  const handleItemsPerPageChange = (itemsPerPage) => {
+    setPagination(prev => ({ ...prev, itemsPerPage }));
+    load(1, itemsPerPage);
   };
 
   return (
@@ -188,6 +216,17 @@ export default function Payments() {
           </TableContainer>
         </CardContent>
       </Card>
+      
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
     </Box>
   );
 }

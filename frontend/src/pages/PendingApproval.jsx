@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -43,6 +43,7 @@ import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import axiosClient from '../api/axiosClient';
 import { alpha } from '@mui/material/styles';
+import Pagination from '../components/Pagination';
 
 const StatCard = ({ icon, label, value, color = 'primary' }) => (
   <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper', borderColor: 'divider' }}>
@@ -71,6 +72,12 @@ const PendingApproval = () => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+    totalPages: 0,
+  });
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('pending');
   const [selected, setSelected] = useState([]);
@@ -118,46 +125,55 @@ const PendingApproval = () => {
     severity: 'success',
   });
 
+  const fetchData = useCallback(async (page = pagination.currentPage, limit = pagination.itemsPerPage) => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = {
+        page,
+        limit,
+        status: 'pending', // Always fetch pending requests
+      };
+      
+      // Add search if present
+      if (search.trim()) {
+        params.q = search.trim();
+      }
+      
+      const { data } = await axiosClient.get('/requests', { params });
+      const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
+      setRows(list);
+      
+      // Update pagination state if pagination data is available
+      if (data?.pagination) {
+        setPagination(data.pagination);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || err.message || 'Failed to load requests');
+      setRows([]);
+    } finally { 
+      setLoading(false); 
+    }
+  }, [search, pagination.currentPage, pagination.itemsPerPage]);
+
   useEffect(() => {
     const controller = new AbortController();
-    const fetchData = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        // Fetch only pending requests to align with page purpose
-        const { data } = await axiosClient.get('/requests', { params: { status: 'pending' }, signal: controller.signal });
-        const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
-        setRows(list);
-      } catch (err) {
-        setError(err?.response?.data?.message || err.message || 'Failed to load requests');
-        setRows([]);
-      } finally { setLoading(false); }
-    };
     fetchData();
     return () => controller.abort();
-  }, []);
+  }, [fetchData]);
 
   const stats = useMemo(() => {
-    const total = rows.length;
-    const pending = rows.length; // page contains only pending
+    const total = pagination.totalItems;
+    const pending = pagination.totalItems; // page contains only pending
     const approved = 0;
     const rejected = 0;
     return { total, pending, approved, rejected };
-  }, [rows]);
+  }, [pagination.totalItems]);
 
   const filteredRows = useMemo(() => {
-    let list = rows; // already pending-only from server
-    if (search) {
-      const s = search.toLowerCase();
-      list = list.filter(r =>
-        String(r.employeeName || '').toLowerCase().includes(s) ||
-        String(r.company || '').toLowerCase().includes(s) ||
-        String(r.category || '').toLowerCase().includes(s) ||
-        String(r.reason || '').toLowerCase().includes(s)
-      );
-    }
-    return list;
-  }, [rows, statusFilter, search]);
+    // Since filtering is now done on the backend, we just return the rows as-is
+    return rows;
+  }, [rows]);
 
   const displayName = (r) => {
     if (r.employeeName && r.employeeName.toLowerCase() !== 'unknown user') return r.employeeName;
@@ -191,16 +207,7 @@ const PendingApproval = () => {
       });
 
       // Refresh the data from server
-      const { data } = await axiosClient.get('/requests', { 
-        params: { status: 'pending' },
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
-      
-      const updatedList = Array.isArray(data?.data || data) ? (data.data || data) : [];
-      setRows(updatedList);
+      await fetchData();
       
       showSnackbar(`Request ${action === 'approve' ? 'approved' : 'rejected'} successfully`, 'success');
     } catch (error) {
@@ -235,6 +242,16 @@ const PendingApproval = () => {
       ...prev,
       open: false,
     }));
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    fetchData(newPage, pagination.itemsPerPage);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setPagination(prev => ({ ...prev, itemsPerPage: newItemsPerPage, currentPage: 1 }));
+    fetchData(1, newItemsPerPage);
   };
 
   const toggleSelectAll = (checked) => {
@@ -430,6 +447,17 @@ const PendingApproval = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
     </Box>
   );
 };

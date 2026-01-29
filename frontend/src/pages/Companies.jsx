@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axiosClient from "../api/axiosClient";
+import Pagination from '../components/Pagination';
 import {
   Box,
   Button,
@@ -35,15 +36,42 @@ const Companies = () => {
   const [tab, setTab] = useState(0);
   const [openCat, setOpenCat] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+    totalPages: 0,
+  });
 
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async (page = pagination.currentPage, limit = pagination.itemsPerPage) => {
+    setLoading(true);
     try {
-      const res = await axiosClient.get("/companies");
-      setCompanies(res.data || []);
+      const params = {
+        page,
+        limit,
+      };
+      
+      // Add search if present
+      if (search.trim()) {
+        params.search = search.trim();
+      }
+      
+      const res = await axiosClient.get("/companies", { params });
+      const companiesList = Array.isArray(res.data?.data || res.data) ? (res.data.data || res.data) : [];
+      setCompanies(companiesList);
+      
+      // Update pagination state if pagination data is available
+      if (res.data?.pagination) {
+        setPagination(res.data.pagination);
+      }
     } catch (e) {
       console.error("Failed to fetch companies", e);
+      setCompanies([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [search, pagination.currentPage, pagination.itemsPerPage]);
 
   // Categories handlers
   const filteredCats = useMemo(() => {
@@ -90,17 +118,22 @@ const Companies = () => {
         setCategories(res.data || []);
       } catch (e) { console.error("Failed to fetch categories", e); }
     })();
-  }, []);
+  }, [fetchCompanies]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return companies.filter(
-      (c) =>
-        c.name?.toLowerCase().includes(q) ||
-        c.code?.toLowerCase().includes(q) ||
-        c.country?.toLowerCase().includes(q)
-    );
-  }, [companies, search]);
+    // Since filtering is now done on the backend, we just return the companies as-is
+    return companies;
+  }, [companies]);
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    fetchCompanies(newPage, pagination.itemsPerPage);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setPagination(prev => ({ ...prev, itemsPerPage: newItemsPerPage, currentPage: 1 }));
+    fetchCompanies(1, newItemsPerPage);
+  };
 
   const handleSave = async (data) => {
     try {
@@ -141,7 +174,7 @@ const Companies = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Business fontSize="small"/>
             <span>Companies</span>
-            <Chip size="small" label={companies.length} color="primary" sx={{ height: 20 }} />
+            <Chip size="small" label={pagination.totalItems} color="primary" sx={{ height: 20 }} />
           </Box>
         }/>
         <Tab label={
@@ -242,6 +275,19 @@ const Companies = () => {
           </TableContainer>
         </CardContent>
       </Card>
+      )}
+      
+      {/* Pagination for Companies */}
+      {tab === 0 && (
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handleItemsPerPageChange}
+          loading={loading}
+        />
       )}
 
       {tab === 1 && (

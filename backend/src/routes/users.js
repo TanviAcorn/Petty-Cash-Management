@@ -151,9 +151,49 @@ router.put("/change-password", async (req, res) => {
 
 // GET /api/users - all users
 router.get("/", async (req, res) => {
+  const { page = 1, limit = 10, search } = req.query;
+  
+  // Convert pagination parameters to numbers
+  const currentPage = parseInt(page, 10);
+  const itemsPerPage = parseInt(limit, 10);
+  const offset = (currentPage - 1) * itemsPerPage;
+
+  // Build WHERE clause for search
+  let whereClause = "";
+  const params = {};
+  
+  if (search) {
+    whereClause = "WHERE (LOWER(firstName) LIKE @search OR LOWER(lastName) LIKE @search OR LOWER(email) LIKE @search OR LOWER(company) LIKE @search OR LOWER(role) LIKE @search)";
+    params.search = `%${search.toLowerCase()}%`;
+  }
+
   try {
     const pool = await poolPromise;
-    const result = await pool.request().query("SELECT * FROM petty_Users");
+    
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM petty_Users ${whereClause}`;
+    const countRequest = pool.request();
+    if (search) {
+      countRequest.input('search', sql.NVarChar, params.search);
+    }
+    const countResult = await countRequest.query(countQuery);
+    const totalItems = countResult.recordset[0].total;
+    
+    // Get paginated data
+    const dataQuery = `
+      SELECT * FROM petty_Users 
+      ${whereClause}
+      ORDER BY id
+      OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `;
+    
+    const dataRequest = pool.request();
+    if (search) {
+      dataRequest.input('search', sql.NVarChar, params.search);
+    }
+    dataRequest.input('offset', sql.Int, offset);
+    dataRequest.input('limit', sql.Int, itemsPerPage);
+    const result = await dataRequest.query(dataQuery);
 
     // Map to expected structure for frontend
     const users = result.recordset.map((u) => ({
@@ -169,7 +209,19 @@ router.get("/", async (req, res) => {
       updatedAt: u.updatedAt || u.updated_at
     }));
 
-    res.json(users);
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+    res.json({
+      data: users,
+      pagination: {
+        currentPage,
+        itemsPerPage,
+        totalItems,
+        totalPages,
+        hasNextPage: currentPage < totalPages,
+        hasPreviousPage: currentPage > 1
+      }
+    });
   } catch (err) {
     res.status(500).send(err.message);
   }

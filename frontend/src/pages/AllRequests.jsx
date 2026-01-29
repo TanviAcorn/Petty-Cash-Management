@@ -39,6 +39,7 @@ import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import axiosClient from '../api/axiosClient';
 import { alpha } from '@mui/material/styles';
+import Pagination from '../components/Pagination';
 
 const StatCard = ({ icon, label, value, color = 'primary' }) => (
   <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper', borderColor: 'divider' }}>
@@ -69,6 +70,12 @@ const AllRequests = () => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+    totalPages: 0,
+  });
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -109,31 +116,56 @@ const AllRequests = () => {
   });
   const navigate = useNavigate();
 
+  const fetchData = useCallback(async (page = pagination.currentPage, limit = pagination.itemsPerPage) => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = {
+        page,
+        limit,
+      };
+      
+      // Add status filter if not 'all'
+      if (statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
+      
+      // Add search if present
+      if (search.trim()) {
+        params.q = search.trim();
+      }
+      
+      const { data } = await axiosClient.get('/requests', { params });
+      const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
+      setRows(list);
+      
+      // Update pagination state if pagination data is available
+      if (data?.pagination) {
+        setPagination(data.pagination);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || err.message || 'Failed to load requests');
+      setRows([]);
+    } finally { 
+      setLoading(false); 
+    }
+  }, [statusFilter, search, pagination.currentPage, pagination.itemsPerPage]);
+
   useEffect(() => {
     const controller = new AbortController();
-    const fetchData = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const { data } = await axiosClient.get('/requests', { signal: controller.signal });
-        const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
-        setRows(list);
-      } catch (err) {
-        setError(err?.response?.data?.message || err.message || 'Failed to load requests');
-        setRows([]);
-      } finally { setLoading(false); }
-    };
     fetchData();
     return () => controller.abort();
-  }, []);
+  }, [fetchData]);
 
   const stats = useMemo(() => {
-    const total = rows.length;
+    const total = pagination.totalItems;
+    // For other stats, we'd need to fetch them separately or calculate from filtered data
+    // For now, using the current page data
     const pending = rows.filter(r => String(r.status).toLowerCase() === 'pending').length;
     const approved = rows.filter(r => String(r.status).toLowerCase() === 'approved').length;
     const rejected = rows.filter(r => String(r.status).toLowerCase() === 'rejected').length;
     return { total, pending, approved, rejected };
-  }, [rows]);
+  }, [rows, pagination.totalItems]);
 
   const handleExportCSV = () => {
     // Filter rows by date range for export
@@ -203,50 +235,19 @@ const AllRequests = () => {
   };
 
   const filteredRows = useMemo(() => {
-    let list = rows;
-    
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      list = list.filter(r => String(r.status).toLowerCase() === statusFilter);
-    }
-    
-    // Apply search filter
-    if (search) {
-      const s = search.toLowerCase();
-      list = list.filter(r =>
-        String(r.employeeName || '').toLowerCase().includes(s) ||
-        String(r.company || '').toLowerCase().includes(s) ||
-        String(r.category || '').toLowerCase().includes(s) ||
-        String(r.reason || '').toLowerCase().includes(s)
-      );
-    }
-    
-    // Apply date range filter
-    if (dateRange.startDate || dateRange.endDate) {
-      list = list.filter(row => {
-        if (!row.date) return false;
-        
-        const rowDate = new Date(row.date);
-        const startDate = dateRange.startDate ? new Date(dateRange.startDate) : null;
-        const endDate = dateRange.endDate ? new Date(dateRange.endDate) : null;
-        
-        // Set time to start/end of day for proper date comparison
-        if (startDate) startDate.setHours(0, 0, 0, 0);
-        if (endDate) endDate.setHours(23, 59, 59, 999);
-        
-        if (startDate && endDate) {
-          return rowDate >= startDate && rowDate <= endDate;
-        } else if (startDate) {
-          return rowDate >= startDate;
-        } else if (endDate) {
-          return rowDate <= endDate;
-        }
-        return true;
-      });
-    }
-    
-    return list;
-  }, [rows, statusFilter, search, dateRange]);
+    // Since filtering is now done on the backend, we just return the rows as-is
+    return rows;
+  }, [rows]);
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    fetchData(newPage, pagination.itemsPerPage);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setPagination(prev => ({ ...prev, itemsPerPage: newItemsPerPage, currentPage: 1 }));
+    fetchData(1, newItemsPerPage);
+  };
 
   const toggleSelectAll = (checked) => {
     if (checked) setSelected(filteredRows.map(r => r.id));
@@ -412,6 +413,17 @@ const AllRequests = () => {
           )}
         </CardContent>
       </Card>
+      
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
     </Box>
   );
 };

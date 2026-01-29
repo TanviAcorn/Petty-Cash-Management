@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -34,6 +34,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import axiosClient from '../api/axiosClient';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
+import Pagination from '../components/Pagination';
 
 const timeRanges = [
   { label: 'All Time', value: 'all' },
@@ -83,6 +84,12 @@ const Approved = () => {
   const [requests, setRequests] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [timeRange, setTimeRange] = useState('30d');
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+    totalPages: 0,
+  });
   const [stats, setStats] = useState({
     total: 0,
     totalAmount: 0,
@@ -98,25 +105,53 @@ const Approved = () => {
   const companies = useMemo(() => ['all', ...Array.from(new Set(requests.map(r => r.company).filter(Boolean)))], [requests]);
   const categories = useMemo(() => ['all', ...Array.from(new Set(requests.map(r => r.category).filter(Boolean)))], [requests]);
 
-  useEffect(() => {
-    const fetchApprovedRequests = async () => {
-      try {
-        setLoading(true);
-        // Fetch only approved requests
-        const { data } = await axiosClient.get('/requests', { 
-          params: { status: ['approved', 'intercompany'] }
-        });
+  const fetchData = useCallback(async (page = pagination.currentPage, limit = pagination.itemsPerPage) => {
+    try {
+      setLoading(true);
+      
+      const params = {
+        page,
+        limit,
+        status: ['approved', 'intercompany']
+      };
+      
+      // Add search if present
+      if (searchTerm.trim()) {
+        params.q = searchTerm.trim();
+      }
+      
+      // Add company filter if not 'all'
+      if (company !== 'all') {
+        params.company = company;
+      }
+      
+      // Add category filter if not 'all'
+      if (category !== 'all') {
+        params.category = category;
+      }
+      
+      // Add date range filter if not 'all'
+      if (range !== 'all') {
+        params.range = range;
+      }
+      
+      const { data } = await axiosClient.get('/requests', { params });
+      const requestsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
+      setRequests(requestsList);
+      
+      // Update pagination state if pagination data is available
+      if (data?.pagination) {
+        setPagination(data.pagination);
         
-        const requestsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
-        setRequests(requestsList);
-
-        // Calculate statistics
+        // Calculate statistics based on current filtered data
         if (requestsList.length > 0) {
-          const total = requestsList.length;
+          const total = data.pagination.totalItems;
+          // For total amount and average, we'd need a separate endpoint or calculate differently
+          // For now, using current page data
           const totalAmount = requestsList.reduce((sum, req) => sum + Number(req.amount || 0), 0);
-          const avgAmount = total > 0 ? totalAmount / total : 0;
+          const avgAmount = requestsList.length > 0 ? totalAmount / requestsList.length : 0;
 
-          // Find top category
+          // Find top category from current page data
           const categoryCounts = requestsList.reduce((acc, req) => {
             const cat = req.category || 'Uncategorized';
             acc[cat] = (acc[cat] || 0) + 1;
@@ -134,20 +169,22 @@ const Approved = () => {
           });
         } else {
           setStats({
-            total: 0,
+            total: data.pagination.totalItems,
             totalAmount: 0,
             avgAmount: 0,
             topCategory: { name: 'N/A', count: 0 }
           });
         }
-      } catch (error) {
-        console.error('Error fetching approved requests:', error);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching approved requests:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, company, category, range, pagination.currentPage, pagination.itemsPerPage]);
 
-    fetchApprovedRequests();
+  useEffect(() => {
+    fetchData();
     // Load payments list for badges
     (async () => {
       try {
@@ -155,55 +192,22 @@ const Approved = () => {
         setPayments(Array.isArray(data?.data) ? data.data : []);
       } catch {}
     })();
-  }, [timeRange]);
+  }, [fetchData]);
 
   const filteredRequests = useMemo(() => {
-    let result = requests;
-    
-    // Apply search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      result = result.filter(request =>
-        (request.employee_name || '').toLowerCase().includes(searchLower) ||
-        (request.employee_email || '').toLowerCase().includes(searchLower) ||
-        (request.company || '').toLowerCase().includes(searchLower) ||
-        (request.category || '').toLowerCase().includes(searchLower) ||
-        (request.reason || '').toLowerCase().includes(searchLower)
-      );
-    }
-    
-    // Apply company filter
-    if (company && company !== 'all') {
-      result = result.filter(request => request.company === company);
-    }
-    
-    // Apply category filter
-    if (category && category !== 'all') {
-      result = result.filter(request => request.category === category);
-    }
-    
-    // Apply date range filter
-    if (range && range !== 'all') {
-      const now = new Date();
-      result = result.filter(request => {
-        const approvedDate = new Date(request.approved_at || request.created_at);
-        switch(range) {
-          case '7d':
-            const sevenDaysAgo = new Date(now.setDate(now.getDate() - 7));
-            return approvedDate >= sevenDaysAgo;
-          case '30d':
-            const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-            return approvedDate >= thirtyDaysAgo;
-          case 'year':
-            return approvedDate.getFullYear() === new Date().getFullYear();
-          default:
-            return true;
-        }
-      });
-    }
-    
-    return result;
-  }, [requests, searchTerm, company, category, range]);
+    // Since filtering is now done on the backend, we just return the requests as-is
+    return requests;
+  }, [requests]);
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    fetchData(newPage, pagination.itemsPerPage);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setPagination(prev => ({ ...prev, itemsPerPage: newItemsPerPage, currentPage: 1 }));
+    fetchData(1, newItemsPerPage);
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -216,39 +220,6 @@ const Approved = () => {
       minute: '2-digit'
     });
   };
-
-  // Update stats when filtered requests change
-  useEffect(() => {
-    if (filteredRequests.length > 0) {
-      const total = filteredRequests.length;
-      const totalAmount = filteredRequests.reduce((sum, req) => sum + Number(req.amount || 0), 0);
-      const avgAmount = total > 0 ? totalAmount / total : 0;
-
-      // Find top category
-      const categoryCounts = filteredRequests.reduce((acc, req) => {
-        const cat = req.category || 'Uncategorized';
-        acc[cat] = (acc[cat] || 0) + 1;
-        return acc;
-      }, {});
-
-      const topCategory = Object.entries(categoryCounts)
-        .sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
-
-      setStats({
-        total,
-        totalAmount,
-        avgAmount,
-        topCategory: { name: topCategory[0], count: topCategory[1] }
-      });
-    } else {
-      setStats({
-        total: 0,
-        totalAmount: 0,
-        avgAmount: 0,
-        topCategory: { name: 'N/A', count: 0 }
-      });
-    }
-  }, [filteredRequests]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', width: '100%' }}>
@@ -454,8 +425,19 @@ const Approved = () => {
           </TableContainer>
         </CardContent>
       </Card>
+      
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
     </Box>
-  );
+  )
 }
 
 export default Approved;

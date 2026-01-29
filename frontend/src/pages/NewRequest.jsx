@@ -165,7 +165,9 @@ const NewRequest = () => {
           axiosClient.get('/locations')
         ]);
         setCategories(categoriesRes.data);
-        setCompanies(companiesRes.data);
+        // Handle paginated companies response - extract data array
+        const companiesData = Array.isArray(companiesRes.data?.data) ? companiesRes.data.data : companiesRes.data;
+        setCompanies(Array.isArray(companiesData) ? companiesData : []);
         setLocations(locationsRes.data);
         setDataError('');
       } catch (err) {
@@ -399,7 +401,7 @@ const NewRequest = () => {
           alignContent: 'flex-start'
         }}>
           {/* Left column: form sections */}
-          <Grid item xs={12} lg={8} sx={{ 
+          <Grid size={{ xs: 12, lg: 8 }} sx={{ 
             display: 'flex', 
             flexDirection: 'column',
             height: '100%',
@@ -427,7 +429,7 @@ const NewRequest = () => {
                 </Typography>
                 <Grid container spacing={3}>
                   {/* First row: Date, Category, Company, Location */}
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{ xs: 12, md: 3 }}>
                     <TextField
                       fullWidth
                       label="Date of Purchase *"
@@ -447,7 +449,7 @@ const NewRequest = () => {
                       sx={{ mb: 2 }}
                     />
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{ xs: 12, md: 3 }}>
                     <FormControl fullWidth error={!!errors.category} size="small" sx={{ mb: 2 }}>
                       <InputLabel id="category-label">Category *</InputLabel>
                       <Select
@@ -495,7 +497,7 @@ const NewRequest = () => {
                       <FormHelperText>{errors.category || dataError}</FormHelperText>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <FormControl fullWidth error={!!errors.company} size="small">
                       <InputLabel id="company-label">Company *</InputLabel>
                       <Select
@@ -542,7 +544,7 @@ const NewRequest = () => {
                       <FormHelperText>{errors.company || dataError}</FormHelperText>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid size={{ xs: 12, md: 3 }}>
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                       <InputLabel id="location-label">Location *</InputLabel>
                       <Select
@@ -640,7 +642,7 @@ const NewRequest = () => {
                   </Grid>
                   
                   {/* Description field - full width */}
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <TextField
                       fullWidth
                       label="Description *"
@@ -681,7 +683,7 @@ const NewRequest = () => {
                   Specify the amount and currency for your expense
                 </Typography>
                 <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
                     label="Amount *"
@@ -725,7 +727,7 @@ const NewRequest = () => {
                     }}
                   />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Currency</InputLabel>
                       <Select
@@ -828,7 +830,7 @@ const NewRequest = () => {
           </Grid>
 
           {/* Right column: summary and actions */}
-          <Grid item xs={12} lg={4} sx={{
+          <Grid size={{ xs: 12, lg: 4 }} sx={{
             position: 'sticky',
             top: 0,
             alignSelf: 'flex-start',

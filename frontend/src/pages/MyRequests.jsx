@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { formatCurrency } from '../utils/currency';
+import Pagination from '../components/Pagination';
 import {
   Box,
   Typography,
@@ -55,6 +56,12 @@ const MyRequests = () => {
   const [rows, setRows] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Status');
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+    totalPages: 0,
+  });
   const navigate = useNavigate();
 
   // Edit dialog state
@@ -70,7 +77,7 @@ const MyRequests = () => {
     try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
   }, []);
 
-  const load = async () => {
+  const load = useCallback(async (page = pagination.currentPage, limit = pagination.itemsPerPage) => {
     if (!user?.email) {
       setError('No user email found. Please re-login.');
       setRows([]);
@@ -79,24 +86,47 @@ const MyRequests = () => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await axiosClient.get('/requests', { params: { email: user.email } });
-      setRows(Array.isArray(data?.data || data) ? (data.data || data) : []);
+      const params = {
+        email: user.email,
+        page,
+        limit,
+      };
+      
+      // Add search if present
+      if (searchTerm.trim()) {
+        params.q = searchTerm.trim();
+      }
+      
+      // Add status filter if not "All Status"
+      if (statusFilter !== 'All Status') {
+        params.status = statusFilter.toLowerCase();
+      }
+      
+      const { data } = await axiosClient.get('/requests', { params });
+      const requestsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
+      setRows(requestsList);
+      
+      // Update pagination state if pagination data is available
+      if (data?.pagination) {
+        setPagination(data.pagination);
+      }
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to load your requests');
       setRows([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.email, pagination.currentPage, pagination.itemsPerPage, searchTerm, statusFilter]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   // Preload companies for edit dropdown
   useEffect(() => {
     (async () => {
       try {
         const { data } = await axiosClient.get('/companies');
-        setCompanies(Array.isArray(data) ? data : []);
+        const companiesData = Array.isArray(data?.data) ? data.data : data;
+        setCompanies(Array.isArray(companiesData) ? companiesData : []);
       } catch { }
     })();
   }, []);
@@ -127,28 +157,29 @@ const MyRequests = () => {
 
   // Calculate dashboard stats
   const stats = useMemo(() => {
-    const totalRequests = rows.length;
+    const totalRequests = pagination.totalItems;
     const pending = rows.filter(r => r.status === 'pending').length;
     const approved = rows.filter(r => r.status === 'approved').length;
     const totalAmount = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
 
     return { totalRequests, pending, approved, totalAmount };
+  }, [rows, pagination.totalItems]);
+
+  // Filter requests based on search and status (now done on backend)
+  const filteredRows = useMemo(() => {
+    // Since filtering is now done on the backend, we just return the rows as-is
+    return rows;
   }, [rows]);
 
-  // Filter requests based on search and status
-  const filteredRows = useMemo(() => {
-    return rows.filter(row => {
-      const matchesSearch = !searchTerm ||
-        row.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.description?.toLowerCase().includes(searchTerm.toLowerCase());
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    load(newPage, pagination.itemsPerPage);
+  };
 
-      const matchesStatus = statusFilter === 'All Status' || row.status === statusFilter.toLowerCase();
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [rows, searchTerm, statusFilter]);
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setPagination(prev => ({ ...prev, itemsPerPage: newItemsPerPage, currentPage: 1 }));
+    load(1, newItemsPerPage);
+  };
 
   const getStatusChip = (status) => {
     const s = String(status || '').toLowerCase();
@@ -439,6 +470,17 @@ const MyRequests = () => {
           )}
         </CardContent>
       </Card>
+      
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
 
       {/* Edit Request Dialog */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>

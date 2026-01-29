@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -34,6 +34,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { alpha } from '@mui/material/styles';
 import axiosClient from '../api/axiosClient';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
+import Pagination from '../components/Pagination';
 
 // Helper to format currency consistently
 const formatCurrency = (value, currency = 'USD') =>
@@ -50,6 +51,12 @@ const Rejected = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+    totalPages: 0,
+  });
   const navigate = useNavigate();
 
   // Filters
@@ -68,41 +75,67 @@ const Rejected = () => {
     return ['all', ...Array.from(s)];
   }, [rows]);
 
-  // Fetch rejected requests
+  const fetchData = useCallback(async (page = pagination.currentPage, limit = pagination.itemsPerPage) => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = {
+        page,
+        limit,
+        status: 'rejected',
+      };
+      
+      // Add search if present
+      if (search.trim()) {
+        params.q = search.trim();
+      }
+      
+      // Add company filter if not 'all'
+      if (company !== 'all') {
+        params.company = company;
+      }
+      
+      // Add category filter if not 'all'
+      if (category !== 'all') {
+        params.category = category;
+      }
+      
+      // Add date range filter if not 'all'
+      if (range !== 'all') {
+        params.range = range;
+      }
+      
+      const { data } = await axiosClient.get('/requests', { params });
+      const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
+      setRows(list);
+      
+      // Update pagination state if pagination data is available
+      if (data?.pagination) {
+        setPagination(data.pagination);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || err.message || 'Failed to load rejected requests');
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, company, category, range, pagination.currentPage, pagination.itemsPerPage]);
+
   useEffect(() => {
     const controller = new AbortController();
-    const fetchData = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        // If your backend supports filtering via query params, they are passed here
-        const { data } = await axiosClient.get('/requests', {
-          params: {
-            status: 'rejected',
-            q: search || undefined,
-            company: company !== 'all' ? company : undefined,
-            category: category !== 'all' ? category : undefined,
-            range: range !== 'all' ? range : undefined,
-          },
-          signal: controller.signal,
-        });
-
-        // Expecting data to be an array of requests. If not present, fallback to empty array.
-        // Example row shape used by the UI below:
-        // { id, employeeName, company, category, amount, date, reason }
-        const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
-        setRows(list);
-      } catch (err) {
-        // Non-fatal: show empty state but keep message
-        setError(err?.response?.data?.message || err.message || 'Failed to load rejected requests');
-        setRows([]);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
     return () => controller.abort();
-  }, [search, company, category, range]);
+  }, [fetchData]);
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    fetchData(newPage, pagination.itemsPerPage);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setPagination(prev => ({ ...prev, itemsPerPage: newItemsPerPage, currentPage: 1 }));
+    fetchData(1, newItemsPerPage);
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -118,29 +151,19 @@ const Rejected = () => {
 
   // Derived stats
   const stats = useMemo(() => {
-    const total = rows.length;
+    const total = pagination.totalItems;
+    // For other stats, we'd need to fetch them separately or calculate from filtered data
+    // For now, using the current page data
     const totalAmount = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-    const avg = total ? totalAmount / total : 0;
+    const avg = rows.length ? totalAmount / rows.length : 0;
     const withReasons = rows.filter(r => r.reason && String(r.reason).trim().length > 0).length;
     return { total, totalAmount, avg, withReasons };
-  }, [rows]);
+  }, [rows, pagination.totalItems]);
 
   const filteredRows = useMemo(() => {
-    // Client-side guard in case backend does not filter
-    return rows
-      .filter(r => (company === 'all' ? true : r.company === company))
-      .filter(r => (category === 'all' ? true : r.category === category))
-      .filter(r => {
-        if (!search) return true;
-        const s = search.toLowerCase();
-        return (
-          String(r.employeeName || '').toLowerCase().includes(s) ||
-          String(r.company || '').toLowerCase().includes(s) ||
-          String(r.category || '').toLowerCase().includes(s) ||
-          String(r.reason || '').toLowerCase().includes(s)
-        );
-      });
-  }, [rows, company, category, search]);
+    // Since filtering is now done on the backend, we just return the rows as-is
+    return rows;
+  }, [rows]);
 
   const handleExportCSV = () => {
     const header = ['ID', 'Employee', 'Company', 'Category', 'Amount', 'Date', 'Reason'];
@@ -351,6 +374,17 @@ const Rejected = () => {
           )}
         </CardContent>
       </Card>
+      
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
     </Box>
     
   );

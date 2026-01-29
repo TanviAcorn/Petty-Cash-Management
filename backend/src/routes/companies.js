@@ -1,19 +1,74 @@
 const express = require("express");
 const router = express.Router();
 const { poolPromise } = require("../config/db");
+const sql = require('mssql');
 
 // GET /api/companies - list companies
 router.get("/", async (req, res) => {
+  const { page = 1, limit = 10, search } = req.query;
+  
+  // Convert pagination parameters to numbers
+  const currentPage = parseInt(page, 10);
+  const itemsPerPage = parseInt(limit, 10);
+  const offset = (currentPage - 1) * itemsPerPage;
+
+  // Build WHERE clause for search
+  let whereClause = "";
+  const params = {};
+  
+  if (search) {
+    whereClause = "WHERE (LOWER(name) LIKE @search OR LOWER(code) LIKE @search OR LOWER(country) LIKE @search)";
+    params.search = `%${search.toLowerCase()}%`;
+  }
+
   try {
     const pool = await poolPromise;
-    const result = await pool.request().query("SELECT * FROM petty_Companies ORDER BY name");
+    
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM petty_Companies ${whereClause}`;
+    const countRequest = pool.request();
+    if (search) {
+      countRequest.input('search', sql.NVarChar, params.search);
+    }
+    const countResult = await countRequest.query(countQuery);
+    const totalItems = countResult.recordset[0].total;
+    
+    // Get paginated data
+    const dataQuery = `
+      SELECT * FROM petty_Companies 
+      ${whereClause}
+      ORDER BY name
+      OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+    `;
+    
+    const dataRequest = pool.request();
+    if (search) {
+      dataRequest.input('search', sql.NVarChar, params.search);
+    }
+    dataRequest.input('offset', sql.Int, offset);
+    dataRequest.input('limit', sql.Int, itemsPerPage);
+    const result = await dataRequest.query(dataQuery);
+    
     const companies = (result.recordset || []).map((c) => ({
       id: c.id,
       name: c.name,
       code: c.code,
       country: c.country,
     }));
-    res.json(companies);
+    
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    res.json({
+      data: companies,
+      pagination: {
+        currentPage,
+        itemsPerPage,
+        totalItems,
+        totalPages,
+        hasNextPage: currentPage < totalPages,
+        hasPreviousPage: currentPage > 1
+      }
+    });
   } catch (err) {
     console.error("Companies GET error:", err?.message || err);
     res.status(500).json({ message: "Server error" });

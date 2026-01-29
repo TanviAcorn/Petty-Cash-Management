@@ -1,7 +1,8 @@
 // src/pages/UserManagement.jsx
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axiosClient from "../api/axiosClient";
+import Pagination from '../components/Pagination';
 
 // MUI components
 import {
@@ -46,6 +47,13 @@ const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalItems: 0,
+    totalPages: 0,
+  });
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -57,18 +65,38 @@ const UserManagement = () => {
   });
   const [searchQuery, setSearchQuery] = useState("");
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async (page = pagination.currentPage, limit = pagination.itemsPerPage) => {
+    setLoading(true);
     try {
-      const res = await axiosClient.get("/users");
-      setUsers(res.data);
+      const params = {
+        page,
+        limit,
+      };
+      
+      // Add search if present
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      
+      const res = await axiosClient.get("/users", { params });
+      const usersList = Array.isArray(res.data?.data || res.data) ? (res.data.data || res.data) : [];
+      setUsers(usersList);
+      
+      // Update pagination state if pagination data is available
+      if (res.data?.pagination) {
+        setPagination(res.data.pagination);
+      }
     } catch (error) {
       console.error("Failed to fetch users:", error);
+      setUsers([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [searchQuery, pagination.currentPage, pagination.itemsPerPage]);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -147,21 +175,26 @@ const UserManagement = () => {
     }
   };
 
-  const totalUsers = users.length;
+  const totalUsers = pagination.totalItems;
   const adminUsers = users.filter((user) => user.role === "Admin").length;
   const uniqueCompanies = new Set(
     users.filter((user) => user.company).map((user) => user.company)
   ).size;
 
   const filteredUsers = useMemo(() => {
-    return users.filter(
-      (user) =>
-        user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.role?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.company?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [users, searchQuery]);
+    // Since filtering is now done on the backend, we just return the users as-is
+    return users;
+  }, [users]);
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    fetchUsers(newPage, pagination.itemsPerPage);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setPagination(prev => ({ ...prev, itemsPerPage: newItemsPerPage, currentPage: 1 }));
+    fetchUsers(1, newItemsPerPage);
+  };
 
   // Reusable StatCard for metrics
   const StatCard = ({ icon, label, value, color = 'primary' }) => (
@@ -283,6 +316,17 @@ const UserManagement = () => {
           </TableContainer>
         </CardContent>
       </Card>
+      
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingUser ? "Edit User" : "Create New User"}</DialogTitle>
