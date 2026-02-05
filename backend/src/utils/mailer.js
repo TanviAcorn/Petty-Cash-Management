@@ -249,9 +249,15 @@ function buildPaymentInitiatedEmail({ request, payment }) {
         <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Category</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
           request.category_name || request.category || "-"
         }</td></tr>
+        <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Location</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
+          request.location || "-"
+        }</td></tr>
         <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Amount</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
           request.amount
         } ${request.currency || ""}</td></tr>
+        <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Description</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
+          request.reason || request.description || "-"
+        }</td></tr>
         </table>
   
   <h3 style="margin-top: 20px; margin-bottom: 8px;">Payment Details</h3>

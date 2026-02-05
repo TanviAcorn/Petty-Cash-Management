@@ -224,7 +224,11 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
     }
     
     await txn.commit();
-    return res.json({ message: 'Payment marked as done', receipts: receiptFilenames ? JSON.parse(receiptFilenames) : [] });
+    
+    return res.json({ 
+      message: 'Payment marked as done', 
+      receipts: receiptFilenames ? receiptFilenames.split(',') : [],
+    });
     
   } catch (err) {
     console.error('Error marking payment done:', err);
