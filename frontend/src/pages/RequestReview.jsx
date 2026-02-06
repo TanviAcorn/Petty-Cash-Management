@@ -96,7 +96,7 @@ export default function RequestReview() {
   const [payments, setPayments] = useState([]);
   
   // Handle opening the payment dialog
-  const handlePayOpen = () => {
+  const handlePayOpen = async () => {
     // Format the amount with the request's currency when opening the dialog
     if (req?.amount != null) {
       // Use the same formatting as in the onBlur handler
@@ -109,6 +109,41 @@ export default function RequestReview() {
     } else {
       setPayAmount('');
     }
+    
+    // Load existing request attachments as File objects
+    if (req?.attachments && Array.isArray(req.attachments) && req.attachments.length > 0) {
+      try {
+        const filePromises = req.attachments.map(async (attachment) => {
+          const filename = attachment.filename || attachment.originalName;
+          const fileUrl = getFileUrl(`/uploads/${filename}`);
+          
+          try {
+            const response = await fetch(fileUrl);
+            const blob = await response.blob();
+            // Create a File object from the blob with the original name
+            const file = new File([blob], attachment.originalName || filename, {
+              type: attachment.mimetype || blob.type || 'application/octet-stream'
+            });
+            // Add metadata to track this is an existing file
+            file.isExisting = true;
+            file.originalFilename = filename;
+            return file;
+          } catch (err) {
+            console.error(`Failed to load attachment ${filename}:`, err);
+            return null;
+          }
+        });
+        
+        const loadedFiles = (await Promise.all(filePromises)).filter(f => f !== null);
+        setAttachments(loadedFiles);
+      } catch (err) {
+        console.error('Error loading request attachments:', err);
+        setAttachments([]);
+      }
+    } else {
+      setAttachments([]);
+    }
+    
     setPayOpen(true);
   };
   
@@ -824,30 +859,44 @@ export default function RequestReview() {
               />
             </Grid>
             <Grid item xs={12}>
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Attachments
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Files from the original request are pre-selected. You can add more or remove any.
+                </Typography>
+              </Box>
+              
               <input
                 accept="image/*,.pdf,.doc,.docx"
                 style={{ display: 'none' }}
                 id="payment-attachments"
                 multiple
                 type="file"
-                onChange={(e) => setAttachments(Array.from(e.target.files))}
+                onChange={(e) => {
+                  const newFiles = Array.from(e.target.files);
+                  setAttachments(prev => [...prev, ...newFiles]);
+                  e.target.value = ''; // Reset input to allow re-selecting same file
+                }}
               />
               <label htmlFor="payment-attachments">
                 <Button 
                   variant="outlined" 
                   component="span"
                   startIcon={<AttachFileIcon />}
-                  sx={{ mb: 1 }}
+                  size="small"
                 >
-                  Add Attachments
+                  Add More Attachments
                 </Button>
               </label>
+              
               {attachments.length > 0 && (
-                <Box sx={{ mt: 1, border: '1px solid rgba(0, 0, 0, 0.23)', borderRadius: 1, p: 1 }}>
-                  <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 1 }}>
-                    {attachments.length} file(s) selected
+                <Box sx={{ mt: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                  <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+                    {attachments.length} file(s) will be sent with payment notification
                   </Typography>
-                  <List dense>
+                  <List dense disablePadding>
                     {attachments.map((file, index) => (
                       <ListItem 
                         key={index}
@@ -860,19 +909,41 @@ export default function RequestReview() {
                               newAttachments.splice(index, 1);
                               setAttachments(newAttachments);
                             }}
+                            title="Remove attachment"
                           >
                             <CloseIcon fontSize="small" />
                           </IconButton>
                         }
-                        sx={{ py: 0.5 }}
+                        sx={{ 
+                          py: 0.5, 
+                          px: 1,
+                          borderRadius: 1,
+                          '&:hover': { bgcolor: 'action.hover' },
+                          bgcolor: file.isExisting ? 'action.selected' : 'transparent'
+                        }}
                       >
                         <ListItemIcon sx={{ minWidth: 36 }}>
-                          <InsertDriveFileIcon fontSize="small" />
+                          <InsertDriveFileIcon fontSize="small" color={file.isExisting ? 'primary' : 'action'} />
                         </ListItemIcon>
                         <ListItemText 
-                          primary={file.name} 
-                          primaryTypographyProps={{ variant: 'caption' }}
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="body2" component="span">
+                                {file.name}
+                              </Typography>
+                              {file.isExisting && (
+                                <Chip 
+                                  label="From Request" 
+                                  size="small" 
+                                  color="primary" 
+                                  variant="outlined"
+                                  sx={{ height: 18, fontSize: '0.65rem' }}
+                                />
+                              )}
+                            </Box>
+                          }
                           secondary={`${(file.size / 1024).toFixed(1)} KB`}
+                          secondaryTypographyProps={{ variant: 'caption' }}
                         />
                       </ListItem>
                     ))}
