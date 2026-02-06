@@ -216,7 +216,11 @@ function buildPaymentInitiatedEmail({ request, payment }) {
   const internalLink = internalUrl
     ? `${internalUrl}/requests/${request.id}/upload-receipt`
     : null;
-  const subject = `Payment Initiated: Request #${request.id} (${
+  
+  // Check if this is an intercompany transfer
+  const isIntercompany = request.previousCompany && request.previousCompany !== (request.company_name || request.company);
+  
+  const subject = `Payment Initiated${isIntercompany ? ' (Intercompany)' : ''}: Request #${request.id} (${
     request.employee_name || request.employeeName || ""
   })`; // The attachments list contains file metadata (name, size, type)
 
@@ -232,8 +236,22 @@ function buildPaymentInitiatedEmail({ request, payment }) {
 
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-      <h2>Payment Initiated</h2>
+      <h2>Payment Initiated${isIntercompany ? ' <span style="color: #9c27b0;">(Intercompany Transfer)</span>' : ''}</h2>
         <p>The admin has initiated payment for the following petty cash request. Please find the payment details below.</p>
+  
+        ${isIntercompany ? `
+        <div style="background-color: #f3e5f5; border-left: 4px solid #9c27b0; padding: 12px; margin-bottom: 20px; border-radius: 4px;">
+          <h3 style="margin: 0 0 8px 0; color: #9c27b0;">⚠️ Intercompany Transfer</h3>
+          <p style="margin: 0; color: #4a148c;">
+            <strong>Original Company:</strong> ${request.previousCompany}<br>
+            <strong>New Company (Pay to):</strong> ${request.company_name || request.company}
+          </p>
+          <p style="margin: 8px 0 0 0; font-size: 0.9em; color: #6a1b9a;">
+            This expense has been transferred from ${request.previousCompany} to ${request.company_name || request.company}. 
+            Please process payment under the new company.
+          </p>
+        </div>
+        ` : ''}
   
         <h3>Request Details</h3>
         <table style="border-collapse: collapse; width: 100%; max-width: 640px; margin-bottom: 16px;">
@@ -245,7 +263,8 @@ function buildPaymentInitiatedEmail({ request, payment }) {
       } (${request.employee_email || request.employeeEmail})</td></tr>
       <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Company</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
         request.company_name || request.company || "-"
-      }</td></tr>
+      }${isIntercompany ? ' <span style="color: #9c27b0; font-weight: bold;">(Transferred)</span>' : ''}</td></tr>
+      ${isIntercompany ? `<tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Original Company</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${request.previousCompany}</td></tr>` : ''}
         <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Category</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
           request.category_name || request.category || "-"
         }</td></tr>

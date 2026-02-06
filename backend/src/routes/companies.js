@@ -5,24 +5,35 @@ const sql = require('mssql');
 
 // GET /api/companies - list companies
 router.get("/", async (req, res) => {
-  const { page = 1, limit = 10, search } = req.query;
+  const { page = 1, limit = 10, search, all } = req.query;
   
-  // Convert pagination parameters to numbers
-  const currentPage = parseInt(page, 10);
-  const itemsPerPage = parseInt(limit, 10);
-  const offset = (currentPage - 1) * itemsPerPage;
-
-  // Build WHERE clause for search
-  let whereClause = "";
-  const params = {};
-  
-  if (search) {
-    whereClause = "WHERE (LOWER(name) LIKE @search OR LOWER(code) LIKE @search OR LOWER(country) LIKE @search)";
-    params.search = `%${search.toLowerCase()}%`;
-  }
-
   try {
     const pool = await poolPromise;
+    
+    // If 'all' parameter is provided, return all companies without pagination (for dropdowns)
+    if (all === 'true') {
+      const result = await pool.request().query(`
+        SELECT id, name, code, country 
+        FROM petty_Companies 
+        ORDER BY name
+      `);
+      
+      return res.json(result.recordset || []);
+    }
+    
+    // Convert pagination parameters to numbers
+    const currentPage = parseInt(page, 10);
+    const itemsPerPage = parseInt(limit, 10);
+    const offset = (currentPage - 1) * itemsPerPage;
+
+    // Build WHERE clause for search
+    let whereClause = "";
+    const params = {};
+    
+    if (search) {
+      whereClause = "WHERE (LOWER(name) LIKE @search OR LOWER(code) LIKE @search OR LOWER(country) LIKE @search)";
+      params.search = `%${search.toLowerCase()}%`;
+    }
     
     // Get total count
     const countQuery = `SELECT COUNT(*) as total FROM petty_Companies ${whereClause}`;

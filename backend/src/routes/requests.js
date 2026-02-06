@@ -311,7 +311,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// PUT /api/requests/:id/intercompany - Transfer to another company (only after payment done)
+// PUT /api/requests/:id/intercompany - Transfer to another company (after approval)
 router.put('/:id/intercompany', async (req, res) => {
   try {
     const { id } = req.params;
@@ -322,7 +322,7 @@ router.put('/:id/intercompany', async (req, res) => {
 
     const pool = await poolPromise;
 
-    // Validate request exists and that payment has been completed
+    // Validate request exists and is approved
     const reqRow = await pool.request()
       .input('id', sql.Int, id)
       .query(`
@@ -333,25 +333,9 @@ router.put('/:id/intercompany', async (req, res) => {
 
     const requestStatus = (reqRow.recordset?.[0]?.requestStatus || '').toLowerCase();
 
-    // Check latest payment status if payments table exists
-    let latestPaymentStatus = null;
-    try {
-      const pay = await pool.request()
-        .input('id', sql.Int, id)
-        .query(`
-          IF OBJECT_ID('dbo.petty_cash_payments','U') IS NOT NULL
-          BEGIN
-            SELECT TOP 1 status FROM petty_cash_payments WHERE request_id = @id ORDER BY created_at DESC
-          END
-          ELSE BEGIN
-            SELECT CAST(NULL AS NVARCHAR(20)) AS status
-          END
-        `);
-      latestPaymentStatus = (pay.recordset?.[0]?.status || '').toLowerCase();
-    } catch {}
-
-    if (requestStatus !== 'payment done' && latestPaymentStatus !== 'payment done') {
-      return res.status(400).json({ message: 'Intercompany transfer is only allowed after payment has been marked as done by the original company' });
+    // Allow intercompany transfer only for approved requests (not pending or rejected)
+    if (requestStatus !== 'approved' && requestStatus !== 'intercompany') {
+      return res.status(400).json({ message: 'Intercompany transfer is only allowed for approved requests' });
     }
 
     // Read previous company before update for audit trail
@@ -406,10 +390,10 @@ router.put('/:id/intercompany', async (req, res) => {
       .input('id', sql.Int, id)
       .query('SELECT * FROM petty_cash_requests WHERE id = @id');
 
-    return res.json({ message: 'Request approved with intercompany transfer', data: result.recordset?.[0] });
+    return res.json({ message: 'Request transferred to another company', data: result.recordset?.[0] });
   } catch (err) {
-    console.error('Error approving with intercompany transfer:', err);
-    return res.status(500).json({ message: 'Failed to approve with intercompany transfer' });
+    console.error('Error with intercompany transfer:', err);
+    return res.status(500).json({ message: 'Failed to complete intercompany transfer' });
   }
 });
 

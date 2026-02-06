@@ -165,9 +165,11 @@ export default function RequestReview() {
         } catch {}
         // preload companies for intercompany transfer
         try {
-          const { data: comps } = await axiosClient.get('/companies', { signal: controller.signal });
+          const { data: comps } = await axiosClient.get('/companies?all=true', { signal: controller.signal });
           setCompanies(Array.isArray(comps) ? comps : []);
+          console.log('Companies loaded:', comps); // Debug log
         } catch (e) {
+          console.error('Error loading companies:', e); // Debug log
           // non-blocking
         }
       } catch (e) {
@@ -283,7 +285,7 @@ export default function RequestReview() {
       });
       const { data } = await axiosClient.get(`/requests/${id}`);
       setReq(data?.data || data);
-      setToast({ open: true, message: 'Approved with intercompany transfer', severity: 'success' });
+      setToast({ open: true, message: 'Request transferred to another company successfully', severity: 'success' });
       setIcOpen(false);
       setIcNote('');
       setTargetCompany('');
@@ -375,16 +377,31 @@ export default function RequestReview() {
               <Box>
                 <Typography variant="subtitle1" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CheckOutlinedIcon color="success" /> Approved
+                  {String(req.status).toLowerCase() === 'intercompany' && (
+                    <Chip size="small" label="Intercompany" color="secondary" sx={{ ml: 1 }} />
+                  )}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {req.sent_to_payment 
                     ? 'This request has been sent for payment processing.'
-                    : 'This request has been approved. You can proceed to payment.'
+                    : String(req.status).toLowerCase() === 'intercompany'
+                    ? 'This request has been transferred to another company. You can proceed to payment.'
+                    : 'This request has been approved. You can transfer to another company or proceed to payment.'
                   }
                 </Typography>
               </Box>
               {!req.sent_to_payment && (
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                  {String(req.status).toLowerCase() === 'approved' && (
+                    <Button 
+                      variant="outlined" 
+                      color="secondary" 
+                      startIcon={<ApartmentOutlinedIcon />} 
+                      onClick={() => setIcOpen(true)}
+                    >
+                      Intercompany Transfer
+                    </Button>
+                  )}
                   <Button variant="contained" color="primary" onClick={handlePayOpen}>
                     Proceed to Payment
                   </Button>
@@ -401,17 +418,12 @@ export default function RequestReview() {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
               <Box>
                 <Typography variant="subtitle1" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ApartmentOutlinedIcon color="info" /> Payment Completed
+                  <CheckOutlinedIcon color="info" /> Payment Completed
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Payment has been marked as done. You may now transfer this request to another company.
+                  Payment has been marked as done. This request is now complete.
                 </Typography>
               </Box>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <Button variant="outlined" color="info" startIcon={<ApartmentOutlinedIcon />} onClick={() => setIcOpen(true)}>
-                  Intercompany Transfer
-                </Button>
-              </Stack>
             </Box>
           </CardContent>
         </Card>
@@ -769,7 +781,7 @@ export default function RequestReview() {
         <DialogTitle>Intercompany Transfer</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Approve this request and transfer the expense to another company. Both the employee and accounting will be notified.
+            Transfer this expense to another company. After transfer, you can proceed to payment for the new company.
           </Typography>
           <FormControl fullWidth size="small">
             <InputLabel id="ic-company-label">Transfer to Company</InputLabel>
@@ -778,6 +790,14 @@ export default function RequestReview() {
               value={targetCompany}
               onChange={(e) => setTargetCompany(e.target.value)}
               input={<OutlinedInput label="Transfer to Company" />}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                    overflow: 'auto',
+                  },
+                },
+              }}
             >
               {companies
                 .filter(c => (req?.company ? c.name !== req.company : true))
@@ -788,12 +808,12 @@ export default function RequestReview() {
           </FormControl>
           <FormControl fullWidth size="small" sx={{ mt: 2 }}>
            
-            <OutlinedInput id="ic-note" value={icNote} onChange={(e) => setIcNote(e.target.value)} multiline minRows={2} placeholder="Add a note for the transfer..." />
+            <OutlinedInput id="ic-note" value={icNote} onChange={(e) => setIcNote(e.target.value)} multiline minRows={2} placeholder="Add a note for the transfer (optional)..." />
           </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIcOpen(false)} color="inherit">Cancel</Button>
-          <Button onClick={onIntercompany} variant="contained" disabled={!targetCompany || submitting}>Approve & Transfer</Button>
+          <Button onClick={onIntercompany} variant="contained" disabled={!targetCompany || submitting}>Transfer</Button>
         </DialogActions>
       </Dialog>
 
