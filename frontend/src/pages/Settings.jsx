@@ -70,6 +70,29 @@ const Settings = () => {
   const [language, setLanguage] = useState('en');
   const [timezone, setTimezone] = useState('UTC');
   const [autoLogout, setAutoLogout] = useState(true);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedSettings = localStorage.getItem('userSettings');
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        if (settings.showSensitive !== undefined) setShowSensitive(settings.showSensitive);
+        if (settings.emailNotif !== undefined) setEmailNotif(settings.emailNotif);
+        if (settings.requestUpdates !== undefined) setRequestUpdates(settings.requestUpdates);
+        if (settings.weeklyDigest !== undefined) setWeeklyDigest(settings.weeklyDigest);
+        if (settings.systemAlerts !== undefined) setSystemAlerts(settings.systemAlerts);
+        if (settings.currency) setCurrency(settings.currency);
+        if (settings.language) setLanguage(settings.language);
+        if (settings.timezone) setTimezone(settings.timezone);
+        if (settings.autoLogout !== undefined) setAutoLogout(settings.autoLogout);
+        console.log('Settings loaded from localStorage:', settings);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  }, []);
 
   const saveDisabled = useMemo(() => false, []);
 
@@ -86,19 +109,43 @@ const Settings = () => {
   };
 
   const handleSaveAll = () => {
-    // TODO: persist settings via API
-    console.log('Saving settings', {
-      theme,
-      showSensitive,
-      emailNotif,
-      requestUpdates,
-      weeklyDigest,
-      systemAlerts,
-      currency,
-      language,
-      timezone,
-      autoLogout,
-    });
+    try {
+      const settings = {
+        theme,
+        showSensitive,
+        emailNotif,
+        requestUpdates,
+        weeklyDigest,
+        systemAlerts,
+        currency,
+        language,
+        timezone,
+        autoLogout,
+        savedAt: new Date().toISOString()
+      };
+      
+      // Save to localStorage
+      localStorage.setItem('userSettings', JSON.stringify(settings));
+      
+      // Also save regional settings separately for easy access
+      localStorage.setItem('regionalSettings', JSON.stringify({
+        currency,
+        language,
+        timezone
+      }));
+      
+      console.log('Settings saved successfully:', settings);
+      
+      // Show success message
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      
+      // Dispatch custom event so other components can react to settings changes
+      window.dispatchEvent(new CustomEvent('settingsUpdated', { detail: settings }));
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert('Failed to save settings. Please try again.');
+    }
   };
 
   return (
@@ -331,6 +378,12 @@ const Settings = () => {
           Save All Settings
         </Button>
       </Stack>
+
+      {saveSuccess && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSaveSuccess(false)}>
+          Settings saved successfully! Your preferences have been updated.
+        </Alert>
+      )}
 
       {/* System Information */}
       <Section title="System Information">

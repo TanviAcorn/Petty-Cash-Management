@@ -6,44 +6,69 @@ import {
   Card,
   CardContent,
   Chip,
+  Divider,
   useTheme,
 } from '@mui/material';
 import PlaylistAddCheckCircleIcon from '@mui/icons-material/PlaylistAddCheckCircle';
 import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import axiosClient from '../api/axiosClient';
+import { useRegionalSettings } from '../hooks/useRegionalSettings';
 
 const StatCard = ({ icon, label, value, deltaText, deltaColor = 'success' }) => (
   <Card
     variant="outlined"
     sx={{
       height: '100%',
-      borderRadius: 3,
+      borderRadius: 2,
       borderColor: 'divider',
       background: (theme) => theme.palette.mode === 'light'
-        ? 'linear-gradient(180deg, rgba(2,6,23,0.02) 0%, rgba(2,6,23,0) 100%)'
-        : 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)',
-      boxShadow: (theme) => `0 6px 16px ${theme.palette.mode==='light' ? 'rgba(2,6,23,0.05)' : 'rgba(0,0,0,0.35)'}`,
+        ? 'linear-gradient(135deg, rgba(25,118,210,0.03) 0%, rgba(255,255,255,0.8) 100%)'
+        : 'linear-gradient(135deg, rgba(25,118,210,0.1) 0%, rgba(255,255,255,0.02) 100%)',
+      boxShadow: (theme) => theme.palette.mode === 'light' 
+        ? '0 2px 8px rgba(0,0,0,0.08)' 
+        : '0 2px 8px rgba(0,0,0,0.4)',
+      transition: 'all 0.3s ease',
+      '&:hover': {
+        boxShadow: (theme) => theme.palette.mode === 'light'
+          ? '0 4px 16px rgba(0,0,0,0.12)'
+          : '0 4px 16px rgba(0,0,0,0.6)',
+        transform: 'translateY(-2px)',
+      }
     }}
   >
-    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2.5, p: 2.5 }}>
-      <Box sx={(theme)=>({
-        width: 44,
-        height: 44,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 2,
-        bgcolor: theme.palette.action.hover,
-      })}>
-        {icon}
+    <CardContent sx={{ p: 2.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1.5 }}>
+        <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ fontSize: '0.8125rem' }}>
+          {label}
+        </Typography>
+        <Box sx={(theme)=>({
+          width: 40,
+          height: 40,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 2,
+          bgcolor: theme.palette.mode === 'light' ? 'rgba(25,118,210,0.08)' : 'rgba(25,118,210,0.15)',
+        })}>
+          {React.cloneElement(icon, { sx: { fontSize: 24 } })}
+        </Box>
       </Box>
       <Box>
-        <Typography variant="caption" color="text.secondary">{label}</Typography>
-        <Typography variant="h6" fontWeight={800}>{value}</Typography>
+        <Box sx={{ minHeight: 60, display: 'flex', alignItems: 'center' }}>
+          {typeof value === 'string' || typeof value === 'number' ? (
+            <Typography variant="h5" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+              {value}
+            </Typography>
+          ) : (
+            value
+          )}
+        </Box>
         {deltaText && (
-          <Typography variant="caption" sx={{ color: `${deltaColor}.main`, fontWeight: 600 }}>{deltaText}</Typography>
+          <Typography variant="caption" sx={{ color: `${deltaColor}.main`, fontWeight: 600, mt: 0.5, display: 'block' }}>
+            {deltaText}
+          </Typography>
         )}
       </Box>
     </CardContent>
@@ -54,6 +79,7 @@ const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 const Dashboard = () => {
   const [rows, setRows] = useState([]);
+  const { currency, formatCurrency } = useRegionalSettings();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -75,15 +101,30 @@ const Dashboard = () => {
   const stats = useMemo(() => {
     const totalRequests = rows.length;
     const pending = rows.filter(r => String(r.status).toLowerCase() === 'pending').length;
-    const totalAmount = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+    
+    // Group amounts by currency
+    const byCurrency = {};
+    rows.forEach(r => {
+      const curr = r.currency || 'USD';
+      if (!byCurrency[curr]) {
+        byCurrency[curr] = { total: 0, thisMonth: 0 };
+      }
+      byCurrency[curr].total += Number(r.amount || 0);
+    });
 
-    // This month amount
+    // This month amounts by currency
     const now = new Date();
-    const thisMonthAmount = rows
+    rows
       .filter(r => r.date && (new Date(r.date)).getMonth() === now.getMonth() && (new Date(r.date)).getFullYear() === now.getFullYear())
-      .reduce((s, r) => s + Number(r.amount || 0), 0);
+      .forEach(r => {
+        const curr = r.currency || 'USD';
+        if (!byCurrency[curr]) {
+          byCurrency[curr] = { total: 0, thisMonth: 0 };
+        }
+        byCurrency[curr].thisMonth += Number(r.amount || 0);
+      });
 
-    return { totalRequests, pending, totalAmount, thisMonthAmount };
+    return { totalRequests, pending, byCurrency };
   }, [rows]);
 
   const monthlySeries = useMemo(() => {
@@ -265,8 +306,6 @@ const Dashboard = () => {
     );
   };
 
-  const fmt = (n) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(n||0));
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 1400, mx: 'auto', width: '100%' }}>
       {/* Welcome */}
@@ -284,10 +323,64 @@ const Dashboard = () => {
           alignItems: 'stretch',
         }}
       >
-        <StatCard icon={<PlaylistAddCheckCircleIcon color="primary" />} label="Total Requests" value={stats.totalRequests} />
-        <StatCard icon={<AccessTimeOutlinedIcon color="warning" />} label="Pending Approval" value={stats.pending} />
-        <StatCard icon={<AttachMoneyIcon color="success" />} label="Total Amount" value={Math.round(stats.totalAmount)} />
-        <StatCard icon={<TrendingUpIcon color="secondary" />} label="This Month" value={Math.round(stats.thisMonthAmount)} />
+        <StatCard 
+          icon={<PlaylistAddCheckCircleIcon color="primary" />} 
+          label="Total Requests" 
+          value={stats.totalRequests} 
+        />
+        <StatCard 
+          icon={<AccessTimeOutlinedIcon color="warning" />} 
+          label="Pending Approval" 
+          value={stats.pending} 
+        />
+        <StatCard 
+          icon={<AccountBalanceWalletIcon color="success" />} 
+          label="Total Amount" 
+          value={
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {Object.entries(stats.byCurrency).map(([curr, data]) => (
+                <Box key={curr} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+                  <Typography variant="h6" component="span" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+                    {formatCurrency(data.total, curr)}
+                  </Typography>
+                  <Typography variant="caption" component="span" sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.7rem' }}>
+                    {curr}
+                  </Typography>
+                </Box>
+              ))}
+              {Object.keys(stats.byCurrency).length === 0 && (
+                <Typography variant="h6" fontWeight={700}>
+                  {formatCurrency(0, currency)}
+                </Typography>
+              )}
+            </Box>
+          }
+        />
+        <StatCard 
+          icon={<TrendingUpIcon color="secondary" />} 
+          label="This Month" 
+          value={
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {Object.entries(stats.byCurrency).map(([curr, data]) => (
+                data.thisMonth > 0 && (
+                  <Box key={curr} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+                    <Typography variant="h6" component="span" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+                      {formatCurrency(data.thisMonth, curr)}
+                    </Typography>
+                    <Typography variant="caption" component="span" sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.7rem' }}>
+                      {curr}
+                    </Typography>
+                  </Box>
+                )
+              ))}
+              {Object.values(stats.byCurrency).every(d => d.thisMonth === 0) && (
+                <Typography variant="h6" fontWeight={700}>
+                  {formatCurrency(0, currency)}
+                </Typography>
+              )}
+            </Box>
+          }
+        />
       </Box>
 
       {/* Charts */}
@@ -410,6 +503,85 @@ const Dashboard = () => {
                   })}
                 </Box>
               </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        {/* Currency Breakdown Card */}
+        <Grid item xs={12}>
+          <Card variant="outlined" sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ mb: 2.5 }}>
+                <Typography variant="h6" fontWeight={700} gutterBottom sx={{ fontSize: '1.125rem' }}>
+                  Currency Breakdown
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                  Total amounts by currency
+                </Typography>
+              </Box>
+              <Grid container spacing={2.5}>
+                {Object.entries(stats.byCurrency).map(([curr, data]) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={curr}>
+                    <Card 
+                      variant="outlined" 
+                      sx={{ 
+                        p: 2.5, 
+                        borderRadius: 2,
+                        borderColor: 'primary.main',
+                        borderWidth: 1.5,
+                        background: (theme) => theme.palette.mode === 'light'
+                          ? 'linear-gradient(135deg, rgba(25,118,210,0.04) 0%, rgba(25,118,210,0.01) 100%)'
+                          : 'linear-gradient(135deg, rgba(25,118,210,0.12) 0%, rgba(25,118,210,0.04) 100%)',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          borderColor: 'primary.dark',
+                          boxShadow: '0 4px 12px rgba(25,118,210,0.15)',
+                          transform: 'translateY(-2px)',
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                        <Typography variant="h4" fontWeight={800} color="primary.main" sx={{ fontSize: '2rem' }}>
+                          {curr}
+                        </Typography>
+                        <Chip 
+                          label={`${rows.filter(r => r.currency === curr).length} req`} 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined"
+                          sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                        />
+                      </Box>
+                      <Divider sx={{ my: 1.5 }} />
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5, fontSize: '0.75rem', fontWeight: 500 }}>
+                          Total Amount
+                        </Typography>
+                        <Typography variant="h5" fontWeight={700} color="success.main" sx={{ fontSize: '1.5rem' }}>
+                          {formatCurrency(data.total, curr)}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5, fontSize: '0.75rem', fontWeight: 500 }}>
+                          This Month
+                        </Typography>
+                        <Typography variant="h6" fontWeight={600} color="secondary.main" sx={{ fontSize: '1.125rem' }}>
+                          {formatCurrency(data.thisMonth, curr)}
+                        </Typography>
+                      </Box>
+                    </Card>
+                  </Grid>
+                ))}
+                {Object.keys(stats.byCurrency).length === 0 && (
+                  <Grid item xs={12}>
+                    <Box sx={{ textAlign: 'center', py: 6 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                        No data available yet. Start by creating some requests!
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
             </CardContent>
           </Card>
         </Grid>
