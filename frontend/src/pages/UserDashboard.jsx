@@ -127,8 +127,8 @@ const UserDashboard = () => {
         return '#ff9800';
       case 'payment done':
         return '#2e7d32';
-      case 'processing':
-        return '#ff9800';
+      case 'processed':
+        return '#0288d1';
       case 'intercompany':
         return '#ff9800';
       default:

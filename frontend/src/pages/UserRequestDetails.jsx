@@ -62,7 +62,7 @@ const statusChip = (status) => {
     case 'approved': return { color: 'success', label: 'Approved' };
     case 'rejected': return { color: 'error', label: 'Rejected' };
     case 'intercompany': return { color: 'secondary', label: 'Intercompany' };
-    case 'processing': return { color: 'warning', label: 'Processing' };
+    case 'processed': return { color: 'info', label: 'Processed' };
     case 'payment done': return { color: 'success', label: 'Payment Done' };
     default: return { color: 'warning', label: 'Pending' };
   }

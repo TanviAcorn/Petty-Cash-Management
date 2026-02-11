@@ -57,7 +57,7 @@ const statusChip = (status) => {
     case 'approved': return { color: 'success', label: 'Approved' };
     case 'rejected': return { color: 'error', label: 'Rejected' };
     case 'intercompany': return { color: 'secondary', label: 'Intercompany' };
-    case 'processing': return { color: 'warning', label: 'Processing' };
+    case 'processed': return { color: 'info', label: 'Processed' };
     case 'payment done': return { color: 'success', label: 'Payment Done' };
     default: return { color: 'warning', label: 'Pending' };
   }
@@ -383,7 +383,7 @@ export default function RequestReview() {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {req.sent_to_payment 
-                    ? 'This request has been sent for payment processing.'
+                    ? 'This request has been sent to payment team. Payment has been processed.'
                     : String(req.status).toLowerCase() === 'intercompany'
                     ? 'This request has been transferred to another company. You can proceed to payment.'
                     : 'This request has been approved. You can transfer to another company or proceed to payment.'
@@ -430,13 +430,13 @@ export default function RequestReview() {
       )}
 
       {/* Payment Role: Upload Payment Receipt */}
-      {user?.role === 'Payment' && String(req.status).toLowerCase() === 'processing' && (
+      {user?.role === 'Payment' && String(req.status).toLowerCase() === 'processed' && (
         <Card variant="outlined" sx={{ borderLeft: 4, borderLeftColor: (theme) => theme.palette.primary.main, mb: 2 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
               <Box>
                 <Typography variant="subtitle1" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AttachMoneyIcon color="primary" /> Payment Processing
+                  <AttachMoneyIcon color="primary" /> Payment Processed
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   This request is ready for payment. Upload the payment receipt to mark it as complete.

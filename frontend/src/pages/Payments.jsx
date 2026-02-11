@@ -75,7 +75,7 @@ export default function Payments() {
     const statusConfig = {
       'pending': { label: 'Pending', color: 'warning' },
       'in_progress': { label: 'In Progress', color: 'info' },
-      'processing': { label: 'Processing', color: 'info' },
+      'processed': { label: 'Processed', color: 'info' },
       'completed': { label: 'Completed', color: 'success' },
       'payment done': { label: 'Payment Done', color: 'success' },
       'failed': { label: 'Failed', color: 'error' },
@@ -109,7 +109,7 @@ export default function Payments() {
       setRows(prevRows =>
         prevRows.map(row =>
           row.requestId === requestId
-            ? { ...row, sent_to_payment: 1, status: 'processing' }
+            ? { ...row, sent_to_payment: 1, status: 'processed' }
             : row
         )
       );

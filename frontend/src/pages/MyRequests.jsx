@@ -189,7 +189,7 @@ const MyRequests = () => {
     else if (s === 'rejected') { color = 'error'; label = 'rejected'; }
     else if (s === 'intercompany') { color = 'secondary'; label = 'intercompany'; }
     else if (s === 'payment done') { color = 'success'; label = 'payment done'; }
-    else if (s === 'processing') { color = 'warning'; label = 'processing'; }
+    else if (s === 'processed') { color = 'info'; label = 'processed'; }
     else if (s) { label = s; }
 
     return (
@@ -339,7 +339,7 @@ const MyRequests = () => {
               <MenuItem value="Pending">Pending</MenuItem>
               <MenuItem value="Approved">Approved</MenuItem>
               <MenuItem value="Rejected">Rejected</MenuItem>
-              <MenuItem value="In-review">Processing</MenuItem>
+              <MenuItem value="In-review">Processed</MenuItem>
             </Select>
           </FormControl>
         </CardContent>

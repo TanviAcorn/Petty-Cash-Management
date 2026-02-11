@@ -767,9 +767,9 @@ router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments',
           INSERT INTO petty_cash_payments 
             (request_id, method, reference, paid_amount, paid_date, notes, status, created_by_email, sent_to_payment, attachments)
           VALUES 
-            (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'processing', @adminEmail, 1, @attachments);
+            (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'processed', @adminEmail, 1, @attachments);
           UPDATE petty_cash_requests 
-          SET status = 'processing'
+          SET status = 'processed'
           WHERE id = @requestId;
           COMMIT TRANSACTION;
         `);

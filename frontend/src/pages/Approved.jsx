@@ -48,7 +48,7 @@ const statusColor = (s) => {
     case 'approved': return { color: 'success', label: 'approved' };
     case 'rejected': return { color: 'error', label: 'rejected' };
     case 'intercompany': return { color: 'secondary', label: 'intercompany' };
-    case 'processing': return { color: 'warning', label: 'processing' };
+    case 'processed': return { color: 'info', label: 'processed' };
     case 'payment done': return { color: 'success', label: 'payment done' };
     default: return { color: 'warning', label: 'pending' };
   }
