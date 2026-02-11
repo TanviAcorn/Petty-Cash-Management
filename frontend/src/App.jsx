@@ -49,6 +49,10 @@ import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
 
+// Helper function to check if user has admin or payment access
+const hasAdminAccess = (role) => role === 'Admin';
+const hasPaymentAccess = (role) => role === 'Admin' || role === 'Payment';
+
 const App = () => {
   const theme = useTheme();
   const { mode, toggle } = useColorMode();
@@ -99,21 +103,32 @@ const App = () => {
       setPageTitle(currentPage.text);
     } else if (location.pathname === '/') {
       // Redirect to appropriate dashboard based on role
-      if (userInfo?.role === 'Admin') {
+      if (hasAdminAccess(userInfo?.role)) {
         navigate('/dashboard', { replace: true });
         setPageTitle('Dashboard');
+      } else if (userInfo?.role === 'Payment') {
+        navigate('/payments', { replace: true });
+        setPageTitle('Payments');
       } else if (userInfo) {
         navigate('/user-dashboard', { replace: true });
         setPageTitle('Dashboard');
       }
-    } else if (location.pathname === '/dashboard' && userInfo?.role !== 'Admin') {
-      // If non-admin tries to access admin dashboard, redirect to user dashboard
-      navigate('/user-dashboard', { replace: true });
+    } else if (location.pathname === '/dashboard' && !hasAdminAccess(userInfo?.role)) {
+      // If non-admin tries to access admin dashboard, redirect appropriately
+      if (userInfo?.role === 'Payment') {
+        navigate('/payments', { replace: true });
+      } else {
+        navigate('/user-dashboard', { replace: true });
+      }
       setPageTitle('Dashboard');
-    } else if (location.pathname === '/user-dashboard' && userInfo?.role === 'Admin') {
+    } else if (location.pathname === '/user-dashboard' && hasAdminAccess(userInfo?.role)) {
       // If admin tries to access user dashboard, redirect to admin dashboard
       navigate('/dashboard', { replace: true });
       setPageTitle('Dashboard');
+    } else if (location.pathname === '/user-dashboard' && userInfo?.role === 'Payment') {
+      // If payment user tries to access user dashboard, redirect to payments
+      navigate('/payments', { replace: true });
+      setPageTitle('Payments');
     } else if (/^\/requests\/[0-9]+$/.test(location.pathname)) {
       // Handle request review page
       setPageTitle('Request Review');
@@ -267,98 +282,110 @@ const App = () => {
       >
         <Routes>
           <Route path="/" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <Navigate to="/dashboard" replace /> : 
+            userInfo?.role === 'Payment' ?
+            <Navigate to="/payments" replace /> :
             <Navigate to="/user-dashboard" replace />
           } />
           {/* Protected Admin Routes */}
           <Route path="/dashboard" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <Dashboard /> : 
+            userInfo?.role === 'Payment' ?
+            <Navigate to="/payments" replace /> :
             <Navigate to="/user-dashboard" replace />
           } />
           
           <Route path="/users" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <UserManagement /> : 
             <Navigate to="/user-dashboard" replace />
           } />
           
           <Route path="/requests" element={
-            userInfo?.role === 'Admin' ? 
+            hasPaymentAccess(userInfo?.role) ? 
             <AllRequests /> : 
             <Navigate to="/user-dashboard" replace />
           } />
           
           <Route path="/requests/:id" element={
-            userInfo?.role === 'Admin' ? 
+            hasPaymentAccess(userInfo?.role) ? 
             <RequestReview /> : 
             <Navigate to="/user-dashboard" replace />
           } />
           
           <Route path="/requests/:id/upload-receipt" element={
-            userInfo ? 
+            hasPaymentAccess(userInfo?.role) || userInfo ? 
             <UploadReceipt /> : 
             <Navigate to="/login" replace />
           } />
           
           <Route path="/pending-approval" element={
-            userInfo?.role === 'Admin' ? 
+            hasPaymentAccess(userInfo?.role) ? 
             <PendingApproval /> : 
             <Navigate to="/user-dashboard" replace />
           } />
           
           <Route path="/approved" element={
-            userInfo?.role === 'Admin' ? 
+            hasPaymentAccess(userInfo?.role) ? 
             <Approved /> : 
             <Navigate to="/user-dashboard" replace />
           } />
           <Route path="/payments" element={
-            userInfo?.role === 'Admin' ? 
+            hasPaymentAccess(userInfo?.role) ? 
             <Payments /> : 
             <Navigate to="/user-dashboard" replace />
           } />
           
           <Route path="/rejected" element={
-            userInfo?.role === 'Admin' ? 
+            hasPaymentAccess(userInfo?.role) ? 
             <Rejected /> : 
             <Navigate to="/user-dashboard" replace />
           } />
           
           <Route path="/companies" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <Companies /> : 
             <Navigate to="/user-dashboard" replace />
           } />
           
           <Route path="/settings" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <Settings /> : 
             <Navigate to="/profile" replace />
           } />
           
           {/* Protected User Routes */}
           <Route path="/user-dashboard" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <Navigate to="/dashboard" replace /> : 
+            userInfo?.role === 'Payment' ?
+            <Navigate to="/payments" replace /> :
             <UserDashboard />
           } />
           
           <Route path="/my-requests" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <Navigate to="/requests" replace /> : 
+            userInfo?.role === 'Payment' ?
+            <Navigate to="/payments" replace /> :
             <MyRequests />
           } />
           
           <Route path="/my-requests/:id" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <Navigate to="/requests" replace /> : 
+            userInfo?.role === 'Payment' ?
+            <Navigate to="/payments" replace /> :
             <UserRequestDetails />
           } />
           
           <Route path="/new-request" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <Navigate to="/dashboard" replace /> : 
+            userInfo?.role === 'Payment' ?
+            <Navigate to="/payments" replace /> :
             <NewRequest />
           } />
           
@@ -367,8 +394,10 @@ const App = () => {
           
           {/* Catch-all route */}
           <Route path="*" element={
-            userInfo?.role === 'Admin' ? 
+            hasAdminAccess(userInfo?.role) ? 
             <Navigate to="/dashboard" replace /> : 
+            userInfo?.role === 'Payment' ?
+            <Navigate to="/payments" replace /> :
             <Navigate to="/user-dashboard" replace />
           } />
         </Routes>

@@ -44,6 +44,7 @@ import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import axiosClient from '../api/axiosClient';
 import { alpha } from '@mui/material/styles';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../contexts/AuthContext';
 
 const StatCard = ({ icon, label, value, color = 'primary' }) => (
   <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper', borderColor: 'divider' }}>
@@ -69,6 +70,7 @@ const statusColor = (s) => {
 };
 
 const PendingApproval = () => {
+  const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -355,22 +357,26 @@ const PendingApproval = () => {
                             <Chip size="small" label={sc.label} color={sc.color} variant="outlined" sx={{ textTransform: 'lowercase' }} />
                           </TableCell>
                           <TableCell align="center" sx={{ minWidth: 120 }}>
-                            <IconButton 
-                              color="success" 
-                              size="small" 
-                              aria-label="approve"
-                              onClick={() => handleActionClick(r.id, 'approve')}
-                            >
-                              <CheckOutlinedIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton 
-                              color="error" 
-                              size="small" 
-                              aria-label="reject"
-                              onClick={() => handleActionClick(r.id, 'reject')}
-                            >
-                              <CloseOutlinedIcon fontSize="small" />
-                            </IconButton>
+                            {user?.role === 'Admin' && (
+                              <>
+                                <IconButton 
+                                  color="success" 
+                                  size="small" 
+                                  aria-label="approve"
+                                  onClick={() => handleActionClick(r.id, 'approve')}
+                                >
+                                  <CheckOutlinedIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton 
+                                  color="error" 
+                                  size="small" 
+                                  aria-label="reject"
+                                  onClick={() => handleActionClick(r.id, 'reject')}
+                                >
+                                  <CloseOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </>
+                            )}
                             <IconButton size="small" aria-label="view details" onClick={() => navigate(`/requests/${r.id}`)}>
                               <VisibilityOutlinedIcon fontSize="small" />
                             </IconButton>

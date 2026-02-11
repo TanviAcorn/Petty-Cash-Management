@@ -333,7 +333,7 @@ export default function RequestReview() {
       </Box>
 
       {/* Status action callout */}
-      {String(req.status).toLowerCase() === 'pending' && (
+      {String(req.status).toLowerCase() === 'pending' && user?.role === 'Admin' && (
         <Card variant="outlined" sx={{ borderLeft: 4, borderLeftColor: (theme) => theme.palette.warning.main, mb: 2 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
@@ -370,7 +370,7 @@ export default function RequestReview() {
         </Card>
       )}
 
-      {(String(req.status).toLowerCase() === 'approved' || String(req.status).toLowerCase() === 'intercompany') && (
+      {(String(req.status).toLowerCase() === 'approved' || String(req.status).toLowerCase() === 'intercompany') && user?.role === 'Admin' && (
         <Card variant="outlined" sx={{ borderLeft: 4, borderLeftColor: (theme) => theme.palette.success.main, mb: 2 }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
@@ -424,6 +424,32 @@ export default function RequestReview() {
                   Payment has been marked as done. This request is now complete.
                 </Typography>
               </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payment Role: Upload Payment Receipt */}
+      {user?.role === 'Payment' && String(req.status).toLowerCase() === 'processing' && (
+        <Card variant="outlined" sx={{ borderLeft: 4, borderLeftColor: (theme) => theme.palette.primary.main, mb: 2 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+              <Box>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AttachMoneyIcon color="primary" /> Payment Processing
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  This request is ready for payment. Upload the payment receipt to mark it as complete.
+                </Typography>
+              </Box>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                startIcon={<ReceiptLongOutlinedIcon />}
+                onClick={() => navigate(`/requests/${id}/upload-receipt`)}
+              >
+                Upload Payment Receipt
+              </Button>
             </Box>
           </CardContent>
         </Card>

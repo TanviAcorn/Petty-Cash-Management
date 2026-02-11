@@ -41,6 +41,7 @@ import {
   Person,
   Apartment,
   Search as SearchIcon,
+  AccountBalance,
 } from "@mui/icons-material";
 
 const UserManagement = () => {
@@ -177,6 +178,7 @@ const UserManagement = () => {
 
   const totalUsers = pagination.totalItems;
   const adminUsers = users.filter((user) => user.role === "Admin").length;
+  const paymentUsers = users.filter((user) => user.role === "Payment").length;
   const uniqueCompanies = new Set(
     users.filter((user) => user.company).map((user) => user.company)
   ).size;
@@ -231,10 +233,11 @@ const UserManagement = () => {
         display: 'grid',
         gap: 2,
         mb: 4,
-        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }
+        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }
       }}>
         <StatCard icon={<People />} label="Total Users" value={totalUsers} color="primary" />
         <StatCard icon={<Person />} label="Admins" value={adminUsers} color="success" />
+        <StatCard icon={<AccountBalance />} label="Payment Users" value={paymentUsers} color="info" />
         <StatCard icon={<Apartment />} label="Companies" value={uniqueCompanies} color="secondary" />
       </Box>
 
@@ -294,7 +297,11 @@ const UserManagement = () => {
                         <Chip
                           label={u.role.toLowerCase()}
                           size="small"
-                          color={u.role === "Admin" ? "primary" : "default"}
+                          color={
+                            u.role === "Admin" ? "primary" : 
+                            u.role === "Payment" ? "success" : 
+                            "default"
+                          }
                           sx={{ textTransform: "lowercase" }}
                         />
                       </TableCell>
@@ -386,6 +393,7 @@ const UserManagement = () => {
               >
                 <MenuItem value="User">User</MenuItem>
                 <MenuItem value="Admin">Admin</MenuItem>
+                <MenuItem value="Payment">Payment</MenuItem>
               </Select>
             </Grid>
             <Grid item xs={12}>

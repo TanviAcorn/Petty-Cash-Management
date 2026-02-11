@@ -45,6 +45,15 @@ const getMenuItemsByRole = (userRole) => {
     { text: "Settings", icon: <Settings />, path: "/settings" },
   ];
 
+  const paymentMenuItems = [
+    { text: "Payments", icon: <AttachMoney />, path: "/payments" },
+    { text: "All Requests", icon: <ListAlt />, path: "/requests" },
+    { text: "Pending Approval", icon: <ListAlt />, path: "/pending-approval" },
+    { text: "Approved", icon: <CheckCircle />, path: "/approved" },
+    { text: "Rejected", icon: <Cancel />, path: "/rejected" },
+    { text: "Profile", icon: <Person />, path: "/profile" },
+  ];
+
   const userMenuItems = [
     { text: "Dashboard", icon: <Dashboard />, path: "/user-dashboard" },
     { text: "My Requests", icon: <ListAlt />, path: "/my-requests" },
@@ -52,7 +61,9 @@ const getMenuItemsByRole = (userRole) => {
     { text: "Profile", icon: <Person />, path: "/profile" },
   ];
 
-  return userRole === 'Admin' ? adminMenuItems : userMenuItems;
+  if (userRole === 'Admin') return adminMenuItems;
+  if (userRole === 'Payment') return paymentMenuItems;
+  return userMenuItems;
 };
 
 // Default menu items for backward compatibility
