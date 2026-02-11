@@ -776,10 +776,35 @@ router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments',
   
       // Send email to payment team with specified recipients
       try {
-        const toRecipients = [
-          'Payment@acornuniversalconsultancy.com',
-          'posting@acornuniversalconsultancy.com'
-        ];
+        // Company-specific accounts email mapping
+        const companyAccountsEmails = {
+          'Docpharm GmbH': 'account@docpharm.de',
+          'Lifexa BV': 'accounts@lifexa.eu',
+          'Acme Pharma': 'accounts@acmepharma.co.uk',
+          'Jambo BV NL': 'accounts@jambobv.nl',
+          'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com'
+        };
+
+        // Get company name from request
+        const companyName = row.company_name || row.company || '';
+        
+        // Determine recipient based on company
+        let toRecipients = [];
+        const companyAccountEmail = companyAccountsEmails[companyName];
+        
+        if (companyAccountEmail) {
+          // Send to company-specific accounts email
+          toRecipients = [companyAccountEmail];
+          console.log(`Routing payment email to company-specific account: ${companyAccountEmail} for company: ${companyName}`);
+        } else {
+          // Send to default payment team
+          toRecipients = [
+            'Payment@acornuniversalconsultancy.com',
+            'posting@acornuniversalconsultancy.com'
+          ];
+          console.log(`Routing payment email to default payment team for company: ${companyName}`);
+        }
+        
         const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
 
         const { subject, html } = buildPaymentInitiatedEmail({ 
