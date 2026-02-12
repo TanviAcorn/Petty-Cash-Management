@@ -53,21 +53,30 @@ router.get('/:id/payments', async (req, res) => {
 
 // GET all payments (list for Payments tab)
 router.get('/payments/list', async (req, res) => {
-  const { page = 1, limit = 10, search } = req.query;
+  const { page = 1, limit = 10, search, userRole, assignedCompany } = req.query;
   
   // Convert pagination parameters to numbers
   const currentPage = parseInt(page, 10);
   const itemsPerPage = parseInt(limit, 10);
   const offset = (currentPage - 1) * itemsPerPage;
 
-  // Build WHERE clause for search
-  let whereClause = "";
+  // Build WHERE clause for search and company filtering
+  const whereClauses = [];
   const params = {};
   
+  // Filter by company for Payment role users
+  if (userRole === 'Payment' && assignedCompany) {
+    whereClauses.push('r.company_name = @assignedCompany');
+    params.assignedCompany = assignedCompany;
+    console.log(`Filtering payments for Payment user with company: ${assignedCompany}`);
+  }
+  
   if (search) {
-    whereClause = "WHERE (LOWER(r.employee_name) LIKE @search OR LOWER(r.employee_email) LIKE @search OR LOWER(r.company_name) LIKE @search OR LOWER(r.category_name) LIKE @search OR LOWER(p.status) LIKE @search)";
+    whereClauses.push("(LOWER(r.employee_name) LIKE @search OR LOWER(r.employee_email) LIKE @search OR LOWER(r.company_name) LIKE @search OR LOWER(r.category_name) LIKE @search OR LOWER(p.status) LIKE @search)");
     params.search = `%${search.toLowerCase()}%`;
   }
+  
+  const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : "";
 
   try {
     const pool = await poolPromise;
@@ -81,6 +90,9 @@ router.get('/payments/list', async (req, res) => {
       ${whereClause}
     `;
     const countRequest = pool.request();
+    if (params.assignedCompany) {
+      countRequest.input('assignedCompany', sql.NVarChar, params.assignedCompany);
+    }
     if (search) {
       countRequest.input('search', sql.NVarChar, params.search);
     }
@@ -117,6 +129,9 @@ router.get('/payments/list', async (req, res) => {
     `;
     
     const dataRequest = pool.request();
+    if (params.assignedCompany) {
+      dataRequest.input('assignedCompany', sql.NVarChar, params.assignedCompany);
+    }
     if (search) {
       dataRequest.input('search', sql.NVarChar, params.search);
     }
@@ -557,7 +572,7 @@ async function ensurePaymentsSchema(pool) {
 
 // GET /api/requests
 router.get('/', async (req, res) => {
-  const { status, q, company, category, range, email, location, page = 1, limit = 10 } = req.query;
+  const { status, q, company, category, range, email, location, page = 1, limit = 10, userRole, assignedCompany } = req.query;
   
   // Convert pagination parameters to numbers
   const currentPage = parseInt(page, 10);
@@ -567,6 +582,13 @@ router.get('/', async (req, res) => {
   // Build dynamic WHERE clause safely
   const where = [];
   const params = {};
+
+  // Filter by company for Payment role users
+  if (userRole === 'Payment' && assignedCompany) {
+    where.push('r.company_name = @assignedCompany');
+    params.assignedCompany = { type: sql.NVarChar(200), value: String(assignedCompany) };
+    console.log(`Filtering requests for Payment user with company: ${assignedCompany}`);
+  }
 
   if (status) {
     if (Array.isArray(status)) {

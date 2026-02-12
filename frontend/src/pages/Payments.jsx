@@ -23,11 +23,13 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useSnackbar } from 'notistack';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../contexts/AuthContext';
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(value || 0));
 
 export default function Payments() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [processingPayments, setProcessingPayments] = useState({});
   const [rows, setRows] = useState([]);
@@ -49,6 +51,14 @@ export default function Payments() {
         limit,
       };
       
+      // Add user role and company for Payment users
+      if (user) {
+        params.userRole = user.role;
+        if (user.role === 'Payment' && user.company) {
+          params.assignedCompany = user.company;
+        }
+      }
+      
       const { data } = await axios.get('/api/requests/payments/list', { params });
       const paymentsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
       setRows(paymentsList);
@@ -64,7 +74,7 @@ export default function Payments() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.currentPage, pagination.itemsPerPage, enqueueSnackbar]);
+  }, [pagination.currentPage, pagination.itemsPerPage, enqueueSnackbar, user]);
 
   useEffect(() => {
     load();

@@ -35,6 +35,7 @@ import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import axiosClient from '../api/axiosClient';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../contexts/AuthContext';
 
 const timeRanges = [
   { label: 'All Time', value: 'all' },
@@ -80,6 +81,7 @@ const StatCard = ({ icon, label, value, color = 'primary' }) => (
 );
 
 const Approved = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -114,6 +116,14 @@ const Approved = () => {
         limit,
         status: ['approved', 'intercompany']
       };
+      
+      // Add user role and company for Payment users
+      if (user) {
+        params.userRole = user.role;
+        if (user.role === 'Payment' && user.company) {
+          params.assignedCompany = user.company;
+        }
+      }
       
       // Add search if present
       if (searchTerm.trim()) {
@@ -181,7 +191,7 @@ const Approved = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, company, category, range, pagination.currentPage, pagination.itemsPerPage]);
+  }, [searchTerm, company, category, range, pagination.currentPage, pagination.itemsPerPage, user]);
 
   useEffect(() => {
     fetchData();

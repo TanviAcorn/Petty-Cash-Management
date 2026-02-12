@@ -40,6 +40,7 @@ import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import axiosClient from '../api/axiosClient';
 import { alpha } from '@mui/material/styles';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../contexts/AuthContext';
 
 const StatCard = ({ icon, label, value, color = 'primary' }) => (
   <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper', borderColor: 'divider' }}>
@@ -67,6 +68,7 @@ const statusColor = (s) => {
 };
 
 const AllRequests = () => {
+  const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -125,6 +127,14 @@ const AllRequests = () => {
         limit,
       };
       
+      // Add user role and company for Payment users
+      if (user) {
+        params.userRole = user.role;
+        if (user.role === 'Payment' && user.company) {
+          params.assignedCompany = user.company;
+        }
+      }
+      
       // Add status filter if not 'all'
       if (statusFilter !== 'all') {
         params.status = statusFilter;
@@ -149,7 +159,7 @@ const AllRequests = () => {
     } finally { 
       setLoading(false); 
     }
-  }, [statusFilter, search, pagination.currentPage, pagination.itemsPerPage]);
+  }, [statusFilter, search, pagination.currentPage, pagination.itemsPerPage, user]);
 
   useEffect(() => {
     const controller = new AbortController();

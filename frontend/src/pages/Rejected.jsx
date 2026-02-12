@@ -35,6 +35,7 @@ import { alpha } from '@mui/material/styles';
 import axiosClient from '../api/axiosClient';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../contexts/AuthContext';
 
 // Helper to format currency consistently
 const formatCurrency = (value, currency = 'USD') =>
@@ -48,6 +49,7 @@ const timeRanges = [
 ];
 
 const Rejected = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
@@ -85,6 +87,14 @@ const Rejected = () => {
         status: 'rejected',
       };
       
+      // Add user role and company for Payment users
+      if (user) {
+        params.userRole = user.role;
+        if (user.role === 'Payment' && user.company) {
+          params.assignedCompany = user.company;
+        }
+      }
+      
       // Add search if present
       if (search.trim()) {
         params.q = search.trim();
@@ -119,7 +129,7 @@ const Rejected = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, company, category, range, pagination.currentPage, pagination.itemsPerPage]);
+  }, [search, company, category, range, pagination.currentPage, pagination.itemsPerPage, user]);
 
   useEffect(() => {
     const controller = new AbortController();

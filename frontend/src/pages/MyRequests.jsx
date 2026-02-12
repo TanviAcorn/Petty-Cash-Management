@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { formatCurrency } from '../utils/currency';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Box,
   Typography,

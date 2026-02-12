@@ -49,6 +49,7 @@ const UserManagement = () => {
   const [open, setOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState([]);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     itemsPerPage: 10,
@@ -98,6 +99,21 @@ const UserManagement = () => {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Fetch companies from backend
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const response = await axiosClient.get('/companies');
+        const companiesData = Array.isArray(response.data?.data) ? response.data.data : response.data;
+        setCompanies(companiesData || []);
+      } catch (error) {
+        console.error('Failed to fetch companies:', error);
+        setCompanies([]);
+      }
+    };
+    fetchCompanies();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -397,13 +413,22 @@ const UserManagement = () => {
               </Select>
             </Grid>
             <Grid item xs={12}>
-              <TextField
+              <Select
                 fullWidth
                 name="company"
-                label="Company"
                 value={formData.company}
                 onChange={handleChange}
-              />
+                displayEmpty
+              >
+                <MenuItem value="">
+                  <em>Select Company</em>
+                </MenuItem>
+                {companies.map((company) => (
+                  <MenuItem key={company.id} value={company.name}>
+                    {company.name}
+                  </MenuItem>
+                ))}
+              </Select>
             </Grid>
             <Grid item xs={12}>
               <TextField

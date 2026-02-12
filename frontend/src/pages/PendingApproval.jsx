@@ -137,6 +137,14 @@ const PendingApproval = () => {
         status: 'pending', // Always fetch pending requests
       };
       
+      // Add user role and company for Payment users
+      if (user) {
+        params.userRole = user.role;
+        if (user.role === 'Payment' && user.company) {
+          params.assignedCompany = user.company;
+        }
+      }
+      
       // Add search if present
       if (search.trim()) {
         params.q = search.trim();
@@ -156,7 +164,7 @@ const PendingApproval = () => {
     } finally { 
       setLoading(false); 
     }
-  }, [search, pagination.currentPage, pagination.itemsPerPage]);
+  }, [search, pagination.currentPage, pagination.itemsPerPage, user]);
 
   useEffect(() => {
     const controller = new AbortController();
