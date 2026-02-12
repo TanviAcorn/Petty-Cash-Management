@@ -113,289 +113,316 @@ async function sendEmail({
 function buildAdminNewRequestEmail(newRequest) {
   const urls = getFrontendUrls();
   const publicLink = `${urls[0]}/requests/${newRequest.id}`;
-  const internalLink = urls[1] ? `${urls[1]}/requests/${newRequest.id}` : null;
-  const submittedAt = new Date(
-    newRequest.created_at || Date.now()
-  ).toLocaleString();
+  const submittedAt = new Date(newRequest.created_at || Date.now()).toLocaleString();
 
-  // Use the ADMIN_EMAIL from environment variables
-  const adminEmail = process.env.ADMIN_EMAIL;
-
-  const to = adminEmail || "admin@example.com";
-  const subject = `New Petty Cash Request Submitted (#${newRequest.id})`;
+  const subject = `Petty Cash Request #${newRequest.id} - Approval Required`;
+  
   const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-      <h2>New Petty Cash Request Submitted</h2>
-      <p>A new request has been submitted in the Petty Cash Management System.</p>
-      <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Employee</td><td style="padding:6px 8px; border-bottom:1px solid #eee;"><strong>${
-          newRequest.employee_name
-        }</strong> (${newRequest.employee_email})</td></tr>
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Date</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${submittedAt}</td></tr>
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Category</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${
-          newRequest.category_name || "-"
-        }</td></tr>
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Company</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${
-          newRequest.company_name || "-"
-        }</td></tr>
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Reason</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${
-          newRequest.reason || "-"
-        }</td></tr>
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Amount</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${
-          newRequest.amount
-        }</td></tr>
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Location</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${
-          newRequest.location || "-"
-        }</td></tr>
-      </table>
-      <div style="margin-top:16px;">
-        <p>Please review the request using the appropriate link below:</p>
-        <a href="${publicLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block; margin-right: 10px;">Review (Public)</a>
-        ${
-          internalLink
-            ? `<a href="${internalLink}" style="background:#455a64; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block;">Review (Internal)</a>`
-            : ""
-        }
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        
+        <!-- Header -->
+        <div style="background: #3B82F6; padding: 30px 20px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Approval Required</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style="background: #ffffff; padding: 30px 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+          
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 15px; line-height: 1.5;">
+            The following petty cash request has been submitted and requires your review.
+          </p>
+          
+          <!-- Request Details Table -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #f9fafb; border-radius: 6px; overflow: hidden;">
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; width: 140px;">Request ID</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 500;">#${newRequest.id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Date</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${submittedAt}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Requested By</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${newRequest.employee_name} (${newRequest.employee_email})</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Company</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${newRequest.company_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Category</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${newRequest.category_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Amount</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${newRequest.amount} ${newRequest.currency || 'GBP'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Description</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${newRequest.reason || '-'}</td>
+            </tr>
+          </table>
+          
+          <!-- Action Button -->
+          <div style="text-align: center; margin: 30px 0 20px 0;">
+            <a href="${publicLink}" style="display: inline-block; background: #3B82F6; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">Review & Approve Request</a>
+          </div>
+          
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
+            Please review the request details and take appropriate action through the approval page.
+          </p>
+          
+        </div>
+        
+        <!-- Footer -->
+        <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
+          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+        </div>
+        
       </div>
-      <p style="color:#666; font-size:12px;">If you are already logged in, you will be redirected to the Requests Review page.</p>
-    </div>
+    </body>
+    </html>
   `;
+  
   return { subject, html };
 }
 
 function buildUserStatusEmail(requestRow) {
   const status = String(requestRow.status || "").toLowerCase();
-  const subject = `Your Petty Cash Request (#${requestRow.id}) has been ${status}`;
-  const message =
-    status === "approved"
-      ? "approved"
-      : status === "rejected"
-      ? "rejected"
-      : "updated";
+  const isApproved = status === "approved";
+  const isRejected = status === "rejected";
+  
+  const subject = `Petty Cash Request #${requestRow.id} - ${isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Updated'}`;
+  
   const urls = getFrontendUrls();
   const publicLink = `${urls[0]}/my-requests`;
-  const internalLink = urls[1] ? `${urls[1]}/my-requests` : null;
+  
+  const statusText = isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Updated';
+  const headerTitle = `Request ${statusText}`;
 
   const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-      <h2>Your request has been ${message}</h2>
-      <p>Request details:</p>
-      <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Status</td><td style="padding:6px 8px; border-bottom:1px solid #eee;"><strong>${
-          requestRow.status
-        }</strong></td></tr>
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Category</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${
-          requestRow.category_name || "-"
-        }</td></tr>
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Company</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${
-          requestRow.company_name || "-"
-        }</td></tr>
-        <tr><td style="padding:6px 8px; border-bottom:1px solid #eee;">Amount</td><td style="padding:6px 8px; border-bottom:1px solid #eee;">${
-          requestRow.amount
-        }</td></tr>
-      </table>
-      <div style="margin-top:16px;">
-         <p>You can view your requests using the appropriate link below:</p>
-        <a href="${publicLink}" style="background:#1976d2; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block; margin-right: 10px;">View My Requests (Public)</a>
-        ${
-          internalLink
-            ? `<a href="${internalLink}" style="background:#455a64; color:#fff; padding:10px 14px; border-radius:6px; text-decoration:none; display:inline-block;">View My Requests (Internal)</a>`
-            : ""
-        }
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        
+        <!-- Header -->
+        <div style="background: #3B82F6; padding: 30px 20px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">${headerTitle}</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style="background: #ffffff; padding: 30px 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+          
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 15px; line-height: 1.5;">
+            Your petty cash request has been ${statusText.toLowerCase()}.
+          </p>
+          
+          <!-- Request Details Table -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #f9fafb; border-radius: 6px; overflow: hidden;">
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; width: 140px;">Request ID</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 500;">#${requestRow.id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Status</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 500;">${statusText}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Company</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${requestRow.company_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Category</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${requestRow.category_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; ${isRejected && requestRow.rejection_reason ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #6b7280; font-size: 13px;">Amount</td>
+              <td style="padding: 12px 16px; ${isRejected && requestRow.rejection_reason ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #111827; font-size: 14px; font-weight: 600;">${requestRow.amount} ${requestRow.currency || 'GBP'}</td>
+            </tr>
+            ${isRejected && requestRow.rejection_reason ? `
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Reason</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${requestRow.rejection_reason}</td>
+            </tr>
+            ` : ''}
+          </table>
+          
+          <!-- Action Button -->
+          <div style="text-align: center; margin: 30px 0 20px 0;">
+            <a href="${publicLink}" style="display: inline-block; background: #3B82F6; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">View My Requests</a>
+          </div>
+          
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
+            ${isApproved ? 'Your request will be processed for payment shortly.' : isRejected ? 'Please contact your manager if you have questions.' : 'Check your requests page for more details.'}
+          </p>
+          
+        </div>
+        
+        <!-- Footer -->
+        <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
+          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+        </div>
+        
       </div>
-    </div>
+    </body>
+    </html>
   `;
+  
   return { subject, html };
 }
 
 function buildPaymentInitiatedEmail({ request, payment }) {
-  const urls = getFrontendUrls(); // Assuming this function is available
-  const publicUrl = urls[0] || "http://localhost:5174";
-  const internalUrl = urls[1] || null;
-  const publicLink = `${publicUrl}/requests/${request.id}/upload-receipt`;
-  const internalLink = internalUrl
-    ? `${internalUrl}/requests/${request.id}/upload-receipt`
-    : null;
+  const urls = getFrontendUrls();
+  const publicLink = `${urls[0]}/requests/${request.id}/upload-receipt`;
   
   // Check if this is an intercompany transfer
   const isIntercompany = request.previousCompany && request.previousCompany !== (request.company_name || request.company);
   
-  const subject = `Payment Initiated${isIntercompany ? ' (Intercompany)' : ''}: Request #${request.id} (${
-    request.employee_name || request.employeeName || ""
-  })`; // The attachments list contains file metadata (name, size, type)
-
-  const receiptAttachments = (payment.receiptAttachments || []).filter(
-    (a) => a
-  );
-  const hasReceiptAttachments = receiptAttachments.length > 0;
-
-  const paymentProofAttachments = (
-    payment.paymentProofAttachments || []
-  ).filter((a) => a);
-  const hasPaymentProofAttachments = paymentProofAttachments.length > 0;
+  const subject = `Payment Initiated${isIntercompany ? ' (Intercompany)' : ''} - Request #${request.id}`;
 
   const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-      <h2>Payment Initiated${isIntercompany ? ' <span style="color: #9c27b0;">(Intercompany Transfer)</span>' : ''}</h2>
-        <p>The admin has initiated payment for the following petty cash request. Please find the payment details below.</p>
-  
-        ${isIntercompany ? `
-        <div style="background-color: #f3e5f5; border-left: 4px solid #9c27b0; padding: 12px; margin-bottom: 20px; border-radius: 4px;">
-          <h3 style="margin: 0 0 8px 0; color: #9c27b0;">⚠️ Intercompany Transfer</h3>
-          <p style="margin: 0; color: #4a148c;">
-            <strong>Original Company:</strong> ${request.previousCompany}<br>
-            <strong>New Company (Pay to):</strong> ${request.company_name || request.company}
-          </p>
-          <p style="margin: 8px 0 0 0; font-size: 0.9em; color: #6a1b9a;">
-            This expense has been transferred from ${request.previousCompany} to ${request.company_name || request.company}. 
-            Please process payment under the new company.
-          </p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        
+        <!-- Header -->
+        <div style="background: #3B82F6; padding: 30px 20px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Payment Initiated${isIntercompany ? ' (Intercompany)' : ''}</h1>
         </div>
-        ` : ''}
-  
-        <h3>Request Details</h3>
-        <table style="border-collapse: collapse; width: 100%; max-width: 640px; margin-bottom: 16px;">
-      <tr><td style="padding:8px; border-bottom:1px solid #eee; width: 180px;"><strong>Request ID</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">#${
-        request.id
-      }</td></tr>
-      <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Employee</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
-        request.employee_name || request.employeeName
-      } (${request.employee_email || request.employeeEmail})</td></tr>
-      <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Company</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
-        request.company_name || request.company || "-"
-      }${isIntercompany ? ' <span style="color: #9c27b0; font-weight: bold;">(Transferred)</span>' : ''}</td></tr>
-      ${isIntercompany ? `<tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Original Company</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${request.previousCompany}</td></tr>` : ''}
-        <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Category</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
-          request.category_name || request.category || "-"
-        }</td></tr>
-        <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Location</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
-          request.location || "-"
-        }</td></tr>
-        <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Amount</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
-          request.amount
-        } ${request.currency || ""}</td></tr>
-        <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Description</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
-          request.reason || request.description || "-"
-        }</td></tr>
-        </table>
-  
-  <h3 style="margin-top: 20px; margin-bottom: 8px;">Payment Details</h3>
-  <table style="border-collapse: collapse; width: 100%; max-width: 640px; margin-bottom: 16px;">
-  <tr><td style="padding:8px; border-bottom:1px solid #eee; width: 180px;"><strong>Payment Method</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
-    payment.method
-  }</td></tr>
-  ${
-    payment.reference
-      ? `<tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Reference</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${payment.reference}</td></tr>`
-      : ""
-  }
-  <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Paid Amount</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
-    payment.paidAmount || request.amount
-  } ${request.currency || ""}</td></tr>
-  <tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Paid Date</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${
-    payment.paidDate
-      ? new Date(payment.paidDate).toLocaleDateString()
-      : new Date().toLocaleDateString()
-  }</td></tr>
-  ${
-    payment.notes
-      ? `<tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Notes</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${payment.notes}</td></tr>`
-      : ""
-  }
-  ${
-    payment.processedBy
-      ? `<tr><td style="padding:8px; border-bottom:1px solid #eee;"><strong>Processed By</strong></td><td style="padding:8px; border-bottom:1px solid #eee;">${payment.processedBy}</td></tr>`
-      : ""
-  }
-   </table>
-   
-   ${
-     hasReceiptAttachments
-       ? `
-   <h3 style="margin-top: 20px; margin-bottom: 8px;">Receipt Attachments (${
-     receiptAttachments.length
-   })</h3>
-   <div style="background-color: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; margin-bottom: 20px;">
-   <p style="margin: 0 0 8px 0; color: #333;">The following payment receipt files are attached to this email:</p>
-  <ul style="margin: 0; padding-left: 20px;">
-   ${receiptAttachments
-     .map(
-       (file, index) => `<li style="margin-bottom: 4px;">
-   📎 <span style="color: #1976d2;">${
-     file.originalName || file.filename || `Attachment ${index + 1}`
-   }</span>
-   ${
-     file.size
-       ? `<span style="color: #666; font-size: 0.9em; margin-left: 8px;">(${(
-           file.size / 1024
-         ).toFixed(1)} KB)</span>`
-       : ""
-   }
-  </li>`
-     )
-     .join("")}
-  </ul>
-   </div>
-   `
-       : ""
-   }
-   
-  ${
-    hasPaymentProofAttachments
-      ? `
-   <h3 style="margin-top: 20px; margin-bottom: 8px;">Payment Proof Attachments (${
-     paymentProofAttachments.length
-   })</h3>
-  <div style="background-color: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; margin-bottom: 20px;">
-  <p style="margin: 0 0 8px 0; color: #333;">The following payment proof files are attached:</p>
-  <ul style="margin: 0; padding-left: 20px;">
-   ${paymentProofAttachments
-     .map(
-       (file) => `<li style="margin-bottom: 4px;">
-   <span style="color: #1976d2; text-decoration: none;">${
-     file.originalName || file.filename || "Payment Proof"
-   }</span>
-   ${
-     file.size
-       ? `<span style="color: #666; font-size: 0.9em; margin-left: 8px;">(${(
-           file.size / 1024
-         ).toFixed(1)} KB)</span>`
-       : ""
-   }
-  </li>`
-     )
-     .join("")}
-  </ul>
-   </div>
-  `
-      : ""
-  }
-   
- <div style="margin: 24px 0; padding: 16px; background-color: #e8f4fd; border-radius: 4px;">
-  <h3 style="margin-top: 0; color: #0d47a1;">Next Steps</h3>
- <p style="margin-bottom: 12px;">Please process this payment and upload the payment receipt using the link below:</p>
- <div style="margin-top: 12px;">
-<a href="${publicLink}" style="background:#1976d2; color:#fff; padding:10px 16px; border-radius:4px; text-decoration:none; display:inline-block; font-weight:500; margin-right: 8px;">
-   Upload Payment Receipt (Public)
-</a>
-   ${
-     internalLink
-       ? `
-<a href="${internalLink}" style="background:#455a64; color:#fff; padding:10px 16px; border-radius:4px; text-decoration:none; display:inline-block; font-weight:500;">
-   Upload Payment Receipt (Internal)
-  </a>
-   `
-       : ""
-   }
- </div>
-</div>
- 
-   <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee; font-size: 12px; color: #666; line-height: 1.5;">
-   <p style="margin: 0 0 8px 0;"><strong>Important:</strong> This is an automated notification. Please do not reply to this email.</p>
-  <p style="margin: 0 0 4px 0;">If you encounter any issues, please contact your system administrator.</p>
-  </div>
-  </div>
+        
+        <!-- Content -->
+        <div style="background: #ffffff; padding: 30px 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+          
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 15px; line-height: 1.5;">
+            The admin has initiated payment for the following petty cash request.
+          </p>
+          
+          ${isIntercompany ? `
+          <!-- Intercompany Transfer Alert -->
+          <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 16px; margin-bottom: 20px; border-radius: 4px;">
+            <p style="margin: 0 0 8px 0; color: #92400E; font-weight: 600; font-size: 14px;">⚠️ Intercompany Transfer</p>
+            <p style="margin: 0; color: #78350F; font-size: 13px; line-height: 1.5;">
+              <strong>Original Company:</strong> ${request.previousCompany}<br>
+              <strong>New Company:</strong> ${request.company_name || request.company}<br>
+              <span style="font-size: 12px;">This expense has been transferred. Please process payment under the new company.</span>
+            </p>
+          </div>
+          ` : ''}
+          
+          <!-- Request Details Table -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #f9fafb; border-radius: 6px; overflow: hidden;">
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; width: 140px;">Request ID</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 500;">#${request.id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Employee</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.employee_name || request.employeeName} (${request.employee_email || request.employeeEmail})</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Company</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.company_name || request.company || '-'}${isIntercompany ? ' <span style="color: #F59E0B; font-weight: 500;">(Transferred)</span>' : ''}</td>
+            </tr>
+            ${isIntercompany ? `
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Original Company</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.previousCompany}</td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Category</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.category_name || request.category || '-'}</td>
+            </tr>
+            ${request.location ? `
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Location</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.location}</td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Amount</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${request.amount} ${request.currency || 'GBP'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; ${request.attachments ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #6b7280; font-size: 13px;">Description</td>
+              <td style="padding: 12px 16px; ${request.attachments ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #111827; font-size: 14px;">${request.reason || request.description || '-'}</td>
+            </tr>
+            ${request.attachments ? `
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Attachments</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${request.attachments.split(',').length} file(s) attached</td>
+            </tr>
+            ` : ''}
+          </table>
+          
+          <!-- Payment Details -->
+          <p style="margin: 20px 0 10px 0; color: #111827; font-size: 15px; font-weight: 600;">Payment Details</p>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #f9fafb; border-radius: 6px; overflow: hidden;">
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; width: 140px;">Payment Method</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${payment.method}</td>
+            </tr>
+            ${payment.reference ? `
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Reference</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${payment.reference}</td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Paid Amount</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${payment.paidAmount || request.amount} ${request.currency || 'GBP'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; ${payment.notes ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #6b7280; font-size: 13px;">Paid Date</td>
+              <td style="padding: 12px 16px; ${payment.notes ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #111827; font-size: 14px;">${payment.paidDate ? new Date(payment.paidDate).toLocaleDateString() : new Date().toLocaleDateString()}</td>
+            </tr>
+            ${payment.notes ? `
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Notes</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${payment.notes}</td>
+            </tr>
+            ` : ''}
+          </table>
+          
+          <!-- Action Button -->
+          <div style="text-align: center; margin: 30px 0 20px 0;">
+            <a href="${publicLink}" style="display: inline-block; background: #3B82F6; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">Upload Payment Receipt</a>
+          </div>
+          
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
+            Please process this payment and upload the payment receipt using the link above.
+          </p>
+          
+        </div>
+        
+        <!-- Footer -->
+        <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
+          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+        </div>
+        
+      </div>
+    </body>
+    </html>
   `;
+  
   return { subject, html };
 }
 
