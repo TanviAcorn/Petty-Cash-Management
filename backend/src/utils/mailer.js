@@ -426,10 +426,136 @@ function buildPaymentInitiatedEmail({ request, payment }) {
   return { subject, html };
 }
 
+function buildBulkPaymentEmail({ requests, groupedByCompany }) {
+  const urls = getFrontendUrls();
+  const publicLink = `${urls[0]}/approved`;
+  
+  const totalRequests = requests.length;
+  const totalAmount = requests.reduce((sum, req) => sum + Number(req.amount || 0), 0);
+  const companies = Object.keys(groupedByCompany);
+  
+  const subject = `Payment Initiated - ${totalRequests} Request(s) for Processing`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+        
+        <!-- Header -->
+        <div style="background: #3B82F6; padding: 30px 20px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Payment Initiated</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style="background: #ffffff; padding: 30px 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+          
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 15px; line-height: 1.5;">
+            The admin has initiated payment for the following ${totalRequests} approved petty cash request(s).
+          </p>
+          
+          <!-- Summary Table -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #f9fafb; border-radius: 6px; overflow: hidden;">
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; width: 140px;">Total Requests</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 500;">${totalRequests}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Total Amount</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">£${totalAmount.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px; vertical-align: top;">Companies</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  ${companies.map((company, idx) => {
+                    const count = groupedByCompany[company].length;
+                    const companyTotal = groupedByCompany[company].reduce((sum, req) => sum + Number(req.amount || 0), 0);
+                    return `
+                    <tr>
+                      <td style="padding: 4px 0; color: #111827; font-size: 14px;">${company}</td>
+                      <td style="padding: 4px 0; color: #6b7280; font-size: 13px; text-align: right;">${count} request(s) - £${companyTotal.toFixed(2)}</td>
+                    </tr>
+                    `;
+                  }).join('')}
+                </table>
+              </td>
+            </tr>
+          </table>
+          
+          ${companies.map(companyName => {
+            const companyRequests = groupedByCompany[companyName];
+            const companyTotal = companyRequests.reduce((sum, req) => sum + Number(req.amount || 0), 0);
+            
+            return `
+            <!-- Company Section -->
+            <div style="margin-bottom: 30px;">
+              <h2 style="margin: 0 0 15px 0; color: #111827; font-size: 16px; font-weight: 600; border-bottom: 2px solid #3B82F6; padding-bottom: 8px;">
+                ${companyName} (${companyRequests.length} request(s) - £${companyTotal.toFixed(2)})
+              </h2>
+              
+              <!-- Requests Table -->
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #f9fafb; border-radius: 6px; overflow: hidden;">
+                <thead>
+                  <tr style="background: #F3F4F6;">
+                    <th style="padding: 10px 12px; text-align: left; color: #6b7280; font-size: 12px; font-weight: 600; border-bottom: 2px solid #e5e7eb;">ID</th>
+                    <th style="padding: 10px 12px; text-align: left; color: #6b7280; font-size: 12px; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Employee</th>
+                    <th style="padding: 10px 12px; text-align: left; color: #6b7280; font-size: 12px; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Category</th>
+                    <th style="padding: 10px 12px; text-align: left; color: #6b7280; font-size: 12px; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Location</th>
+                    <th style="padding: 10px 12px; text-align: right; color: #6b7280; font-size: 12px; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Amount</th>
+                    <th style="padding: 10px 12px; text-align: left; color: #6b7280; font-size: 12px; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${companyRequests.map((req, idx) => `
+                  <tr style="${idx % 2 === 0 ? 'background: #ffffff;' : 'background: #f9fafb;'}">
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 13px; font-weight: 600;">#${req.id}</td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 13px;">${req.employee_name || req.employeeName}</td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 13px;">${req.category_name || req.category || '-'}</td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 13px;">${req.location || '-'}</td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 13px; font-weight: 600; text-align: right;">£${Number(req.amount || 0).toFixed(2)}</td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 13px;">${(req.reason || req.description || '-').substring(0, 50)}${(req.reason || req.description || '').length > 50 ? '...' : ''}</td>
+                  </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+            `;
+          }).join('')}
+          
+          <!-- Action Button -->
+          <div style="text-align: center; margin: 30px 0 20px 0;">
+            <a href="${publicLink}" style="display: inline-block; background: #3B82F6; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">View All Approved Requests</a>
+          </div>
+          
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
+            Please process these payments and upload payment receipts for each request.
+          </p>
+          
+        </div>
+        
+        <!-- Footer -->
+        <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
+          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+        </div>
+        
+      </div>
+    </body>
+    </html>
+  `;
+  
+  return { subject, html };
+}
+
 module.exports = {
   sendEmail,
   buildAdminNewRequestEmail,
   buildUserStatusEmail,
   getTransporter,
   buildPaymentInitiatedEmail,
+  buildBulkPaymentEmail,
 };

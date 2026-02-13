@@ -23,6 +23,9 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  Checkbox,
+  Button,
+  Alert,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
@@ -32,6 +35,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
+import SendIcon from '@mui/icons-material/Send';
 import axiosClient from '../api/axiosClient';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import Pagination from '../components/Pagination';
@@ -86,6 +90,9 @@ const Approved = () => {
   const [requests, setRequests] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [timeRange, setTimeRange] = useState('30d');
+  const [selectedRequests, setSelectedRequests] = useState([]);
+  const [sendingBulkPayment, setSendingBulkPayment] = useState(false);
+  const [bulkPaymentMessage, setBulkPaymentMessage] = useState(null);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     itemsPerPage: 10,
@@ -219,6 +226,57 @@ const Approved = () => {
     fetchData(1, newItemsPerPage);
   };
 
+  const handleSelectAll = (event) => {
+    if (event.target.checked) {
+      setSelectedRequests(filteredRequests.map(r => r.id));
+    } else {
+      setSelectedRequests([]);
+    }
+  };
+
+  const handleSelectRequest = (requestId) => {
+    setSelectedRequests(prev => {
+      if (prev.includes(requestId)) {
+        return prev.filter(id => id !== requestId);
+      } else {
+        return [...prev, requestId];
+      }
+    });
+  };
+
+  const handleBulkPayment = async () => {
+    if (selectedRequests.length === 0) {
+      setBulkPaymentMessage({ type: 'error', text: 'Please select at least one request' });
+      return;
+    }
+
+    try {
+      setSendingBulkPayment(true);
+      setBulkPaymentMessage(null);
+
+      const response = await axiosClient.post('/requests/bulk-payment', {
+        requestIds: selectedRequests
+      });
+
+      setBulkPaymentMessage({ 
+        type: 'success', 
+        text: `Successfully sent ${selectedRequests.length} request(s) to payment team` 
+      });
+      setSelectedRequests([]);
+      
+      // Refresh data
+      fetchData();
+    } catch (error) {
+      console.error('Error sending bulk payment:', error);
+      setBulkPaymentMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Failed to send bulk payment notification' 
+      });
+    } finally {
+      setSendingBulkPayment(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -331,8 +389,37 @@ const Approved = () => {
               ))}
             </Select>
           </FormControl>
+          
+          <Box sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}>
+            {selectedRequests.length > 0 && (
+              <>
+                <Typography variant="body2" color="text.secondary">
+                  {selectedRequests.length} selected
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SendIcon />}
+                  onClick={handleBulkPayment}
+                  disabled={sendingBulkPayment}
+                >
+                  {sendingBulkPayment ? 'Sending...' : 'Send to Payment'}
+                </Button>
+              </>
+            )}
+          </Box>
         </CardContent>
       </Card>
+
+      {/* Bulk Payment Message */}
+      {bulkPaymentMessage && (
+        <Alert 
+          severity={bulkPaymentMessage.type} 
+          onClose={() => setBulkPaymentMessage(null)}
+        >
+          {bulkPaymentMessage.text}
+        </Alert>
+      )}
 
       {/* Requests Table */}
       <Card variant="outlined">
@@ -341,6 +428,13 @@ const Approved = () => {
             <Table size="small">
               <TableHead>
                 <TableRow>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={filteredRequests.length > 0 && selectedRequests.length === filteredRequests.length}
+                      indeterminate={selectedRequests.length > 0 && selectedRequests.length < filteredRequests.length}
+                      onChange={handleSelectAll}
+                    />
+                  </TableCell>
                   <TableCell>User</TableCell>
                   <TableCell>Date Approved</TableCell>
                   <TableCell>Category</TableCell>
@@ -348,7 +442,8 @@ const Approved = () => {
                   <TableCell>Location</TableCell>
                   <TableCell align="right">Amount</TableCell>
                   <TableCell>Payment</TableCell>
-                  <TableCell>Intercompany</TableCell>
+                  <TableCell>Intercompany Transfer From</TableCell>
+                  <TableCell>Intercompany Transfer To</TableCell>
                   <TableCell>Reason</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
@@ -356,7 +451,7 @@ const Approved = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
                       <CircularProgress size={24} />
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                         Loading approved requests...
@@ -365,7 +460,7 @@ const Approved = () => {
                   </TableRow>
                 ) : filteredRequests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
                       <CheckCircleOutlineIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
                       <Typography variant="body1" color="text.secondary">
                         No approved requests found
@@ -381,8 +476,15 @@ const Approved = () => {
                   filteredRequests.map((request) => {
                     const sc = statusColor('approved');
                     const pay = payments.find(p => p.requestId === request.id);
+                    const isSelected = selectedRequests.includes(request.id);
                     return (
-                      <TableRow key={request.id} hover>
+                      <TableRow key={request.id} hover selected={isSelected}>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            checked={isSelected}
+                            onChange={() => handleSelectRequest(request.id)}
+                          />
+                        </TableCell>
                         <TableCell sx={{ minWidth: 260 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <Box>
@@ -417,7 +519,8 @@ const Approved = () => {
                             <Chip size="small" label="No Payment" />
                           )}
                         </TableCell>
-                        <TableCell>{request.intercompany || '-'}</TableCell>
+                        <TableCell>{request.transferFrom || '-'}</TableCell>
+                        <TableCell>{request.transferTo || '-'}</TableCell>
                         <TableCell>{request.reason || '-'}</TableCell>
                         <TableCell align="center">
                           <Tooltip title="View Details">

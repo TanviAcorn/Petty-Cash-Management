@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { getExchangeRate } = require('../utils/exchangeRates');
 const { poolPromise } = require('../config/db');
-const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail } = require('../utils/mailer');
+const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail, buildBulkPaymentEmail } = require('../utils/mailer');
 const { getUserById } = require('../utils/userUtils');
 
 // Define uploads directory
@@ -657,7 +657,19 @@ router.get('/', async (req, res) => {
       r.approved_at AS approvedAt,
       r.rejected_at AS rejectedAt,
       r.status,
-      r.reason
+      r.reason,
+      (
+        SELECT TOP 1 previous_company
+        FROM petty_cash_request_audits
+        WHERE request_id = r.id AND action = 'intercompany_transfer'
+        ORDER BY created_at DESC
+      ) AS transferFrom,
+      (
+        SELECT TOP 1 new_company
+        FROM petty_cash_request_audits
+        WHERE request_id = r.id AND action = 'intercompany_transfer'
+        ORDER BY created_at DESC
+      ) AS transferTo
     FROM petty_cash_requests r
     ${whereSql}
     ORDER BY ${orderParts.join(', ')}
@@ -890,6 +902,116 @@ router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments',
         error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
       });
     }
+});
+
+// POST /api/requests/bulk-payment - Send multiple approved requests to payment team
+router.post('/bulk-payment', async (req, res) => {
+  try {
+    const { requestIds } = req.body;
+    
+    if (!requestIds || !Array.isArray(requestIds) || requestIds.length === 0) {
+      return res.status(400).json({ message: 'Request IDs array is required' });
+    }
+
+    const pool = await poolPromise;
+    
+    // Fetch all requests
+    const placeholders = requestIds.map((_, i) => `@id${i}`).join(',');
+    const request = pool.request();
+    requestIds.forEach((id, i) => request.input(`id${i}`, sql.Int, id));
+    
+    const result = await request.query(`
+      SELECT 
+        r.*,
+        r.employee_name,
+        r.employee_email,
+        r.company_name,
+        r.category_name
+      FROM petty_cash_requests r
+      WHERE r.id IN (${placeholders})
+      AND r.status IN ('approved', 'intercompany')
+    `);
+    
+    const requests = result.recordset;
+    
+    if (requests.length === 0) {
+      return res.status(404).json({ message: 'No approved requests found' });
+    }
+    
+    // Group requests by company
+    const groupedByCompany = requests.reduce((acc, req) => {
+      const company = req.company_name || req.company || 'Unknown';
+      if (!acc[company]) {
+        acc[company] = [];
+      }
+      acc[company].push(req);
+      return acc;
+    }, {});
+    
+    // Company-specific accounts email mapping
+    const companyAccountsEmails = {
+      'Docpharm GmbH': 'account@docpharm.de',
+      'Lifexa BV': 'accounts@lifexa.eu',
+      'Acme Pharma': 'accounts@acmepharma.co.uk',
+      'Jambo BV NL': 'accounts@jambobv.nl',
+      'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com'
+    };
+    
+    // Determine recipients based on companies involved
+    const companies = Object.keys(groupedByCompany);
+    let toRecipients = [];
+    
+    // If all requests are from companies with specific emails, send to those
+    const companyEmails = companies
+      .map(c => companyAccountsEmails[c])
+      .filter(Boolean);
+    
+    if (companyEmails.length === companies.length) {
+      // All companies have specific emails
+      toRecipients = [...new Set(companyEmails)]; // Remove duplicates
+    } else {
+      // Some companies don't have specific emails, send to default
+      toRecipients = [
+        'Payment@acornuniversalconsultancy.com',
+        'posting@acornuniversalconsultancy.com'
+      ];
+    }
+    
+    const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
+    
+    // Build and send bulk payment email
+    const { subject, html } = buildBulkPaymentEmail({ 
+      requests, 
+      groupedByCompany 
+    });
+    
+    await sendEmail({
+      to: toRecipients,
+      cc: ccRecipients,
+      subject,
+      html,
+      user: {
+        firstName: 'Payment',
+        lastName: 'System',
+        email: process.env.FROM_EMAIL || process.env.SMTP_USER
+      }
+    });
+    
+    console.log(`Bulk payment notification sent for ${requests.length} requests to ${toRecipients.join(', ')}`);
+    
+    return res.json({ 
+      message: `Bulk payment notification sent successfully for ${requests.length} request(s)`,
+      requestIds: requests.map(r => r.id),
+      recipients: toRecipients
+    });
+    
+  } catch (err) {
+    console.error('Error sending bulk payment notification:', err);
+    return res.status(500).json({ 
+      message: 'Failed to send bulk payment notification',
+      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    });
+  }
 });
 
 // POST /api/requests - create a new petty cash request with file uploads
