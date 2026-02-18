@@ -166,7 +166,11 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
   
   try {
     const id = Number(req.params.id);
+    const { paidAmount } = req.body;
+    
     console.log(`Processing payment completion for request ID: ${id}`);
+    console.log('Paid amount from form:', paidAmount);
+    
     if (!id) return res.status(400).json({ message: 'Invalid id' });
     
     await txn.begin();
@@ -191,19 +195,31 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
       ? req.files.map(f => f.filename).join(',') 
       : null;
     
-    // Update the payment record
-    await new sql.Request(txn)
+    console.log('Payment done - Receipt upload:', {
+      requestId: id,
+      filesUploaded: req.files ? req.files.length : 0,
+      receiptFilenames,
+      paidAmount: paidAmount || 'not provided'
+    });
+    
+    // Update the payment record with receipt and paid amount
+    const updateResult = await new sql.Request(txn)
       .input('id', sql.Int, id)
       .input('receipt', sql.NVarChar(sql.MAX), receiptFilenames)
+      .input('paidAmount', sql.Decimal(18, 2), paidAmount ? Number(paidAmount) : null)
       .query(`
-        UPDATE p 
+        UPDATE petty_cash_payments
         SET status = 'payment done', 
-            receipt_filename = @receipt
-        FROM petty_cash_payments p
-        WHERE p.id = (
-          SELECT TOP 1 id FROM petty_cash_payments WHERE request_id = @id ORDER BY created_at DESC
-        )
+            receipt_filename = @receipt,
+            paid_amount = COALESCE(@paidAmount, paid_amount)
+        WHERE request_id = @id
       `);
+    
+    console.log('Payment record updated:', {
+      rowsAffected: updateResult.rowsAffected[0],
+      receiptFilenames,
+      paidAmount: paidAmount || 'not updated'
+    });
     
     // Update the request status
     await new sql.Request(txn)

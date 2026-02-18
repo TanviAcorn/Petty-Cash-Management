@@ -27,6 +27,8 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -92,6 +94,7 @@ const UploadReceipt = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [files, setFiles] = useState([]);
+  const [paidAmount, setPaidAmount] = useState('');
   const [request, setRequest] = useState(null);
   const [payment, setPayment] = useState(null);
   const [payments, setPayments] = useState([]);
@@ -108,6 +111,9 @@ const UploadReceipt = () => {
 
         const reqData = Array.isArray(requestRes.data) ? requestRes.data[0] : requestRes.data?.data || requestRes.data;
         setRequest(reqData);
+        
+        // Leave paid amount empty for manual entry
+        setPaidAmount('');
 
         // Get all payments and sort by created_at in descending order
         const payData = Array.isArray(paymentRes.data)
@@ -174,6 +180,11 @@ const UploadReceipt = () => {
       files.forEach((file) => {
         formDataToSend.append('receipts', file);
       });
+      
+      // Add paid amount to form data
+      if (paidAmount) {
+        formDataToSend.append('paidAmount', paidAmount);
+      }
 
       const response = await axios.post(
         `${API_BASE}/requests/${id}/payment-done`,
@@ -370,6 +381,26 @@ const UploadReceipt = () => {
           <Divider sx={{ mb: 3 }} />
 
           <form onSubmit={handleSubmit}>
+            {/* Paid Amount Field */}
+            <Box mb={3}>
+              <TextField
+                label="Paid Amount"
+                type="number"
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(e.target.value)}
+                fullWidth
+                required
+                inputProps={{ 
+                  step: "0.01",
+                  min: "0"
+                }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">{request?.currency || 'GBP'}</InputAdornment>,
+                }}
+                helperText="Enter the actual amount paid to the employee"
+              />
+            </Box>
+
             <Box mb={3}>
               <Button
                 component="label"
