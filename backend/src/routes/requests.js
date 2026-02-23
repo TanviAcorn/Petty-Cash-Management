@@ -1143,11 +1143,39 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     try {
       const adminTo = process.env.ADMIN_EMAIL;
       if (adminTo) {
+        // Prepare attachments for email
+        const emailAttachments = [];
+        if (req.files && req.files.length > 0) {
+          for (const file of req.files) {
+            try {
+              const filePath = path.join(__dirname, '../../uploads', file.filename);
+              const fileContent = await require('fs').promises.readFile(filePath);
+              
+              emailAttachments.push({
+                filename: file.originalname,
+                content: fileContent,
+                contentType: file.mimetype || 'application/octet-stream'
+              });
+            } catch (err) {
+              console.error(`Error reading attachment file ${file.filename}:`, err);
+            }
+          }
+        }
+        
         const { subject, html } = buildAdminNewRequestEmail(newRequest);
         // Office 365 typically requires From to be the authenticated mailbox.
         // Use configured sender as From and employee as Reply-To.
         const replyTo = newRequest?.employee_email || employeeEmail;
-        sendEmail({ to: adminTo, subject, html, replyTo })
+        
+        console.log(`Sending admin email with ${emailAttachments.length} attachment(s)`);
+        
+        sendEmail({ 
+          to: adminTo, 
+          subject, 
+          html, 
+          replyTo,
+          attachments: emailAttachments
+        })
           .catch((e) => console.error('Failed sending admin email:', e.message));
       } else {
         console.warn('ADMIN_EMAIL is not set; skipping admin notification');

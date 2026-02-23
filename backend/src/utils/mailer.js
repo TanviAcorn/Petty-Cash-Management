@@ -532,6 +532,13 @@ function buildBulkPaymentEmail({ requests, groupedByCompany }) {
             <a href="${publicLink}" style="display: inline-block; background: #3B82F6; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">View All Approved Requests</a>
           </div>
           
+          <!-- Attachments Note -->
+          <div style="background: #F3F4F6; padding: 16px; margin: 20px 0; border-radius: 6px; border-left: 4px solid #3B82F6;">
+            <p style="margin: 0; color: #374151; font-size: 13px; line-height: 1.5;">
+              <strong>📎 Note:</strong> To view attachments and receipts for individual requests, please click on each request in the system. Attachments are not included in bulk payment emails to keep email size manageable.
+            </p>
+          </div>
+          
           <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
             Please process these payments and upload payment receipts for each request.
           </p>
