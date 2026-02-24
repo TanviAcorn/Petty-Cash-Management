@@ -306,6 +306,8 @@ const AllRequests = () => {
               <MenuItem value="approved">Approved</MenuItem>
               <MenuItem value="rejected">Rejected</MenuItem>
               <MenuItem value="intercompany">Intercompany</MenuItem>
+              <MenuItem value="processed">Processed</MenuItem>
+              <MenuItem value="payment done">Payment Done</MenuItem>
             </Select>
           </FormControl>
           
