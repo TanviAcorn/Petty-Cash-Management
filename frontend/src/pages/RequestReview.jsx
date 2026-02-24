@@ -94,6 +94,18 @@ export default function RequestReview() {
   const [receiptUploading, setReceiptUploading] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [payments, setPayments] = useState([]);
+  // Edit mode state
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState({
+    company: '',
+    category: '',
+    location: '',
+    amount: '',
+    description: '',
+    dateOfPurchase: ''
+  });
+  const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
   
   // Handle opening the payment dialog
   const handlePayOpen = async () => {
@@ -159,6 +171,18 @@ export default function RequestReview() {
         setError('');
         const { data } = await axiosClient.get(`/requests/${id}`, { signal: controller.signal });
         setReq(data?.data || data);
+        
+        // Initialize edit data
+        const requestData = data?.data || data;
+        setEditData({
+          company: requestData.company || '',
+          category: requestData.category || '',
+          location: requestData.location || '',
+          amount: requestData.amount || '',
+          description: requestData.description || '',
+          dateOfPurchase: requestData.dateOfPurchase ? new Date(requestData.dateOfPurchase).toISOString().slice(0, 10) : ''
+        });
+        
         try {
           const payRes = await axiosClient.get(`/requests/${id}/payments`, { signal: controller.signal });
           setPayments(Array.isArray(payRes?.data?.data) ? payRes.data.data : []);
@@ -171,6 +195,20 @@ export default function RequestReview() {
         } catch (e) {
           console.error('Error loading companies:', e); // Debug log
           // non-blocking
+        }
+        // Load categories
+        try {
+          const { data: cats } = await axiosClient.get('/categories', { signal: controller.signal });
+          setCategories(Array.isArray(cats) ? cats : []);
+        } catch (e) {
+          console.error('Error loading categories:', e);
+        }
+        // Load locations
+        try {
+          const { data: locs } = await axiosClient.get('/locations', { signal: controller.signal });
+          setLocations(Array.isArray(locs) ? locs : []);
+        } catch (e) {
+          console.error('Error loading locations:', e);
         }
       } catch (e) {
         // Ignore cancellations triggered by StrictMode/unmount
@@ -296,6 +334,41 @@ export default function RequestReview() {
     }
   };
 
+  const onSaveEdit = async () => {
+    try {
+      setSubmitting(true);
+      await axiosClient.put(`/requests/${id}`, {
+        company: editData.company,
+        category: editData.category,
+        location: editData.location,
+        amount: editData.amount,
+        description: editData.description,
+        dateOfPurchase: editData.dateOfPurchase
+      });
+      const { data } = await axiosClient.get(`/requests/${id}`);
+      setReq(data?.data || data);
+      setEditMode(false);
+      setToast({ open: true, message: 'Request updated successfully', severity: 'success' });
+    } catch (e) {
+      setToast({ open: true, message: e?.response?.data?.message || e.message || 'Failed to update request', severity: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onCancelEdit = () => {
+    // Reset edit data to original request data
+    setEditData({
+      company: req.company || '',
+      category: req.category || '',
+      location: req.location || '',
+      amount: req.amount || '',
+      description: req.description || '',
+      dateOfPurchase: req.dateOfPurchase ? new Date(req.dateOfPurchase).toISOString().slice(0, 10) : ''
+    });
+    setEditMode(false);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
@@ -346,24 +419,55 @@ export default function RequestReview() {
                 </Typography>
               </Box>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={<CheckOutlinedIcon />}
-                  disabled={submitting}
-                  onClick={() => setApproveOpen(true)}
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<CloseOutlinedIcon />}
-                  disabled={submitting}
-                  onClick={() => setRejectOpen(true)}
-                >
-                  Reject
-                </Button>
+                {!editMode ? (
+                  <>
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      disabled={submitting}
+                      onClick={() => setEditMode(true)}
+                    >
+                      Edit Request
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      startIcon={<CheckOutlinedIcon />}
+                      disabled={submitting}
+                      onClick={() => setApproveOpen(true)}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<CloseOutlinedIcon />}
+                      disabled={submitting}
+                      onClick={() => setRejectOpen(true)}
+                    >
+                      Reject
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      disabled={submitting}
+                      onClick={onSaveEdit}
+                    >
+                      Save Changes
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="inherit"
+                      disabled={submitting}
+                      onClick={onCancelEdit}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
               </Stack>
             </Box>
           </CardContent>
@@ -595,9 +699,20 @@ export default function RequestReview() {
                 <Grid item xs={12} sm={6} md={3}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Amount</Typography>
-                    <Typography variant="h6" fontWeight={800} sx={{ color: 'success.main' }}>
-                      {fmtMoney(req.amount, currency)}
-                    </Typography>
+                    {editMode ? (
+                      <OutlinedInput
+                        fullWidth
+                        size="small"
+                        type="number"
+                        value={editData.amount}
+                        onChange={(e) => setEditData({ ...editData, amount: e.target.value })}
+                        sx={{ mt: 0.5 }}
+                      />
+                    ) : (
+                      <Typography variant="h6" fontWeight={800} sx={{ color: 'success.main' }}>
+                        {fmtMoney(req.amount, currency)}
+                      </Typography>
+                    )}
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
@@ -609,32 +724,96 @@ export default function RequestReview() {
                 <Grid item xs={12} sm={6} md={3}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Category</Typography>
-                    <Box sx={{ mt: 0.5 }}>
-                      <Chip size="small" label={req.category || '-'} variant="outlined" />
-                    </Box>
+                    {editMode ? (
+                      <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
+                        <Select
+                          value={editData.category}
+                          onChange={(e) => setEditData({ ...editData, category: e.target.value })}
+                          displayEmpty
+                        >
+                          <MenuItem value="">
+                            <em>Select Category</em>
+                          </MenuItem>
+                          {categories.map((cat) => (
+                            <MenuItem key={cat.id} value={cat.name}>{cat.name}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    ) : (
+                      <Box sx={{ mt: 0.5 }}>
+                        <Chip size="small" label={req.category || '-'} variant="outlined" />
+                      </Box>
+                    )}
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Location</Typography>
-                    <Typography fontWeight={600}>{req.location || '-'}</Typography>
+                    {editMode ? (
+                      <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
+                        <Select
+                          value={editData.location}
+                          onChange={(e) => setEditData({ ...editData, location: e.target.value })}
+                          displayEmpty
+                        >
+                          <MenuItem value="">
+                            <em>None</em>
+                          </MenuItem>
+                          {locations.map((loc) => (
+                            <MenuItem key={loc.id} value={loc.name}>{loc.name}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    ) : (
+                      <Typography fontWeight={600}>{req.location || '-'}</Typography>
+                    )}
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Company</Typography>
-                    <Typography fontWeight={600}>{req.company || '-'}</Typography>
-                    {req.previousCompany && (
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        Previous: {req.previousCompany}
-                      </Typography>
+                    {editMode ? (
+                      <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
+                        <Select
+                          value={editData.company}
+                          onChange={(e) => setEditData({ ...editData, company: e.target.value })}
+                          displayEmpty
+                        >
+                          <MenuItem value="">
+                            <em>Select Company</em>
+                          </MenuItem>
+                          {companies.map((comp) => (
+                            <MenuItem key={comp.id} value={comp.name}>{comp.name}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    ) : (
+                      <>
+                        <Typography fontWeight={600}>{req.company || '-'}</Typography>
+                        {req.previousCompany && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Previous: {req.previousCompany}
+                          </Typography>
+                        )}
+                      </>
                     )}
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Date of Purchase</Typography>
-                    <Typography fontWeight={600}>{req.dateOfPurchase ? new Date(req.dateOfPurchase).toLocaleDateString() : '-'}</Typography>
+                    {editMode ? (
+                      <OutlinedInput
+                        fullWidth
+                        size="small"
+                        type="date"
+                        value={editData.dateOfPurchase}
+                        onChange={(e) => setEditData({ ...editData, dateOfPurchase: e.target.value })}
+                        sx={{ mt: 0.5 }}
+                      />
+                    ) : (
+                      <Typography fontWeight={600}>{req.dateOfPurchase ? new Date(req.dateOfPurchase).toLocaleDateString() : '-'}</Typography>
+                    )}
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
@@ -648,17 +827,29 @@ export default function RequestReview() {
                 <Grid item xs={12}>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Description</Typography>
-                    <Typography sx={(theme)=>({
-                      mt: 0.5,
-                      p: 1.5,
-                      borderRadius: 1,
-                      border: '1px solid',
-                      // Use theme tokens so it looks good in both light and dark
-                      bgcolor: theme.palette.mode === 'dark' ? theme.palette.background.paper : 'grey.50',
-                      borderColor: theme.palette.divider,
-                    })}>
-                      {req.description || '-'}
-                    </Typography>
+                    {editMode ? (
+                      <OutlinedInput
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        value={editData.description || ''}
+                        onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                        placeholder="Enter description (optional)"
+                        sx={{ mt: 0.5 }}
+                      />
+                    ) : (
+                      <Typography sx={(theme)=>({
+                        mt: 0.5,
+                        p: 1.5,
+                        borderRadius: 1,
+                        border: '1px solid',
+                        // Use theme tokens so it looks good in both light and dark
+                        bgcolor: theme.palette.mode === 'dark' ? theme.palette.background.paper : 'grey.50',
+                        borderColor: theme.palette.divider,
+                      })}>
+                        {req.description || '-'}
+                      </Typography>
+                    )}
                   </Box>
                 </Grid>
               </Grid>
