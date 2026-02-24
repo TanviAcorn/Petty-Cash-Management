@@ -30,6 +30,7 @@ import {
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
+import TravelBookingSection from '../components/TravelBookingSection';
 import {
   AttachMoney,
   Info,
@@ -116,6 +117,8 @@ const NewRequest = () => {
   const [attachments, setAttachments] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [travelDetails, setTravelDetails] = useState(null);
+  const [showTravelBooking, setShowTravelBooking] = useState(false);
 
   // Dynamic state for categories, companies, and locations
   const [categories, setCategories] = useState([]);
@@ -190,6 +193,20 @@ const NewRequest = () => {
       const selectedLocation = locations.find(loc => loc.name === value) || null;
       newFormData.selectedLocation = selectedLocation;
     }
+
+    // Check if category is travel-related
+    if (name === "category") {
+      const travelKeywords = ['travel', 'trip', 'flight', 'hotel', 'accommodation', 'journey', 'tour'];
+      const isTravelCategory = travelKeywords.some(keyword => 
+        value.toLowerCase().includes(keyword)
+      );
+      setShowTravelBooking(isTravelCategory);
+      
+      // Clear travel details if switching away from travel category
+      if (!isTravelCategory) {
+        setTravelDetails(null);
+      }
+    }
   
     // Check budget rule
     if (name === "amount" || name === "category" || name === "location") {
@@ -220,6 +237,19 @@ const NewRequest = () => {
     }
   
     setFormData(newFormData);
+  };
+
+  // Handle travel details changes from TravelBookingSection
+  const handleTravelDetailsChange = (details) => {
+    setTravelDetails(details);
+    
+    // Auto-populate amount if travel cost is calculated
+    if (details && details.totalCost > 0) {
+      setFormData(prev => ({
+        ...prev,
+        amount: details.totalCost.toString()
+      }));
+    }
   };  
 
   const handleDrag = (e) => {
@@ -326,6 +356,11 @@ const NewRequest = () => {
         formDataToSend.append('currency', formData.currency);
         formDataToSend.append('dateOfPurchase', formattedDate);
         formDataToSend.append('description', formData.description);
+
+        // Add travel details if available
+        if (travelDetails && (travelDetails.flight || travelDetails.accommodation)) {
+          formDataToSend.append('travelDetails', JSON.stringify(travelDetails));
+        }
 
         // Add existing attachments if any (for edit mode)
         if (id) {
@@ -743,6 +778,15 @@ const NewRequest = () => {
                 </Grid>
               </CardContent>
             </Card>
+
+            {/* Travel Booking Section - Show for travel-related categories */}
+            {showTravelBooking && (
+              <TravelBookingSection
+                onTravelDetailsChange={handleTravelDetailsChange}
+                currency={formData.currency}
+              />
+            )}
+
             <Card variant="outlined" sx={{ flex: 1, mb: 2, borderRadius: 2, borderColor: 'divider', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>

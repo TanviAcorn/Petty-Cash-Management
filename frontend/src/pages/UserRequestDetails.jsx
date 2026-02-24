@@ -163,6 +163,109 @@ export default function UserRequestDetails() {
                   <Typography variant="caption" color="text.secondary">Description</Typography>
                   <Typography>{req.description || '-'}</Typography>
                 </Box>
+
+                {/* Travel Details */}
+                {req.travelDetails && (req.travelDetails.flight || req.travelDetails.accommodation) && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                      Travel Itinerary
+                    </Typography>
+                    <Box sx={(theme)=>({
+                      mt: 0.5,
+                      p: 2,
+                      borderRadius: 1,
+                      border: '1px solid',
+                      bgcolor: theme.palette.mode === 'dark' ? theme.palette.background.paper : 'grey.50',
+                      borderColor: theme.palette.divider,
+                    })}>
+                      {/* Flight Details */}
+                      {req.travelDetails.flight && (
+                        <Box sx={{ mb: req.travelDetails.accommodation ? 2 : 0 }}>
+                          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                            ✈️ Flight
+                          </Typography>
+                          <Stack spacing={0.5}>
+                            <Typography variant="body2">
+                              <strong>Airline:</strong> {req.travelDetails.flight.airline} ({req.travelDetails.flight.flightNumber})
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Route:</strong> {req.travelDetails.flight.origin} → {req.travelDetails.flight.destination}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Departure:</strong> {new Date(req.travelDetails.flight.departureTime).toLocaleString()}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Arrival:</strong> {new Date(req.travelDetails.flight.arrivalTime).toLocaleString()}
+                            </Typography>
+                            {req.travelDetails.flight.returnDepartureTime && (
+                              <>
+                                <Typography variant="body2">
+                                  <strong>Return Departure:</strong> {new Date(req.travelDetails.flight.returnDepartureTime).toLocaleString()}
+                                </Typography>
+                                <Typography variant="body2">
+                                  <strong>Return Arrival:</strong> {new Date(req.travelDetails.flight.returnArrivalTime).toLocaleString()}
+                                </Typography>
+                              </>
+                            )}
+                            <Typography variant="body2">
+                              <strong>Duration:</strong> {req.travelDetails.flight.duration} | <strong>Stops:</strong> {req.travelDetails.flight.stops}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 600 }}>
+                              <strong>Price:</strong> {fmtMoney(req.travelDetails.flight.price, req.travelDetails.currency || currency)}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                      )}
+
+                      {/* Accommodation Details */}
+                      {req.travelDetails.accommodation && (
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                            🏨 Accommodation
+                          </Typography>
+                          <Stack spacing={0.5}>
+                            <Typography variant="body2">
+                              <strong>Hotel:</strong> {req.travelDetails.accommodation.name}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Address:</strong> {req.travelDetails.accommodation.address}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Rating:</strong> {'⭐'.repeat(req.travelDetails.accommodation.starRating)} ({req.travelDetails.accommodation.guestRating}/10)
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Check-in:</strong> {new Date(req.travelDetails.accommodation.checkInDate).toLocaleDateString()}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Check-out:</strong> {new Date(req.travelDetails.accommodation.checkOutDate).toLocaleDateString()}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Nights:</strong> {req.travelDetails.accommodation.nights} | <strong>Guests:</strong> {req.travelDetails.accommodation.guests}
+                            </Typography>
+                            {req.travelDetails.accommodation.amenities && req.travelDetails.accommodation.amenities.length > 0 && (
+                              <Typography variant="body2">
+                                <strong>Amenities:</strong> {req.travelDetails.accommodation.amenities.join(', ')}
+                              </Typography>
+                            )}
+                            <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 600 }}>
+                              <strong>Price:</strong> {fmtMoney(req.travelDetails.accommodation.totalPrice, req.travelDetails.currency || currency)} 
+                              ({fmtMoney(req.travelDetails.accommodation.pricePerNight, req.travelDetails.currency || currency)}/night)
+                            </Typography>
+                          </Stack>
+                        </Box>
+                      )}
+
+                      {/* Total Cost */}
+                      {req.travelDetails.totalCost && (
+                        <Box sx={{ mt: 2, pt: 2, borderTop: '1px dashed', borderColor: 'divider' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                            Total Travel Cost: {fmtMoney(req.travelDetails.totalCost, req.travelDetails.currency || currency)}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                )}
               </Stack>
             </CardContent>
           </Card>

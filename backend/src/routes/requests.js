@@ -280,9 +280,13 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { company, category, location, amount, description, dateOfPurchase } = req.body || {};
+    const { company, category, location, amount, description, dateOfPurchase, travelDetails } = req.body || {};
 
     const pool = await poolPromise;
+    
+    // Ensure travel_details column exists
+    await ensureTravelDetailsColumn(pool);
+    
     // Ensure request is pending
     const statusCheck = await pool.request()
       .input('id', sql.Int, id)
@@ -301,7 +305,43 @@ router.put('/:id', async (req, res) => {
       .input('reason', sql.NVarChar(sql.MAX), description ?? null)
       .input('dateOfPurchase', sql.Date, dateOfPurchase ? new Date(dateOfPurchase) : null);
 
-    await reqUpd.query(`
+    // Handle travel details update with validation
+    let travelDetailsJson = null;
+    if (travelDetails !== undefined) {
+      if (travelDetails === null || travelDetails === '') {
+        // Allow clearing travel details
+        travelDetailsJson = null;
+      } else {
+        try {
+          // If travelDetails is a string, parse it first to validate JSON
+          const travelDetailsObj = typeof travelDetails === 'string' 
+            ? JSON.parse(travelDetails) 
+            : travelDetails;
+          
+          // Validate travel details structure
+          if (travelDetailsObj && typeof travelDetailsObj === 'object') {
+            // Check if it has at least one of flight or accommodation
+            const hasValidStructure = 
+              (travelDetailsObj.flight && typeof travelDetailsObj.flight === 'object') ||
+              (travelDetailsObj.accommodation && typeof travelDetailsObj.accommodation === 'object');
+            
+            if (!hasValidStructure) {
+              return res.status(400).json({ 
+                message: 'Invalid travel details structure. Must contain at least flight or accommodation data.' 
+              });
+            }
+          }
+          
+          travelDetailsJson = JSON.stringify(travelDetailsObj);
+        } catch (e) {
+          console.error('Error parsing travel details:', e);
+          return res.status(400).json({ message: 'Invalid travel details format. Must be valid JSON.' });
+        }
+      }
+      reqUpd.input('travelDetails', sql.NVarChar(sql.MAX), travelDetailsJson);
+    }
+
+    let updateQuery = `
       UPDATE petty_cash_requests
       SET 
         company_name = COALESCE(@company, company_name),
@@ -309,9 +349,19 @@ router.put('/:id', async (req, res) => {
         location = COALESCE(@location, location),
         amount = COALESCE(@amount, amount),
         reason = COALESCE(@reason, reason),
-        date_of_purchase = COALESCE(@dateOfPurchase, date_of_purchase)
+        date_of_purchase = COALESCE(@dateOfPurchase, date_of_purchase)`;
+    
+    // Only update travel_details if it was provided in the request
+    if (travelDetails !== undefined) {
+      updateQuery += `,
+        travel_details = @travelDetails`;
+    }
+    
+    updateQuery += `
       WHERE id = @id;
-    `);
+    `;
+
+    await reqUpd.query(updateQuery);
 
     const result = await pool.request().input('id', sql.Int, id).query('SELECT * FROM petty_cash_requests WHERE id = @id');
     return res.json({ message: 'Request updated', data: result.recordset?.[0] });
@@ -455,6 +505,7 @@ router.get('/:id', async (req, res) => {
           r.rejected_at         AS rejectedAt,
           r.rejection_reason    AS rejectionReason,
           r.attachments,
+          r.travel_details      AS travelDetails,
           p.status AS payment_status
         FROM petty_cash_requests r
         LEFT JOIN (
@@ -473,6 +524,13 @@ router.get('/:id', async (req, res) => {
       row.attachments = row.attachments ? JSON.parse(row.attachments) : [];
     } catch {
       row.attachments = [];
+    }
+
+    // Try to parse travel_details JSON if present
+    try {
+      row.travelDetails = row.travelDetails ? JSON.parse(row.travelDetails) : null;
+    } catch {
+      row.travelDetails = null;
     }
 
     // Try to attach previous/new company from latest audit record (if audit table exists)
@@ -581,6 +639,17 @@ async function ensurePaymentsSchema(pool) {
     IF COL_LENGTH('dbo.petty_cash_payments', 'attachments') IS NULL
     BEGIN
       ALTER TABLE dbo.petty_cash_payments ADD attachments NVARCHAR(MAX) NULL;
+    END;
+  `;
+  await pool.request().query(sqlText);
+}
+
+// Ensure travel_details column exists in petty_cash_requests table
+async function ensureTravelDetailsColumn(pool) {
+  const sqlText = `
+    IF COL_LENGTH('dbo.petty_cash_requests', 'travel_details') IS NULL
+    BEGIN
+      ALTER TABLE dbo.petty_cash_requests ADD travel_details NVARCHAR(MAX) NULL;
     END;
   `;
   await pool.request().query(sqlText);
@@ -1046,7 +1115,8 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       currency,
       description,
       dateOfPurchase,
-      location
+      location,
+      travelDetails
     } = req.body || {};
 
     console.log('Extracted fields:', {
@@ -1058,7 +1128,8 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       currency,
       description,
       dateOfPurchase,
-      location
+      location,
+      travelDetails: travelDetails ? 'present' : 'not present'
     });
 
     if (!employeeName || !employeeEmail || !category || !amount) {
@@ -1067,6 +1138,10 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     }
 
     const pool = await poolPromise;
+    
+    // Ensure travel_details column exists
+    await ensureTravelDetailsColumn(pool);
+    
     const request = pool.request()
       .input('employeeName', sql.NVarChar(200), String(employeeName))
       .input('employeeEmail', sql.NVarChar(320), String(employeeEmail))
@@ -1079,6 +1154,67 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       // FIX: Map description field from frontend to reason field in the database
       .input('reason', sql.NVarChar(sql.MAX), description ? String(description) : null)
       .input('status', sql.VarChar(20), 'pending');
+
+    // Handle travel details - parse if string, stringify if object, and validate structure
+    let travelDetailsJson = null;
+    if (travelDetails) {
+      try {
+        // If travelDetails is a string, parse it first to validate JSON
+        const travelDetailsObj = typeof travelDetails === 'string' 
+          ? JSON.parse(travelDetails) 
+          : travelDetails;
+        
+        // Validate travel details structure
+        if (travelDetailsObj && typeof travelDetailsObj === 'object') {
+          // Check if it has at least one of flight or accommodation
+          const hasValidStructure = 
+            (travelDetailsObj.flight && typeof travelDetailsObj.flight === 'object') ||
+            (travelDetailsObj.accommodation && typeof travelDetailsObj.accommodation === 'object');
+          
+          if (!hasValidStructure) {
+            console.error('Invalid travel details structure - missing flight or accommodation');
+            return res.status(400).json({ 
+              message: 'Invalid travel details structure. Must contain at least flight or accommodation data.' 
+            });
+          }
+          
+          // Validate flight structure if present
+          if (travelDetailsObj.flight) {
+            const flight = travelDetailsObj.flight;
+            const requiredFlightFields = ['airline', 'origin', 'destination', 'departureTime', 'price'];
+            const missingFlightFields = requiredFlightFields.filter(field => !flight[field]);
+            
+            if (missingFlightFields.length > 0) {
+              console.error('Missing required flight fields:', missingFlightFields);
+              return res.status(400).json({ 
+                message: `Invalid flight data. Missing required fields: ${missingFlightFields.join(', ')}` 
+              });
+            }
+          }
+          
+          // Validate accommodation structure if present
+          if (travelDetailsObj.accommodation) {
+            const accommodation = travelDetailsObj.accommodation;
+            const requiredAccommodationFields = ['name', 'checkInDate', 'checkOutDate', 'totalPrice'];
+            const missingAccommodationFields = requiredAccommodationFields.filter(field => !accommodation[field]);
+            
+            if (missingAccommodationFields.length > 0) {
+              console.error('Missing required accommodation fields:', missingAccommodationFields);
+              return res.status(400).json({ 
+                message: `Invalid accommodation data. Missing required fields: ${missingAccommodationFields.join(', ')}` 
+              });
+            }
+          }
+        }
+        
+        travelDetailsJson = JSON.stringify(travelDetailsObj);
+        console.log('Travel details validated and processed:', travelDetailsJson);
+      } catch (e) {
+        console.error('Error parsing travel details:', e);
+        return res.status(400).json({ message: 'Invalid travel details format. Must be valid JSON.' });
+      }
+    }
+    request.input('travelDetails', sql.NVarChar(sql.MAX), travelDetailsJson);
 
     let attachmentPaths = [];
     if (req.files && req.files.length > 0) {
@@ -1095,9 +1231,9 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
 
     console.log('About to execute SQL insert...');
     const insertSql = `
-      INSERT INTO petty_cash_requests (employee_name, employee_email, company_name, category_name, amount, currency, location, status, reason, created_at, approved_at, rejected_at, attachments, date_of_purchase)
+      INSERT INTO petty_cash_requests (employee_name, employee_email, company_name, category_name, amount, currency, location, status, reason, created_at, approved_at, rejected_at, attachments, date_of_purchase, travel_details)
       OUTPUT INSERTED.*
-      VALUES (@employeeName, @employeeEmail, @company, @category, @amount, @currency, @location, @status, @reason, SYSUTCDATETIME(), NULL, NULL, @attachments, @dateOfPurchase)
+      VALUES (@employeeName, @employeeEmail, @company, @category, @amount, @currency, @location, @status, @reason, SYSUTCDATETIME(), NULL, NULL, @attachments, @dateOfPurchase, @travelDetails)
     `;
 
     const result = await request.query(insertSql);

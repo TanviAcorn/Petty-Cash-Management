@@ -59,6 +59,7 @@ const categoryRoutes = require("./src/routes/categories");
 const requestRoutes = require("./src/routes/requests");
 const healthRoutes = require("./src/routes/health");
 const locationRoutes = require("./src/routes/locations");
+const travelRoutes = require("./src/routes/travel");
 
 // ✅ use it once
 app.use("/api/users", userRoutes);
@@ -67,6 +68,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/health", healthRoutes);
 app.use("/api/locations", locationRoutes);
+app.use("/api/travel", travelRoutes);
 
 // Static file hosting for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
