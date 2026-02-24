@@ -362,15 +362,9 @@ function buildPaymentInitiatedEmail({ request, payment }) {
               <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${request.amount} ${request.currency || 'GBP'}</td>
             </tr>
             <tr>
-              <td style="padding: 12px 16px; ${request.attachments ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #6b7280; font-size: 13px;">Description</td>
-              <td style="padding: 12px 16px; ${request.attachments ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #111827; font-size: 14px;">${request.reason || request.description || '-'}</td>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Description</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${request.reason || request.description || '-'}</td>
             </tr>
-            ${request.attachments ? `
-            <tr>
-              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Attachments</td>
-              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${request.attachments.split(',').length} file(s) attached</td>
-            </tr>
-            ` : ''}
           </table>
           
           <!-- Payment Details -->
