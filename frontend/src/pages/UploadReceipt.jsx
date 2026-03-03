@@ -198,9 +198,9 @@ const UploadReceipt = () => {
 
       // Use alert for success message from backend
       alert(response.data.message || 'Receipts uploaded successfully!');
-      setTimeout(() => {
-        navigate(user?.role === 'Admin' ? '/dashboard' : '/my-requests');
-      }, 1500);
+      
+      // Reload the page to show updated status
+      window.location.reload();
 
     } catch (err) {
       console.error('Error details:', {
