@@ -49,7 +49,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 // Use getFileUrl from axiosClient for all file URLs
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-const fmtMoney = (n, currency = 'USD') =>
+const fmtMoney = (n, currency = 'GBP') =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
 
 const statusChip = (status) => {
@@ -114,7 +114,7 @@ export default function RequestReview() {
       // Use the same formatting as in the onBlur handler
       const numValue = parseFloat(req.amount);
       if (!isNaN(numValue)) {
-        setPayAmount(fmtMoney(numValue, req.currency || 'USD'));
+        setPayAmount(fmtMoney(numValue, req.currency || 'GBP'));
       } else {
         setPayAmount('');
       }
@@ -392,8 +392,8 @@ export default function RequestReview() {
 
   if (!req) return null;
 
-  // Use the currency from the request data, default to 'USD' if not available
-  const currency = req.currency || 'USD';
+  // Use the currency from the request data, default to 'GBP' if not available
+  const currency = req.currency || 'GBP';
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', width: '100%' }}>
@@ -606,7 +606,7 @@ export default function RequestReview() {
                     Currency
                   </Typography>
                   <Typography fontWeight={600}>
-                    {req.currency || 'USD'} ({new Intl.NumberFormat(undefined, { style: 'currency', currency: req.currency || 'USD' }).format(1).replace(/[0-9.,\s]/g, '')})
+                    {req.currency || 'GBP'} ({new Intl.NumberFormat(undefined, { style: 'currency', currency: req.currency || 'GBP' }).format(1).replace(/[0-9.,\s]/g, '')})
                   </Typography>
                 </Box>
                 <Box>
@@ -1067,7 +1067,7 @@ export default function RequestReview() {
                   // Format the number with the request's currency when input loses focus
                   const numValue = parseFloat(e.target.value.replace(/[^0-9.]/g, ''));
                   if (!isNaN(numValue)) {
-                    setPayAmount(fmtMoney(numValue, req.currency || 'USD'));
+                    setPayAmount(fmtMoney(numValue, req.currency || 'GBP'));
                   }
                 }}
                 readOnly={!!req?.amount}

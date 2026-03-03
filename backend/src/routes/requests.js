@@ -120,6 +120,7 @@ router.get('/payments/list', async (req, res) => {
         r.category_name AS category,
         r.location,
         r.amount,
+        r.currency,
         r.status AS requestStatus
       FROM petty_cash_payments p
       JOIN petty_cash_requests r ON r.id = p.request_id

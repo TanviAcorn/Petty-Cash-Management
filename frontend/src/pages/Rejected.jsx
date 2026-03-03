@@ -36,10 +36,7 @@ import axiosClient from '../api/axiosClient';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../contexts/AuthContext';
-
-// Helper to format currency consistently
-const formatCurrency = (value, currency = 'USD') =>
-  new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(value || 0));
+import { formatCurrency } from '../utils/currency';
 
 const timeRanges = [
   { label: 'All Time', value: 'all' },
@@ -364,7 +361,7 @@ const Rejected = () => {
                       <TableCell>{r.company}</TableCell>
                       <TableCell>{r.location}</TableCell>
                       <TableCell align="right" sx={{ color: 'error.main', fontWeight: 700 }}>
-                        {formatCurrency(r.amount)}
+                        {formatCurrency(r.amount, r.currency)}
                       </TableCell>
                       <TableCell sx={{ maxWidth: 360 }}>
                         <Typography sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>

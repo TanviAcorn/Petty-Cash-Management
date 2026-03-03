@@ -55,7 +55,7 @@ const FILE_BASE = (() => {
   }
 })();
 
-const fmtMoney = (n, currency = 'USD') =>
+const fmtMoney = (n, currency = 'GBP') =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
 
 const statusChip = (status) => {
@@ -273,7 +273,7 @@ const UploadReceipt = () => {
                   <Box>
                     <Typography variant="caption" color="text.secondary">Amount</Typography>
                     <Typography variant="h6" fontWeight={800} sx={{ color: 'success.main' }}>
-                      {fmtMoney(request.amount, request.currency || 'USD')}
+                      {fmtMoney(request.amount, request.currency || 'GBP')}
                     </Typography>
                   </Box>
                 </Grid>
@@ -338,7 +338,7 @@ const UploadReceipt = () => {
                           <TableCell>{pay.paidDate ? new Date(pay.paidDate).toLocaleString() : '-'}</TableCell>
                           <TableCell>{pay.method || 'N/A'}</TableCell>
                           <TableCell>{pay.reference || '-'}</TableCell>
-                          <TableCell>{fmtMoney(pay.paidAmount || request.amount, request.currency || 'USD')}</TableCell>
+                          <TableCell>{fmtMoney(pay.paidAmount || request.amount, request.currency || 'GBP')}</TableCell>
                           <TableCell>
                             <Chip
                               size="small"

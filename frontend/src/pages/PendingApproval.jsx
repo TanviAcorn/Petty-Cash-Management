@@ -98,7 +98,7 @@ const PendingApproval = () => {
       const amountValue = Number(amount) || 0;
       
       // Get a safe currency code with fallbacks
-      let safeCurrency = 'USD'; // Default fallback
+      let safeCurrency = 'GBP'; // Default fallback
       if (currency && typeof currency === 'string' && currency.trim() !== '') {
         const trimmedCurrency = currency.trim().toUpperCase();
         // Only use the provided currency if it's a valid ISO 4217 currency code (basic check)
@@ -117,7 +117,7 @@ const PendingApproval = () => {
     } catch (error) {
       console.error('Error formatting currency:', error, { amount, currency });
       // Fallback to basic formatting if Intl.NumberFormat fails
-      return `$${(Number(amount) || 0).toFixed(2)}`;
+      return `£${(Number(amount) || 0).toFixed(2)}`;
     }
   };
 

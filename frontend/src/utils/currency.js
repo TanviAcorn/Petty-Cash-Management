@@ -1,16 +1,16 @@
 /**
  * Formats a number as a currency string with proper error handling
  * @param {number|string} amount - The amount to format
- * @param {string} [currency='USD'] - The currency code (defaults to USD)
+ * @param {string} [currency='GBP'] - The currency code (defaults to GBP)
  * @returns {string} Formatted currency string
  */
-export const formatCurrency = (amount, currency = 'USD') => {
+export const formatCurrency = (amount, currency = 'GBP') => {
   try {
     // Ensure amount is a valid number
     const amountValue = Number(amount) || 0;
     
     // Get a safe currency code with fallbacks
-    let safeCurrency = 'USD'; // Default fallback
+    let safeCurrency = 'GBP'; // Default fallback
     if (currency && typeof currency === 'string' && currency.trim() !== '') {
       const trimmedCurrency = currency.trim().toUpperCase();
       // Only use the provided currency if it's a valid ISO 4217 currency code (basic check)
@@ -29,18 +29,18 @@ export const formatCurrency = (amount, currency = 'USD') => {
   } catch (error) {
     console.error('Error formatting currency:', error, { amount, currency });
     // Fallback to basic formatting if Intl.NumberFormat fails
-    return `$${(Number(amount) || 0).toFixed(2)}`;
+    return `£${(Number(amount) || 0).toFixed(2)}`;
   }
 };
 
 /**
  * Gets the currency symbol for a given currency code
- * @param {string} [currency='USD'] - The currency code
+ * @param {string} [currency='GBP'] - The currency code
  * @returns {string} The currency symbol
  */
-export const getCurrencySymbol = (currency = 'USD') => {
+export const getCurrencySymbol = (currency = 'GBP') => {
   try {
-    let safeCurrency = 'USD';
+    let safeCurrency = 'GBP';
     if (currency && typeof currency === 'string' && currency.trim() !== '') {
       const trimmedCurrency = currency.trim().toUpperCase();
       if (/^[A-Z]{3}$/.test(trimmedCurrency)) {
@@ -57,6 +57,6 @@ export const getCurrencySymbol = (currency = 'USD') => {
       .replace(/[0-9.,\s]/g, '');
   } catch (error) {
     console.error('Error getting currency symbol:', error, { currency });
-    return '$';
+    return '£';
   }
 };
