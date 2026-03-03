@@ -264,15 +264,16 @@ const Approved = () => {
       });
       setSelectedRequests([]);
       
-      // Refresh data
-      fetchData();
+      // Reload page after a short delay to show the success message
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (error) {
       console.error('Error sending bulk payment:', error);
       setBulkPaymentMessage({ 
         type: 'error', 
         text: error.response?.data?.message || 'Failed to send bulk payment notification' 
       });
-    } finally {
       setSendingBulkPayment(false);
     }
   };
