@@ -24,9 +24,7 @@ import axios from 'axios';
 import { useSnackbar } from 'notistack';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../contexts/AuthContext';
-
-const formatCurrency = (value) =>
-  new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(value || 0));
+import { formatCurrency } from '../utils/currency';
 
 export default function Payments() {
   const { user } = useAuth();
@@ -187,7 +185,7 @@ export default function Payments() {
                       </TableCell>
                       <TableCell>{p.company || '-'}</TableCell>
                       <TableCell>{p.category || '-'}</TableCell>
-                      <TableCell>{formatCurrency(p.paidAmount || p.amount)}</TableCell>
+                      <TableCell>{formatCurrency(p.paidAmount || p.amount, p.currency)}</TableCell>
                       <TableCell>{p.method}</TableCell>
                       <TableCell>{p.reference || '-'}</TableCell>
                       <TableCell>{statusChip(p.status)}</TableCell>

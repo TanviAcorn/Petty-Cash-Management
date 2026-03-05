@@ -264,15 +264,16 @@ const Approved = () => {
       });
       setSelectedRequests([]);
       
-      // Refresh data
-      fetchData();
+      // Reload page after a short delay to show the success message
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (error) {
       console.error('Error sending bulk payment:', error);
       setBulkPaymentMessage({ 
         type: 'error', 
         text: error.response?.data?.message || 'Failed to send bulk payment notification' 
       });
-    } finally {
       setSendingBulkPayment(false);
     }
   };
@@ -511,7 +512,7 @@ const Approved = () => {
                         <TableCell>{request.category || 'N/A'}</TableCell>
                         <TableCell>{request.company || 'N/A'}</TableCell>
                         <TableCell>{request.location || 'N/A'}</TableCell>
-                        <TableCell align="right">{formatCurrency(request.amount || 0)}</TableCell>
+                        <TableCell align="right">{formatCurrency(request.amount || 0, request.currency)}</TableCell>
                         <TableCell>
                           {pay ? (
                             <Chip size="small" color={String(pay.status).toLowerCase()==='done' ? 'success' : 'warning'} label={String(pay.status).toLowerCase()==='done' ? 'Payment Done' : 'Payment Pending'} />

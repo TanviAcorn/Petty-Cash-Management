@@ -120,6 +120,7 @@ router.get('/payments/list', async (req, res) => {
         r.category_name AS category,
         r.location,
         r.amount,
+        r.currency,
         r.status AS requestStatus
       FROM petty_cash_payments p
       JOIN petty_cash_requests r ON r.id = p.request_id
@@ -974,10 +975,16 @@ router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments',
         // Don't fail the whole request if email fails
       }
   
+      // Fetch the updated request to return to frontend
+      const updatedRequest = await pool.request()
+        .input('id', sql.Int, id)
+        .query('SELECT * FROM petty_cash_requests WHERE id = @id');
+  
       return res.json({ 
         success: true,
         message: 'Payment initiated and team notified',
-        attachmentsProcessed: paymentProofAttachments.length
+        attachmentsProcessed: paymentProofAttachments.length,
+        data: updatedRequest.recordset?.[0]
       });
     } catch (err) {
       console.error('Error in proceed-payment:', err);
@@ -1000,6 +1007,9 @@ router.post('/bulk-payment', async (req, res) => {
 
     const pool = await poolPromise;
     
+    // Ensure payments schema is present
+    await ensurePaymentsSchema(pool);
+    
     // Fetch all requests
     const placeholders = requestIds.map((_, i) => `@id${i}`).join(',');
     const request = pool.request();
@@ -1021,6 +1031,42 @@ router.post('/bulk-payment', async (req, res) => {
     
     if (requests.length === 0) {
       return res.status(404).json({ message: 'No approved requests found' });
+    }
+    
+    // Create payment records and update status for each request
+    for (const req of requests) {
+      try {
+        await pool.request()
+          .input('requestId', sql.Int, req.id)
+          .input('method', sql.NVarChar(100), 'Bulk Payment')
+          .input('reference', sql.NVarChar(200), null)
+          .input('paidAmount', sql.Decimal(18,2), req.amount)
+          .input('paidDate', sql.DateTime2, new Date())
+          .input('notes', sql.NVarChar(sql.MAX), 'Sent via bulk payment')
+          .input('createdByEmail', sql.NVarChar(320), null)
+          .input('attachments', sql.NVarChar(sql.MAX), null)
+          .query(`
+            BEGIN TRANSACTION;
+            
+            -- Insert payment record
+            INSERT INTO petty_cash_payments 
+              (request_id, method, reference, paid_amount, paid_date, notes, status, created_by_email, sent_to_payment, attachments)
+            VALUES 
+              (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'processed', @createdByEmail, 1, @attachments);
+            
+            -- Update request status to processed
+            UPDATE petty_cash_requests 
+            SET status = 'processed'
+            WHERE id = @requestId;
+            
+            COMMIT TRANSACTION;
+          `);
+        
+        console.log(`Created payment record and updated status for request ${req.id}`);
+      } catch (err) {
+        console.error(`Error creating payment record for request ${req.id}:`, err);
+        // Continue with other requests even if one fails
+      }
     }
     
     // Group requests by company

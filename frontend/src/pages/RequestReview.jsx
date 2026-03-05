@@ -49,7 +49,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 // Use getFileUrl from axiosClient for all file URLs
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-const fmtMoney = (n, currency = 'USD') =>
+const fmtMoney = (n, currency = 'GBP') =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
 
 const statusChip = (status) => {
@@ -114,7 +114,7 @@ export default function RequestReview() {
       // Use the same formatting as in the onBlur handler
       const numValue = parseFloat(req.amount);
       if (!isNaN(numValue)) {
-        setPayAmount(fmtMoney(numValue, req.currency || 'USD'));
+        setPayAmount(fmtMoney(numValue, req.currency || 'GBP'));
       } else {
         setPayAmount('');
       }
@@ -253,15 +253,10 @@ export default function RequestReview() {
         severity: 'success' 
       });
       
-      // Refresh payments data if needed
-      if (next === 'approved') {
-        try {
-          const payRes = await axiosClient.get(`/requests/${id}/payments`);
-          setPayments(Array.isArray(payRes?.data?.data) ? payRes.data.data : []);
-        } catch (e) {
-          console.error('Error refreshing payments:', e);
-        }
-      }
+      // Reload page after a short delay to show the success message
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (e) {
       console.error('Error updating request status:', e);
       setToast({ 
@@ -269,7 +264,6 @@ export default function RequestReview() {
         message: e?.response?.data?.message || e.message || `Failed to ${next} request`,
         severity: 'error' 
       });
-    } finally {
       setSubmitting(false);
     }
   };
@@ -299,14 +293,27 @@ export default function RequestReview() {
       });
       
       setReq(data?.data || data);
+      
+      // Refresh payments list to show the new payment record
+      try {
+        const payRes = await axiosClient.get(`/requests/${id}/payments`);
+        setPayments(Array.isArray(payRes?.data?.data) ? payRes.data.data : []);
+      } catch (payErr) {
+        console.error('Error refreshing payments:', payErr);
+      }
+      
       setToast({ open: true, message: 'Payment initiated and team notified with attachments', severity: 'success' });
       setPayOpen(false);
       setPayNotes('');
       setPayReference('');
       setAttachments([]);
+      
+      // Reload page after a short delay to show the success message
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (e) {
       setToast({ open: true, message: e?.response?.data?.message || e.message || 'Failed to proceed payment', severity: 'error' });
-    } finally {
       setSubmitting(false);
     }
   };
@@ -327,9 +334,13 @@ export default function RequestReview() {
       setIcOpen(false);
       setIcNote('');
       setTargetCompany('');
+      
+      // Reload page after a short delay to show the success message
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (e) {
       setToast({ open: true, message: e?.response?.data?.message || e.message || 'Failed to transfer', severity: 'error' });
-    } finally {
       setSubmitting(false);
     }
   };
@@ -349,9 +360,13 @@ export default function RequestReview() {
       setReq(data?.data || data);
       setEditMode(false);
       setToast({ open: true, message: 'Request updated successfully', severity: 'success' });
+      
+      // Reload page after a short delay to show the success message
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (e) {
       setToast({ open: true, message: e?.response?.data?.message || e.message || 'Failed to update request', severity: 'error' });
-    } finally {
       setSubmitting(false);
     }
   };
@@ -392,8 +407,8 @@ export default function RequestReview() {
 
   if (!req) return null;
 
-  // Use the currency from the request data, default to 'USD' if not available
-  const currency = req.currency || 'USD';
+  // Use the currency from the request data, default to 'GBP' if not available
+  const currency = req.currency || 'GBP';
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', width: '100%' }}>
@@ -606,7 +621,7 @@ export default function RequestReview() {
                     Currency
                   </Typography>
                   <Typography fontWeight={600}>
-                    {req.currency || 'USD'} ({new Intl.NumberFormat(undefined, { style: 'currency', currency: req.currency || 'USD' }).format(1).replace(/[0-9.,\s]/g, '')})
+                    {req.currency || 'GBP'} ({new Intl.NumberFormat(undefined, { style: 'currency', currency: req.currency || 'GBP' }).format(1).replace(/[0-9.,\s]/g, '')})
                   </Typography>
                 </Box>
                 <Box>
@@ -670,9 +685,13 @@ export default function RequestReview() {
                         const payRes = await axiosClient.get(`/requests/${id}/payments`);
                         setPayments(Array.isArray(payRes?.data?.data) ? payRes.data.data : []);
                         setToast({ open: true, message: 'Payment marked as done', severity: 'success' });
+                        
+                        // Reload page after a short delay to show the success message
+                        setTimeout(() => {
+                          window.location.reload();
+                        }, 1000);
                       } catch(err){
                         setToast({ open: true, message: err?.response?.data?.message || err.message || 'Failed to upload receipt', severity: 'error' });
-                      } finally {
                         setReceiptUploading(false);
                         e.target.value = '';
                       }
@@ -1172,7 +1191,7 @@ export default function RequestReview() {
                   // Format the number with the request's currency when input loses focus
                   const numValue = parseFloat(e.target.value.replace(/[^0-9.]/g, ''));
                   if (!isNaN(numValue)) {
-                    setPayAmount(fmtMoney(numValue, req.currency || 'USD'));
+                    setPayAmount(fmtMoney(numValue, req.currency || 'GBP'));
                   }
                 }}
                 readOnly={!!req?.amount}
