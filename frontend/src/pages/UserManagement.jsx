@@ -1,6 +1,6 @@
 // src/pages/UserManagement.jsx
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import axiosClient from "../api/axiosClient";
 import Pagination from '../components/Pagination';
 
@@ -24,7 +24,6 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Select,
   MenuItem,
   Typography,
   Chip,
@@ -46,6 +45,7 @@ import {
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // Add separate state for all users (for L1 Manager dropdown)
   const [open, setOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -64,6 +64,7 @@ const UserManagement = () => {
     role: "User",
     company: "",
     department: "",
+    l1ManagerId: "", // Add L1 Manager field
   });
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -82,6 +83,11 @@ const UserManagement = () => {
       
       const res = await axiosClient.get("/users", { params });
       const usersList = Array.isArray(res.data?.data || res.data) ? (res.data.data || res.data) : [];
+      console.log('Fetched users:', usersList.length, 'users');
+      const user65 = usersList.find(u => u.id === 65);
+      if (user65) {
+        console.log('User 65 full data:', JSON.stringify(user65, null, 2));
+      }
       setUsers(usersList);
       
       // Update pagination state if pagination data is available
@@ -115,8 +121,31 @@ const UserManagement = () => {
     fetchCompanies();
   }, []);
 
+  // Fetch ALL users for L1 Manager dropdown (without pagination)
+  const fetchAllUsers = useCallback(async () => {
+    try {
+      const response = await axiosClient.get('/users', { 
+        params: { 
+          page: 1, 
+          limit: 1000 // Get a large number to include all users
+        } 
+      });
+      const usersList = Array.isArray(response.data?.data) ? response.data.data : [];
+      setAllUsers(usersList);
+    } catch (error) {
+      console.error('Failed to fetch all users:', error);
+      setAllUsers([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAllUsers();
+  }, [fetchAllUsers]);
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    console.log(`Field changed: ${name} = ${value} (type: ${typeof value})`); // Debug log
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleAddUser = () => {
@@ -129,6 +158,7 @@ const UserManagement = () => {
       role: "User",
       company: "",
       department: "",
+      l1ManagerId: "", // Reset L1 Manager
     });
     setOpen(true);
   };
@@ -146,12 +176,23 @@ const UserManagement = () => {
       lastName = nameParts.slice(1).join(' ') || '';
     }
     
-    // Set form data with split names
+    // Convert l1ManagerId to string for the dropdown (MUI Select expects string values)
+    const l1ManagerIdValue = user.l1ManagerId ? String(user.l1ManagerId) : '';
+    
+    console.log('Editing user:', { 
+      userId: user.id, 
+      l1ManagerId: user.l1ManagerId, 
+      l1ManagerIdValue,
+      l1ManagerName: user.l1ManagerName 
+    });
+    
+    // Set form data with split names and L1 Manager
     setFormData({
       ...user,
       firstName,
       lastName,
       password: '', // Clear password for security
+      l1ManagerId: l1ManagerIdValue, // Include L1 Manager as string
     });
     
     setOpen(true);
@@ -166,18 +207,55 @@ const UserManagement = () => {
         if (!dataToUpdate.password) {
           delete dataToUpdate.password;
         }
+        
+        console.log('Before conversion - l1ManagerId:', dataToUpdate.l1ManagerId, 'Type:', typeof dataToUpdate.l1ManagerId);
+        
+        // Convert l1ManagerId to number or null
+        if (dataToUpdate.l1ManagerId && dataToUpdate.l1ManagerId !== '') {
+          dataToUpdate.l1ManagerId = parseInt(dataToUpdate.l1ManagerId, 10);
+          console.log('After conversion - l1ManagerId:', dataToUpdate.l1ManagerId, 'Type:', typeof dataToUpdate.l1ManagerId);
+        } else {
+          dataToUpdate.l1ManagerId = null;
+          console.log('Set l1ManagerId to null');
+        }
+        
+        console.log('Updating user with data:', JSON.stringify(dataToUpdate, null, 2));
         await axiosClient.put(`/users/${editingUser.id}`, dataToUpdate);
+        console.log('Update successful, refreshing user list...');
       } else {
         // For creating, password is required
-        await axiosClient.post("/users", formData);
+        const dataToCreate = { ...formData };
+        
+        console.log('Before conversion - l1ManagerId:', dataToCreate.l1ManagerId, 'Type:', typeof dataToCreate.l1ManagerId);
+        
+        // Convert l1ManagerId to number or null
+        if (dataToCreate.l1ManagerId && dataToCreate.l1ManagerId !== '') {
+          dataToCreate.l1ManagerId = parseInt(dataToCreate.l1ManagerId, 10);
+          console.log('After conversion - l1ManagerId:', dataToCreate.l1ManagerId, 'Type:', typeof dataToCreate.l1ManagerId);
+        } else {
+          dataToCreate.l1ManagerId = null;
+          console.log('Set l1ManagerId to null');
+        }
+        
+        console.log('Creating user with data:', JSON.stringify(dataToCreate, null, 2));
+        await axiosClient.post("/users", dataToCreate);
+        console.log('Create successful, refreshing user list...');
       }
+      
+      // Close dialog first
       setOpen(false);
       setEditingUser(null);
-      fetchUsers();
+      
+      // Force refresh both user lists
+      await fetchUsers(pagination.currentPage, pagination.itemsPerPage);
+      await fetchAllUsers();
+      
+      console.log('User lists refreshed successfully');
     } catch (error) {
       console.error("Failed to save user:", error);
-      // You can add logic here to display an error message to the user
-      // e.g., if (error.response?.status === 400) { alert(error.response.data.message); }
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      alert(`Failed to save user: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -185,7 +263,8 @@ const UserManagement = () => {
     if (window.confirm("Are you sure you want to delete this user?")) {
       try {
         await axiosClient.delete(`/users/${id}`);
-        fetchUsers();
+        fetchUsers(); // Refresh paginated list
+        fetchAllUsers(); // Refresh all users list
       } catch (error) {
         console.error("Failed to delete user:", error);
       }
@@ -294,13 +373,14 @@ const UserManagement = () => {
                   <TableCell>Role</TableCell>
                   <TableCell>Company</TableCell>
                   <TableCell>Department</TableCell>
+                  <TableCell>L1 Manager</TableCell>
                   <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                       No users found
                     </TableCell>
                   </TableRow>
@@ -323,6 +403,7 @@ const UserManagement = () => {
                       </TableCell>
                       <TableCell>{u.company}</TableCell>
                       <TableCell>{u.department}</TableCell>
+                      <TableCell>{u.l1ManagerName || '-'}</TableCell>
                       <TableCell align="center">
                         <IconButton color="primary" onClick={() => handleEdit(u)}>
                           <Edit />
@@ -351,10 +432,10 @@ const UserManagement = () => {
         loading={loading}
       />
 
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>{editingUser ? "Edit User" : "Create New User"}</DialogTitle>
         <DialogContent dividers>
-          <Grid container spacing={2}>
+          <Grid container spacing={3}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -400,35 +481,37 @@ const UserManagement = () => {
               </Grid>
             )}
             <Grid item xs={12}>
-              <Select
+              <TextField
                 fullWidth
+                select
                 name="role"
+                label="Role *"
                 value={formData.role}
                 onChange={handleChange}
-                displayEmpty
               >
                 <MenuItem value="User">User</MenuItem>
                 <MenuItem value="Admin">Admin</MenuItem>
                 <MenuItem value="Payment">Payment</MenuItem>
-              </Select>
+              </TextField>
             </Grid>
             <Grid item xs={12}>
-              <Select
+              <TextField
                 fullWidth
+                select
                 name="company"
-                value={formData.company}
+                label="Company"
+                value={formData.company || ""}
                 onChange={handleChange}
-                displayEmpty
               >
                 <MenuItem value="">
                   <em>Select Company</em>
                 </MenuItem>
-                {companies.map((company) => (
+                {Array.isArray(companies) && companies.map((company) => (
                   <MenuItem key={company.id} value={company.name}>
                     {company.name}
                   </MenuItem>
                 ))}
-              </Select>
+              </TextField>
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -438,6 +521,32 @@ const UserManagement = () => {
                 value={formData.department}
                 onChange={handleChange}
               />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                select
+                name="l1ManagerId"
+                label="L1 Manager (Optional)"
+                value={formData.l1ManagerId || ""}
+                onChange={handleChange}
+                helperText={
+                  formData.l1ManagerId 
+                    ? `Selected Manager ID: ${formData.l1ManagerId} (${allUsers.find(u => String(u.id) === String(formData.l1ManagerId))?.name || 'Unknown'})` 
+                    : 'No manager selected'
+                }
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {Array.isArray(allUsers) && allUsers
+                  .filter(user => user.id !== editingUser?.id) // Don't allow user to be their own manager
+                  .map((user) => (
+                    <MenuItem key={user.id} value={String(user.id)}>
+                      {user.name} ({user.email}) - ID: {user.id}
+                    </MenuItem>
+                  ))}
+              </TextField>
             </Grid>
           </Grid>
         </DialogContent>

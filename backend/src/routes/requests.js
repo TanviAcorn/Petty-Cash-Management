@@ -1162,8 +1162,12 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       description,
       dateOfPurchase,
       location,
-      travelDetails
+      travelDetails,
+      travelFormData // Also accept travelFormData from frontend
     } = req.body || {};
+    
+    // Use travelFormData if travelDetails is not provided
+    const travelData = travelDetails || travelFormData;
 
     console.log('Extracted fields:', {
       employeeName,
@@ -1175,7 +1179,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       description,
       dateOfPurchase,
       location,
-      travelDetails: travelDetails ? 'present' : 'not present'
+      travelData: travelData ? 'present' : 'not present'
     });
 
     if (!employeeName || !employeeEmail || !category || !amount) {
@@ -1188,6 +1192,25 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     // Ensure travel_details column exists
     await ensureTravelDetailsColumn(pool);
     
+    // Check if user has an L1 manager for travel requests
+    let l1ManagerId = null;
+    let initialStatus = 'pending'; // Default to admin approval
+    
+    if (category === 'Travel Request') {
+      console.log('Travel request detected, checking for L1 manager...');
+      const userResult = await pool.request()
+        .input('email', sql.NVarChar(320), employeeEmail)
+        .query('SELECT l1_manager_id FROM petty_Users WHERE email = @email');
+      
+      if (userResult.recordset.length > 0 && userResult.recordset[0].l1_manager_id) {
+        l1ManagerId = userResult.recordset[0].l1_manager_id;
+        initialStatus = 'pending_l1'; // Route to L1 manager first
+        console.log(`L1 manager found: ${l1ManagerId}, setting status to pending_l1`);
+      } else {
+        console.log('No L1 manager assigned, routing directly to admin');
+      }
+    }
+    
     const request = pool.request()
       .input('employeeName', sql.NVarChar(200), String(employeeName))
       .input('employeeEmail', sql.NVarChar(320), String(employeeEmail))
@@ -1199,62 +1222,36 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
       .input('location', sql.NVarChar(200), location ? String(location) : null)
       // FIX: Map description field from frontend to reason field in the database
       .input('reason', sql.NVarChar(sql.MAX), description ? String(description) : null)
-      .input('status', sql.VarChar(20), 'pending');
+      .input('status', sql.VarChar(20), initialStatus)
+      .input('l1ManagerId', sql.Int, l1ManagerId);
 
     // Handle travel details - parse if string, stringify if object, and validate structure
     let travelDetailsJson = null;
-    if (travelDetails) {
+    if (travelData) {
       try {
-        // If travelDetails is a string, parse it first to validate JSON
-        const travelDetailsObj = typeof travelDetails === 'string' 
-          ? JSON.parse(travelDetails) 
-          : travelDetails;
+        // If travelData is a string, parse it first to validate JSON
+        const travelDetailsObj = typeof travelData === 'string' 
+          ? JSON.parse(travelData) 
+          : travelData;
         
         // Validate travel details structure
         if (travelDetailsObj && typeof travelDetailsObj === 'object') {
-          // Check if it has at least one of flight or accommodation
-          const hasValidStructure = 
-            (travelDetailsObj.flight && typeof travelDetailsObj.flight === 'object') ||
-            (travelDetailsObj.accommodation && typeof travelDetailsObj.accommodation === 'object');
-          
-          if (!hasValidStructure) {
-            console.error('Invalid travel details structure - missing flight or accommodation');
+          // Just check if it's a valid object with some data
+          if (Object.keys(travelDetailsObj).length === 0) {
+            console.error('Travel details object is empty');
             return res.status(400).json({ 
-              message: 'Invalid travel details structure. Must contain at least flight or accommodation data.' 
+              message: 'Travel details cannot be empty' 
             });
           }
           
-          // Validate flight structure if present
-          if (travelDetailsObj.flight) {
-            const flight = travelDetailsObj.flight;
-            const requiredFlightFields = ['airline', 'origin', 'destination', 'departureTime', 'price'];
-            const missingFlightFields = requiredFlightFields.filter(field => !flight[field]);
-            
-            if (missingFlightFields.length > 0) {
-              console.error('Missing required flight fields:', missingFlightFields);
-              return res.status(400).json({ 
-                message: `Invalid flight data. Missing required fields: ${missingFlightFields.join(', ')}` 
-              });
-            }
-          }
-          
-          // Validate accommodation structure if present
-          if (travelDetailsObj.accommodation) {
-            const accommodation = travelDetailsObj.accommodation;
-            const requiredAccommodationFields = ['name', 'checkInDate', 'checkOutDate', 'totalPrice'];
-            const missingAccommodationFields = requiredAccommodationFields.filter(field => !accommodation[field]);
-            
-            if (missingAccommodationFields.length > 0) {
-              console.error('Missing required accommodation fields:', missingAccommodationFields);
-              return res.status(400).json({ 
-                message: `Invalid accommodation data. Missing required fields: ${missingAccommodationFields.join(', ')}` 
-              });
-            }
-          }
+          travelDetailsJson = JSON.stringify(travelDetailsObj);
+          console.log('Travel details validated and processed');
+        } else {
+          console.error('Invalid travel details - not an object');
+          return res.status(400).json({ 
+            message: 'Invalid travel details format' 
+          });
         }
-        
-        travelDetailsJson = JSON.stringify(travelDetailsObj);
-        console.log('Travel details validated and processed:', travelDetailsJson);
       } catch (e) {
         console.error('Error parsing travel details:', e);
         return res.status(400).json({ message: 'Invalid travel details format. Must be valid JSON.' });
@@ -1277,9 +1274,9 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
 
     console.log('About to execute SQL insert...');
     const insertSql = `
-      INSERT INTO petty_cash_requests (employee_name, employee_email, company_name, category_name, amount, currency, location, status, reason, created_at, approved_at, rejected_at, attachments, date_of_purchase, travel_details)
+      INSERT INTO petty_cash_requests (employee_name, employee_email, company_name, category_name, amount, currency, location, status, reason, created_at, approved_at, rejected_at, attachments, date_of_purchase, travel_details, l1_manager_id, l1_approval_status)
       OUTPUT INSERTED.*
-      VALUES (@employeeName, @employeeEmail, @company, @category, @amount, @currency, @location, @status, @reason, SYSUTCDATETIME(), NULL, NULL, @attachments, @dateOfPurchase, @travelDetails)
+      VALUES (@employeeName, @employeeEmail, @company, @category, @amount, @currency, @location, @status, @reason, SYSUTCDATETIME(), NULL, NULL, @attachments, @dateOfPurchase, @travelDetails, @l1ManagerId, ${l1ManagerId ? "'pending'" : "NULL"})
     `;
 
     const result = await request.query(insertSql);

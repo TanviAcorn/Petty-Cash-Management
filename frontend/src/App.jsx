@@ -45,6 +45,7 @@ import RequestReview from "./pages/RequestReview";
 import UserRequestDetails from "./pages/UserRequestDetails";
 import Payments from "./pages/Payments";
 import UploadReceipt from "./pages/UploadReceipt";
+import L1TravelApprovals from "./pages/L1TravelApprovals";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
@@ -387,6 +388,12 @@ const App = () => {
             userInfo?.role === 'Payment' ?
             <Navigate to="/payments" replace /> :
             <NewRequest />
+          } />
+          
+          <Route path="/l1-approvals" element={
+            userInfo ? 
+            <L1TravelApprovals /> : 
+            <Navigate to="/login" replace />
           } />
           
           {/* Public Routes */}

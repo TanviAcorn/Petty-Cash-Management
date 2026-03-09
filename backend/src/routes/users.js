@@ -149,6 +149,32 @@ router.put("/change-password", async (req, res) => {
   }
 });
 
+// GET /api/users/managers - get all users who can be L1 managers
+router.get("/managers", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT id, firstName, lastName, email, role, company, department
+      FROM petty_Users
+      ORDER BY firstName, lastName
+    `);
+
+    const managers = result.recordset.map((u) => ({
+      id: u.id,
+      name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
+      email: u.email,
+      role: u.role,
+      company: u.company,
+      department: u.department
+    }));
+
+    res.json(managers);
+  } catch (err) {
+    console.error('Error fetching managers:', err);
+    res.status(500).json({ message: 'Failed to fetch managers' });
+  }
+});
+
 // GET /api/users - all users
 router.get("/", async (req, res) => {
   const { page = 1, limit = 10, search } = req.query;
@@ -179,11 +205,17 @@ router.get("/", async (req, res) => {
     const countResult = await countRequest.query(countQuery);
     const totalItems = countResult.recordset[0].total;
     
-    // Get paginated data
+    // Get paginated data with L1 manager info
     const dataQuery = `
-      SELECT * FROM petty_Users 
+      SELECT 
+        u.*,
+        m.firstName as l1ManagerFirstName,
+        m.lastName as l1ManagerLastName,
+        m.email as l1ManagerEmail
+      FROM petty_Users u
+      LEFT JOIN petty_Users m ON u.l1_manager_id = m.id
       ${whereClause}
-      ORDER BY id
+      ORDER BY u.id
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `;
     
@@ -196,18 +228,32 @@ router.get("/", async (req, res) => {
     const result = await dataRequest.query(dataQuery);
 
     // Map to expected structure for frontend
-    const users = result.recordset.map((u) => ({
-      id: u.id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
-      email: u.email,
-      role: u.role || 'User',
-      company: u.company || '',
-      department: u.department || '',
-      createdAt: u.createdAt || u.created_at,
-      updatedAt: u.updatedAt || u.updated_at
-    }));
+    const users = result.recordset.map((u) => {
+      console.log('Raw user from DB:', { 
+        id: u.id, 
+        firstName: u.firstName,
+        l1_manager_id: u.l1_manager_id,
+        l1ManagerFirstName: u.l1ManagerFirstName,
+        l1ManagerLastName: u.l1ManagerLastName
+      });
+      
+      return {
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
+        email: u.email,
+        role: u.role || 'User',
+        company: u.company || '',
+        department: u.department || '',
+        l1ManagerId: u.l1_manager_id,
+        l1ManagerName: u.l1ManagerFirstName && u.l1ManagerLastName 
+          ? `${u.l1ManagerFirstName} ${u.l1ManagerLastName}`.trim() 
+          : u.l1ManagerEmail || null,
+        createdAt: u.createdAt || u.created_at,
+        updatedAt: u.updatedAt || u.updated_at
+      };
+    });
 
     const totalPages = Math.ceil(totalItems / itemsPerPage);
 
@@ -230,7 +276,7 @@ router.get("/", async (req, res) => {
 // POST /api/users - create user
 router.post("/", async (req, res) => {
   try {
-    const { firstName, lastName, email, password, role, company, department } = req.body;
+    const { firstName, lastName, email, password, role, company, department, l1ManagerId } = req.body;
     const pool = await poolPromise;
     await pool
       .request()
@@ -241,9 +287,10 @@ router.post("/", async (req, res) => {
       .input("role", role)
       .input("company", company)
       .input("department", department)
+      .input("l1ManagerId", l1ManagerId || null)
       .query(
-        `INSERT INTO petty_Users (firstName, lastName, email, password, role, company, department)
-         VALUES (@firstName, @lastName, @email, @password, @role, @company, @department)`
+        `INSERT INTO petty_Users (firstName, lastName, email, password, role, company, department, l1_manager_id)
+         VALUES (@firstName, @lastName, @email, @password, @role, @company, @department, @l1ManagerId)`
       );
     res.status(201).send("User created");
   } catch (err) {
@@ -255,18 +302,36 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, password, role, company, department } = req.body;
+    const { firstName, lastName, email, password, role, company, department, l1ManagerId } = req.body;
+    
+    console.log('=== PUT /users/:id START ===');
+    console.log('User ID:', id);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('l1ManagerId received:', l1ManagerId, 'Type:', typeof l1ManagerId);
+    
+    // Convert l1ManagerId to proper type
+    let l1ManagerValue = null;
+    if (l1ManagerId !== null && l1ManagerId !== undefined && l1ManagerId !== '') {
+      l1ManagerValue = parseInt(l1ManagerId, 10);
+      console.log('Converted l1ManagerId to:', l1ManagerValue, 'Type:', typeof l1ManagerValue);
+    } else {
+      console.log('l1ManagerId is null/undefined/empty, setting to NULL');
+    }
+    
+    console.log('About to execute UPDATE query with l1_manager_id =', l1ManagerValue);
+    
     const pool = await poolPromise;
-    await pool
+    const updateResult = await pool
       .request()
-      .input("id", id)
-      .input("firstName", firstName)
-      .input("lastName", lastName)
-      .input("email", email)
-      .input("password", password ?? null)
-      .input("role", role)
-      .input("company", company)
-      .input("department", department)
+      .input("id", sql.Int, parseInt(id, 10))
+      .input("firstName", sql.NVarChar, firstName)
+      .input("lastName", sql.NVarChar, lastName)
+      .input("email", sql.NVarChar, email)
+      .input("password", sql.NVarChar, password ?? null)
+      .input("role", sql.NVarChar, role)
+      .input("company", sql.NVarChar, company)
+      .input("department", sql.NVarChar, department)
+      .input("l1ManagerId", sql.Int, l1ManagerValue)
       .query(
         `UPDATE petty_Users
          SET firstName = @firstName,
@@ -275,11 +340,75 @@ router.put("/:id", async (req, res) => {
              password = CASE WHEN @password IS NULL OR LTRIM(RTRIM(@password)) = '' THEN password ELSE @password END,
              role = @role,
              company = @company,
-             department = @department
+             department = @department,
+             l1_manager_id = @l1ManagerId
          WHERE id = @id`
       );
-    res.send("User updated");
+    
+    console.log('UPDATE executed. Rows affected:', updateResult.rowsAffected[0]);
+    
+    if (updateResult.rowsAffected[0] === 0) {
+      console.log('WARNING: No rows were updated!');
+    }
+    
+    // Verify the update by querying the database
+    console.log('Verifying update by querying database...');
+    const verifyResult = await pool
+      .request()
+      .input("userId", sql.Int, parseInt(id, 10))
+      .query('SELECT id, firstName, lastName, l1_manager_id FROM petty_Users WHERE id = @userId');
+    
+    if (verifyResult.recordset.length > 0) {
+      console.log('Database verification:', verifyResult.recordset[0]);
+    }
+    
+    // Fetch and return the updated user with manager info
+    const userResult = await pool
+      .request()
+      .input("userId", sql.Int, parseInt(id, 10))
+      .query(`
+        SELECT 
+          u.*,
+          m.firstName as l1ManagerFirstName,
+          m.lastName as l1ManagerLastName,
+          m.email as l1ManagerEmail
+        FROM petty_Users u
+        LEFT JOIN petty_Users m ON u.l1_manager_id = m.id
+        WHERE u.id = @userId
+      `);
+    
+    console.log('Fetch result count:', userResult.recordset.length);
+    
+    if (userResult.recordset.length > 0) {
+      const u = userResult.recordset[0];
+      console.log('Fetched user l1_manager_id from DB:', u.l1_manager_id);
+      
+      const updatedUser = {
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
+        email: u.email,
+        role: u.role || 'User',
+        company: u.company || '',
+        department: u.department || '',
+        l1ManagerId: u.l1_manager_id,
+        l1ManagerName: u.l1ManagerFirstName && u.l1ManagerLastName 
+          ? `${u.l1ManagerFirstName} ${u.l1ManagerLastName}`.trim() 
+          : u.l1ManagerEmail || null,
+      };
+      console.log('Returning user object:', JSON.stringify(updatedUser, null, 2));
+      console.log('=== PUT /users/:id END ===');
+      return res.json(updatedUser);
+    } else {
+      console.log('WARNING: User not found after update!');
+      console.log('=== PUT /users/:id END ===');
+      return res.send("User updated");
+    }
   } catch (err) {
+    console.error('=== PUT /users/:id ERROR ===');
+    console.error('Error:', err.message);
+    console.error('Stack:', err.stack);
     res.status(500).send(err.message);
   }
 });

@@ -30,7 +30,7 @@ import {
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
-import TravelBookingSection from '../components/TravelBookingSection';
+import TravelRequestForm from '../components/TravelRequestForm';
 import {
   AttachMoney,
   Info,
@@ -117,8 +117,8 @@ const NewRequest = () => {
   const [attachments, setAttachments] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [travelDetails, setTravelDetails] = useState(null);
-  const [showTravelBooking, setShowTravelBooking] = useState(false);
+  const [showTravelForm, setShowTravelForm] = useState(false);
+  const [travelFormData, setTravelFormData] = useState(null);
 
   // Dynamic state for categories, companies, and locations
   const [categories, setCategories] = useState([]);
@@ -194,22 +194,17 @@ const NewRequest = () => {
       newFormData.selectedLocation = selectedLocation;
     }
 
-    // Check if category is travel-related
-    if (name === "category") {
-      const travelKeywords = ['travel', 'trip', 'flight', 'hotel', 'accommodation', 'journey', 'tour'];
-      const isTravelCategory = travelKeywords.some(keyword => 
-        value.toLowerCase().includes(keyword)
-      );
-      setShowTravelBooking(isTravelCategory);
-      
-      // Clear travel details if switching away from travel category
-      if (!isTravelCategory) {
-        setTravelDetails(null);
-      }
-    }
-  
     // Check budget rule
     if (name === "amount" || name === "category" || name === "location") {
+      // Check if category is "Travel Request"
+      if (name === "category") {
+        const isTravelRequest = value === "Travel Request";
+        setShowTravelForm(isTravelRequest);
+        if (!isTravelRequest) {
+          setTravelFormData(null);
+        }
+      }
+      
       // Clear any existing amount errors when changing category or location
       if (name !== "amount") {
         setErrors(prev => ({ ...prev, amount: "" }));
@@ -239,18 +234,9 @@ const NewRequest = () => {
     setFormData(newFormData);
   };
 
-  // Handle travel details changes from TravelBookingSection
-  const handleTravelDetailsChange = (details) => {
-    setTravelDetails(details);
-    
-    // Auto-populate amount if travel cost is calculated
-    if (details && details.totalCost > 0) {
-      setFormData(prev => ({
-        ...prev,
-        amount: details.totalCost.toString()
-      }));
-    }
-  };  
+  const handleTravelFormChange = (data) => {
+    setTravelFormData(data);
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -306,20 +292,32 @@ const NewRequest = () => {
     if (!formData.dateOfPurchase) newErrors.dateOfPurchase = 'Date of purchase is required';
     if (!formData.category) newErrors.category = 'Category is required';
     if (!formData.company) newErrors.company = 'Company is required';
-    if (!formData.amount || isNaN(formData.amount) || parseFloat(formData.amount) <= 0) {
-      newErrors.amount = 'Please enter a valid amount';
+    
+    // For travel requests, amount is optional (will be set to 0 or calculated later)
+    // For regular requests, amount is required
+    if (!showTravelForm) {
+      if (!formData.amount || isNaN(formData.amount) || parseFloat(formData.amount) <= 0) {
+        newErrors.amount = 'Please enter a valid amount';
+      }
+    
+      // Budget restriction check (only for non-travel requests)
+      if (
+        formData.location &&
+        restrictedLocations.includes(formData.location) &&
+        formData.category === restrictedCategory &&
+        formData.amount &&
+        !isNaN(parseFloat(formData.amount)) &&
+        parseFloat(formData.amount) > restrictedBudget
+      ) {
+        newErrors.amount = `You cannot request more than £${restrictedBudget} for ${restrictedCategory} in ${formData.location}`;
+      }
     }
-  
-    // Budget restriction check
-    if (
-      formData.location &&
-      restrictedLocations.includes(formData.location) &&
-      formData.category === restrictedCategory &&
-      formData.amount &&
-      !isNaN(parseFloat(formData.amount)) &&
-      parseFloat(formData.amount) > restrictedBudget
-    ) {
-      newErrors.amount = `You cannot request more than £${restrictedBudget} for ${restrictedCategory} in ${formData.location}`;
+
+    // For travel requests, validate travel form data instead of description
+    if (showTravelForm) {
+      if (!travelFormData || !travelFormData.reasonOfTravel) {
+        newErrors.description = 'Please fill out the travel request form completely, including the reason for travel';
+      }
     }
   
     if (attachments.length === 0) {
@@ -352,14 +350,25 @@ const NewRequest = () => {
         formDataToSend.append('company', formData.company);
         formDataToSend.append('category', formData.category);
         formDataToSend.append('location', formData.location);
-        formDataToSend.append('amount', formData.amount);
+        
+        // For travel requests, set amount to 0 (will be updated later)
+        // For regular requests, use the entered amount
+        const amountValue = showTravelForm ? '0' : formData.amount;
+        formDataToSend.append('amount', amountValue);
+        
         formDataToSend.append('currency', formData.currency);
         formDataToSend.append('dateOfPurchase', formattedDate);
-        formDataToSend.append('description', formData.description);
+        
+        // For travel requests, use reason from travel form; otherwise use description
+        const descriptionText = showTravelForm && travelFormData?.reasonOfTravel 
+          ? travelFormData.reasonOfTravel 
+          : formData.description;
+        formDataToSend.append('description', descriptionText);
 
-        // Add travel details if available
-        if (travelDetails && (travelDetails.flight || travelDetails.accommodation)) {
-          formDataToSend.append('travelDetails', JSON.stringify(travelDetails));
+        // Add travel form data if this is a travel request
+        if (showTravelForm && travelFormData) {
+          formDataToSend.append('isTravelRequest', 'true');
+          formDataToSend.append('travelFormData', JSON.stringify(travelFormData));
         }
 
         // Add existing attachments if any (for edit mode)
@@ -676,114 +685,120 @@ const NewRequest = () => {
                     </FormControl>
                   </Grid>
                   
-                  {/* Description field - full width */}
-                  <Grid size={{ xs: 12 }}>
+                  {/* Description field - full width - Hide for Travel Request */}
+                  {!showTravelForm && (
+                    <Grid size={{ xs: 12 }}>
+                      <TextField
+                        fullWidth
+                        label="Description *"
+                        name="description"
+                        multiline
+                        rows={4}
+                        value={formData.description}
+                        onChange={handleChange}
+                        error={!!errors.description}
+                        helperText={errors.description || "Provide a detailed description of the expense"}
+                        placeholder="Enter expense description..."
+                        size="small"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            alignItems: 'flex-start',
+                          },
+                          '& .MuiInputBase-multiline': {
+                            '& textarea': {
+                              minHeight: '25px',
+                              resize: 'vertical'
+                            }
+                          }
+                        }}
+                      />
+                    </Grid>
+                  )}
+                </Grid>
+              </CardContent>
+            </Card>
+            
+            {/* Amount Information - Hide for Travel Request */}
+            {!showTravelForm && (
+              <Card variant="outlined" sx={{ flex: 1, mb: 2, borderRadius: 2, borderColor: 'divider', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <AttachMoney sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      Amount Information
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Specify the amount and currency for your expense
+                  </Typography>
+                  <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                     <TextField
                       fullWidth
-                      label="Description *"
-                      name="description"
-                      multiline
-                      rows={4}
-                      value={formData.description}
+                      label="Amount *"
+                      name="amount"
+                      value={formData.amount}
                       onChange={handleChange}
-                      error={!!errors.description}
-                      helperText={errors.description || "Provide a detailed description of the expense"}
-                      placeholder="Enter expense description..."
-                      size="small"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          alignItems: 'flex-start',
-                        },
-                        '& .MuiInputBase-multiline': {
-                          '& textarea': {
-                            minHeight: '25px',
-                            resize: 'vertical'
-                          }
+                      error={!!errors.amount}
+                      helperText={
+                        errors.amount || 
+                        (formData.location && 
+                        restrictedLocations.includes(formData.location) && 
+                        formData.category === restrictedCategory
+                          ? `Note: Maximum £${restrictedBudget} allowed for ${restrictedCategory} in ${formData.location}`
+                          : '')
+                      }
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            {getCurrencySymbol(formData.currency)}
+                          </InputAdornment>
+                        ),
+                        inputProps: { 
+                          min: 0, 
+                          step: 0.01,
+                          max: formData.location && 
+                              restrictedLocations.includes(formData.location) && 
+                              formData.category === restrictedCategory 
+                            ? restrictedBudget 
+                            : undefined
+                        }
+                      }}
+                      margin="normal"
+                      FormHelperTextProps={{
+                        style: {
+                          color: formData.location && 
+                                restrictedLocations.includes(formData.location) && 
+                                formData.category === restrictedCategory 
+                            ? '#1976d2' // Blue color for informational message
+                            : '#d32f2f' // Red color for error message
                         }
                       }}
                     />
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Currency</InputLabel>
+                        <Select
+                          name="currency"
+                          value={formData.currency}
+                          onChange={handleChange}
+                          label="Currency"
+                        >
+                          {currencies.map((currency) => (<MenuItem key={currency.code} value={currency.code}>{currency.code} ({currency.symbol})</MenuItem>))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
                   </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-            <Card variant="outlined" sx={{ flex: 1, mb: 2, borderRadius: 2, borderColor: 'divider', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <AttachMoney sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />
-                  <Typography variant="subtitle1" fontWeight={700}>
-                    Amount Information
-                  </Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Specify the amount and currency for your expense
-                </Typography>
-                <Grid container spacing={3}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    fullWidth
-                    label="Amount *"
-                    name="amount"
-                    value={formData.amount}
-                    onChange={handleChange}
-                    error={!!errors.amount}
-                    helperText={
-                      errors.amount || 
-                      (formData.location && 
-                      restrictedLocations.includes(formData.location) && 
-                      formData.category === restrictedCategory
-                        ? `Note: Maximum £${restrictedBudget} allowed for ${restrictedCategory} in ${formData.location}`
-                        : '')
-                    }
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          {getCurrencySymbol(formData.currency)}
-                        </InputAdornment>
-                      ),
-                      inputProps: { 
-                        min: 0, 
-                        step: 0.01,
-                        max: formData.location && 
-                            restrictedLocations.includes(formData.location) && 
-                            formData.category === restrictedCategory 
-                          ? restrictedBudget 
-                          : undefined
-                      }
-                    }}
-                    margin="normal"
-                    FormHelperTextProps={{
-                      style: {
-                        color: formData.location && 
-                              restrictedLocations.includes(formData.location) && 
-                              formData.category === restrictedCategory 
-                          ? '#1976d2' // Blue color for informational message
-                          : '#d32f2f' // Red color for error message
-                      }
-                    }}
-                  />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Currency</InputLabel>
-                      <Select
-                        name="currency"
-                        value={formData.currency}
-                        onChange={handleChange}
-                        label="Currency"
-                      >
-                        {currencies.map((currency) => (<MenuItem key={currency.code} value={currency.code}>{currency.code} ({currency.symbol})</MenuItem>))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Travel Booking Section - Show for travel-related categories */}
-            {showTravelBooking && (
-              <TravelBookingSection
-                onTravelDetailsChange={handleTravelDetailsChange}
-                currency={formData.currency}
+            {/* Travel Request Form - Show when Travel Request category is selected */}
+            {showTravelForm && (
+              <TravelRequestForm
+                formData={formData}
+                onChange={handleTravelFormChange}
               />
             )}
 

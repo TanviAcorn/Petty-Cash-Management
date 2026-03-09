@@ -27,6 +27,7 @@ import {
   AddCircle,
   Person,
   AttachMoney,
+  AssignmentTurnedIn,
 } from "@mui/icons-material";
 
 const drawerWidth = 260;
@@ -39,6 +40,7 @@ const getMenuItemsByRole = (userRole) => {
     { text: "Pending Approval", icon: <ListAlt />, path: "/pending-approval" },
     { text: "Approved", icon: <CheckCircle />, path: "/approved" },
     { text: "Rejected", icon: <Cancel />, path: "/rejected" },
+    { text: "Travel Request Approvals", icon: <AssignmentTurnedIn />, path: "/l1-approvals" },
     { text: "User Management", icon: <People />, path: "/users" },
     { text: "Companies", icon: <Business />, path: "/companies" },
     { text: "Payments", icon: <AttachMoney />, path: "/payments" },
@@ -58,6 +60,7 @@ const getMenuItemsByRole = (userRole) => {
     { text: "Dashboard", icon: <Dashboard />, path: "/user-dashboard" },
     { text: "My Requests", icon: <ListAlt />, path: "/my-requests" },
     { text: "New Request", icon: <AddCircle />, path: "/new-request" },
+    { text: "Travel Request Approvals", icon: <AssignmentTurnedIn />, path: "/l1-approvals" },
     { text: "Profile", icon: <Person />, path: "/profile" },
   ];
 

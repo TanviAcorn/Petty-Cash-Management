@@ -560,3 +560,186 @@ module.exports = {
   buildPaymentInitiatedEmail,
   buildBulkPaymentEmail,
 };
+
+function buildL1ManagerApprovalEmail(request, l1Manager) {
+  const urls = getFrontendUrls();
+  const publicLink = `${urls[0]}/l1-requests/${request.id}`;
+  const submittedAt = new Date(request.created_at || Date.now()).toLocaleString();
+
+  const subject = `Travel Request #${request.id} - L1 Approval Required`;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        
+        <!-- Header -->
+        <div style="background: #8B5CF6; padding: 30px 20px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">L1 Approval Required</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style="background: #ffffff; padding: 30px 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+          
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 15px; line-height: 1.5;">
+            Dear ${l1Manager.firstName || 'Manager'},
+          </p>
+          
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 15px; line-height: 1.5;">
+            A travel request has been submitted by your team member and requires your approval before it can be sent to admin for final processing.
+          </p>
+          
+          <!-- Request Details Table -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #f9fafb; border-radius: 6px; overflow: hidden;">
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; width: 140px;">Request ID</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 500;">#${request.id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Date</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${submittedAt}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Requested By</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.employee_name} (${request.employee_email})</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Company</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.company_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Category</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.category_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Amount</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${request.amount} ${request.currency || 'GBP'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Description</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${request.reason || '-'}</td>
+            </tr>
+          </table>
+          
+          <!-- Action Button -->
+          <div style="text-align: center; margin: 30px 0 20px 0;">
+            <a href="${publicLink}" style="display: inline-block; background: #8B5CF6; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">Review & Approve Request</a>
+          </div>
+          
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
+            Please review the travel request details and approve or reject it. Once approved, it will be forwarded to admin for final processing.
+          </p>
+          
+        </div>
+        
+        <!-- Footer -->
+        <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
+          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+        </div>
+        
+      </div>
+    </body>
+    </html>
+  `;
+  
+  return { subject, html };
+}
+
+function buildL1ApprovalNotificationEmail(request, isApproved) {
+  const status = isApproved ? 'Approved' : 'Rejected';
+  const subject = `Travel Request #${request.id} - L1 ${status}`;
+  
+  const urls = getFrontendUrls();
+  const publicLink = `${urls[0]}/my-requests`;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        
+        <!-- Header -->
+        <div style="background: ${isApproved ? '#10B981' : '#EF4444'}; padding: 30px 20px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">L1 Manager ${status}</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style="background: #ffffff; padding: 30px 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+          
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 15px; line-height: 1.5;">
+            Your travel request has been ${isApproved ? 'approved by your L1 manager and forwarded to admin for final processing' : 'rejected by your L1 manager'}.
+          </p>
+          
+          <!-- Request Details Table -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #f9fafb; border-radius: 6px; overflow: hidden;">
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; width: 140px;">Request ID</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 500;">#${request.id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Status</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 500;">${status}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Company</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.company_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Category</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${request.category_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; ${!isApproved && request.l1_rejection_reason ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #6b7280; font-size: 13px;">Amount</td>
+              <td style="padding: 12px 16px; ${!isApproved && request.l1_rejection_reason ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #111827; font-size: 14px; font-weight: 600;">${request.amount} ${request.currency || 'GBP'}</td>
+            </tr>
+            ${!isApproved && request.l1_rejection_reason ? `
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Reason</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${request.l1_rejection_reason}</td>
+            </tr>
+            ` : ''}
+          </table>
+          
+          <!-- Action Button -->
+          <div style="text-align: center; margin: 30px 0 20px 0;">
+            <a href="${publicLink}" style="display: inline-block; background: #3B82F6; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">View My Requests</a>
+          </div>
+          
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
+            ${isApproved ? 'Your request is now pending admin approval.' : 'Please contact your manager if you have questions.'}
+          </p>
+          
+        </div>
+        
+        <!-- Footer -->
+        <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
+          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+        </div>
+        
+      </div>
+    </body>
+    </html>
+  `;
+  
+  return { subject, html };
+}
+
+module.exports = {
+  sendEmail,
+  buildAdminNewRequestEmail,
+  buildUserStatusEmail,
+  getTransporter,
+  buildPaymentInitiatedEmail,
+  buildBulkPaymentEmail,
+  buildL1ManagerApprovalEmail,
+  buildL1ApprovalNotificationEmail,
+};
