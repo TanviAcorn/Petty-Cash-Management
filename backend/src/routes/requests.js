@@ -1082,6 +1082,53 @@ router.post('/bulk-payment', async (req, res) => {
     
     const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
     
+    // Collect all attachments from all requests
+    const allAttachments = [];
+    console.log(`Processing attachments for ${requests.length} request(s)...`);
+    
+    for (const req of requests) {
+      console.log(`Request ${req.id}: attachments field =`, req.attachments);
+      
+      if (req.attachments) {
+        try {
+          // Parse attachments if it's a string
+          const attachmentsList = typeof req.attachments === 'string' 
+            ? req.attachments.split(',').map(a => a.trim()).filter(Boolean)
+            : (Array.isArray(req.attachments) ? req.attachments : []);
+          
+          console.log(`Request ${req.id}: parsed ${attachmentsList.length} attachment(s):`, attachmentsList);
+          
+          for (const filename of attachmentsList) {
+            try {
+              const filePath = path.join(UPLOADS_DIR, filename);
+              console.log(`Trying to read file: ${filePath}`);
+              
+              const fileContent = await fs.promises.readFile(filePath);
+              
+              if (fileContent.byteLength > 0) {
+                allAttachments.push({
+                  filename: `Request_${req.id}_${filename}`,
+                  content: fileContent,
+                  contentType: 'application/octet-stream'
+                });
+                console.log(`✓ Added attachment: Request_${req.id}_${filename} (${fileContent.byteLength} bytes)`);
+              } else {
+                console.warn(`✗ File is empty: ${filename}`);
+              }
+            } catch (fileErr) {
+              console.error(`✗ Error reading attachment ${filename} for request ${req.id}:`, fileErr.message);
+            }
+          }
+        } catch (err) {
+          console.error(`Error processing attachments for request ${req.id}:`, err);
+        }
+      } else {
+        console.log(`Request ${req.id}: No attachments field`);
+      }
+    }
+    
+    console.log(`\n📎 Collected ${allAttachments.length} attachment(s) from ${requests.length} request(s)\n`);
+    
     // Build and send bulk payment email
     const { subject, html } = buildBulkPaymentEmail({ 
       requests, 
@@ -1093,6 +1140,7 @@ router.post('/bulk-payment', async (req, res) => {
       cc: ccRecipients,
       subject,
       html,
+      attachments: allAttachments,
       user: {
         firstName: 'Payment',
         lastName: 'System',
@@ -1100,7 +1148,7 @@ router.post('/bulk-payment', async (req, res) => {
       }
     });
     
-    console.log(`Bulk payment notification sent for ${requests.length} requests to ${toRecipients.join(', ')}`);
+    console.log(`Bulk payment notification sent for ${requests.length} requests with ${allAttachments.length} attachment(s) to ${toRecipients.join(', ')}`);
     
     return res.json({ 
       message: `Bulk payment notification sent successfully for ${requests.length} request(s)`,
