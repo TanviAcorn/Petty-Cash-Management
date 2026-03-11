@@ -176,13 +176,12 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
     
     await txn.begin();
     
-    // First, get the request details including location and amount
+    // First, get the request details
     const requestResult = await new sql.Request(txn)
       .input('id', sql.Int, id)
       .query(`
-        SELECT r.amount, r.currency, r.location, l.id as locationId 
+        SELECT r.amount, r.currency
         FROM petty_cash_requests r
-        LEFT JOIN petty_Locations l ON r.location = l.location
         WHERE r.id = @id
       `);
       
@@ -231,30 +230,6 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
         WHERE id = @id
       `);
     
-    // Update the location's used amount if location exists
-    if (request.locationId) {
-      const exchangeRate = await getExchangeRate(request.currency || 'GBP', 'GBP');
-      const amountInGBP = parseFloat(request.amount) / exchangeRate;
-      
-      await new sql.Request(txn)
-        .input('id', sql.Int, request.locationId)
-        .input('amount', sql.Decimal(10, 2), amountInGBP)
-        .query(`
-          UPDATE petty_Locations 
-          SET used_amount = ISNULL(used_amount, 0) + @amount,
-              remaining_amount = 30 - (ISNULL(used_amount, 0) + @amount)
-          WHERE id = @id
-          AND (30 - (ISNULL(used_amount, 0) + @amount)) >= 0;
-          
-          IF @@ROWCOUNT = 0
-          BEGIN
-            THROW 50001, 'Insufficient budget for this location', 1;
-          END
-        `);
-        
-      console.log(`Updated budget for location ${request.location} (ID: ${request.locationId})`);
-    }
-    
     await txn.commit();
     
     return res.json({ 
@@ -270,9 +245,6 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
       console.error('Error rolling back transaction:', rollbackErr);
     }
     
-    if (err.number === 50001) {
-      return res.status(400).json({ message: err.message || 'Insufficient budget for this location' });
-    }
     return res.status(500).json({ message: 'Failed to mark payment done' });
   }
 });
@@ -1547,13 +1519,12 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
       return res.status(400).json({ message: 'No files uploaded' });
     }
     
-    // First, get the request details including location and amount
+    // First, get the request details
     const requestResult = await request
       .input('id', sql.Int, id)
       .query(`
-        SELECT r.amount, r.currency, r.location, l.id as locationId, r.status
+        SELECT r.amount, r.currency, r.status
         FROM petty_cash_requests r
-        LEFT JOIN petty_Locations l ON r.location = l.location
         WHERE r.id = @id
       `);
       
@@ -1583,49 +1554,6 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
         SET status = 'payment done'
         WHERE id = @request_id;
       `);
-    
-    // Update the location's used amount if location exists
-    if (requestData.locationId) {
-      const exchangeRate = await getExchangeRate(requestData.currency || 'GBP', 'GBP');
-      const amountInGBP = parseFloat(requestData.amount) / exchangeRate;
-      
-      console.log(`Updating budget for location ${requestData.location} (ID: ${requestData.locationId}) with amount:`, {
-        amount: requestData.amount,
-        currency: requestData.currency,
-        exchangeRate,
-        amountInGBP
-      });
-      
-      const budgetUpdateResult = await new sql.Request(txn)
-        .input('id', sql.Int, requestData.locationId)
-        .input('amount', sql.Decimal(10, 2), amountInGBP)
-        .query(`
-          DECLARE @currentUsed DECIMAL(10,2) = ISNULL((SELECT used_amount FROM petty_Locations WHERE id = @id), 0);
-          DECLARE @newUsed DECIMAL(10,2) = @currentUsed + @amount;
-          DECLARE @budget DECIMAL(10,2) = ISNULL((SELECT budget FROM petty_Locations WHERE id = @id), 30);
-          
-          IF (@budget - @newUsed) < 0
-          BEGIN
-            THROW 50001, 'Insufficient budget for this location', 1;
-          END
-          
-          UPDATE petty_Locations 
-          SET used_amount = @newUsed,
-              remaining_amount = @budget - @newUsed
-          WHERE id = @id;
-          
-          SELECT @newUsed as newUsed, @budget as budget, (@budget - @newUsed) as newRemaining;
-        `);
-        
-      console.log('Budget update result:', {
-        locationId: requestData.locationId,
-        newUsed: budgetUpdateResult.recordset[0].newUsed,
-        budget: budgetUpdateResult.recordset[0].budget,
-        newRemaining: budgetUpdateResult.recordset[0].newRemaining
-      });
-    } else {
-      console.warn('No location ID found for request ID:', id);
-    }
 
     await txn.commit();  // Commit the transaction
 
