@@ -878,23 +878,28 @@ router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments',
         };
 
         // Get company name from request
-        const companyName = row.company_name || row.company || '';
+        const companyName = (row.company_name || row.company || '').trim();
+        
+        console.log(`[PAYMENT ROUTING] Request ID: ${id}, Company from DB: "${companyName}"`);
+        console.log(`[PAYMENT ROUTING] Available company mappings:`, Object.keys(companyAccountsEmails));
         
         // Determine recipient based on company
         let toRecipients = [];
         const companyAccountEmail = companyAccountsEmails[companyName];
         
+        console.log(`[PAYMENT ROUTING] Matched email for "${companyName}":`, companyAccountEmail || 'NOT FOUND');
+        
         if (companyAccountEmail) {
           // Send to company-specific accounts email
           toRecipients = [companyAccountEmail];
-          console.log(`Routing payment email to company-specific account: ${companyAccountEmail} for company: ${companyName}`);
+          console.log(`[PAYMENT ROUTING] ✓ Routing to company-specific account: ${companyAccountEmail}`);
         } else {
           // Send to default payment team
           toRecipients = [
             'Payment@acornuniversalconsultancy.com',
             'posting@acornuniversalconsultancy.com'
           ];
-          console.log(`Routing payment email to default payment team for company: ${companyName}`);
+          console.log(`[PAYMENT ROUTING] ✗ No match found, routing to default payment team`);
         }
         
         const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
@@ -1043,7 +1048,7 @@ router.post('/bulk-payment', async (req, res) => {
     
     // Group requests by company
     const groupedByCompany = requests.reduce((acc, req) => {
-      const company = req.company_name || req.company || 'Unknown';
+      const company = (req.company_name || req.company || 'Unknown').trim();
       if (!acc[company]) {
         acc[company] = [];
       }
@@ -1062,22 +1067,33 @@ router.post('/bulk-payment', async (req, res) => {
     
     // Determine recipients based on companies involved
     const companies = Object.keys(groupedByCompany);
+    console.log(`[BULK PAYMENT ROUTING] Companies in bulk payment:`, companies);
+    console.log(`[BULK PAYMENT ROUTING] Available company mappings:`, Object.keys(companyAccountsEmails));
+    
     let toRecipients = [];
     
     // If all requests are from companies with specific emails, send to those
     const companyEmails = companies
-      .map(c => companyAccountsEmails[c])
+      .map(c => {
+        const email = companyAccountsEmails[c];
+        console.log(`[BULK PAYMENT ROUTING] Company "${c}" -> Email: ${email || 'NOT FOUND'}`);
+        return email;
+      })
       .filter(Boolean);
+    
+    console.log(`[BULK PAYMENT ROUTING] Matched ${companyEmails.length} out of ${companies.length} companies`);
     
     if (companyEmails.length === companies.length) {
       // All companies have specific emails
       toRecipients = [...new Set(companyEmails)]; // Remove duplicates
+      console.log(`[BULK PAYMENT ROUTING] ✓ All companies matched, sending to:`, toRecipients);
     } else {
       // Some companies don't have specific emails, send to default
       toRecipients = [
         'Payment@acornuniversalconsultancy.com',
         'posting@acornuniversalconsultancy.com'
       ];
+      console.log(`[BULK PAYMENT ROUTING] ✗ Not all companies matched, sending to default payment team`);
     }
     
     const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
