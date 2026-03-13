@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
         u.lastName as employeeLastName
       FROM petty_cash_requests r
       LEFT JOIN petty_Users u ON r.employee_email = u.email
-      WHERE r.category_name = 'Travel Request'
+      WHERE (r.category_name = 'Travel Request' OR r.category_name = 'Travel')
         AND r.status IN ('pending_l1', 'pending')
         AND r.rejected_at IS NULL
     `;

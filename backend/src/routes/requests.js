@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { getExchangeRate } = require('../utils/exchangeRates');
 const { poolPromise } = require('../config/db');
-const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail, buildBulkPaymentEmail } = require('../utils/mailer');
+const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail, buildBulkPaymentEmail, buildL1ManagerApprovalEmail } = require('../utils/mailer');
 const { getUserById } = require('../utils/userUtils');
 
 // Define uploads directory
@@ -1232,7 +1232,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     let l1ManagerId = null;
     let initialStatus = 'pending'; // Default to admin approval
     
-    if (category === 'Travel Request') {
+    if (category === 'Travel Request' || category === 'Travel') {
       console.log('Travel request detected, checking for L1 manager...');
       const userResult = await pool.request()
         .input('email', sql.NVarChar(320), employeeEmail)
@@ -1354,49 +1354,95 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
         }
       }
     }
-    // Send admin notification email (non-blocking)
+    // Send notification emails (non-blocking)
     try {
-      const adminTo = process.env.ADMIN_EMAIL;
-      if (adminTo) {
-        // Prepare attachments for email
-        const emailAttachments = [];
-        if (req.files && req.files.length > 0) {
-          for (const file of req.files) {
-            try {
-              const filePath = path.join(__dirname, '../../uploads', file.filename);
-              const fileContent = await require('fs').promises.readFile(filePath);
-              
-              emailAttachments.push({
-                filename: file.originalname,
-                content: fileContent,
-                contentType: file.mimetype || 'application/octet-stream'
-              });
-            } catch (err) {
-              console.error(`Error reading attachment file ${file.filename}:`, err);
+      // If this is a travel request with L1 manager, send to L1 manager
+      if (l1ManagerId && initialStatus === 'pending_l1') {
+        console.log('Sending L1 manager approval email...');
+        
+        // Get L1 manager details
+        const l1ManagerResult = await pool.request()
+          .input('managerId', sql.Int, l1ManagerId)
+          .query('SELECT id, firstName, lastName, email FROM petty_Users WHERE id = @managerId');
+        
+        if (l1ManagerResult.recordset.length > 0) {
+          const l1Manager = l1ManagerResult.recordset[0];
+          
+          // Prepare attachments for email
+          const emailAttachments = [];
+          if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+              try {
+                const filePath = path.join(__dirname, '../../uploads', file.filename);
+                const fileContent = await require('fs').promises.readFile(filePath);
+                
+                emailAttachments.push({
+                  filename: file.originalname,
+                  content: fileContent,
+                  contentType: file.mimetype || 'application/octet-stream'
+                });
+              } catch (err) {
+                console.error(`Error reading attachment file ${file.filename}:`, err);
+              }
             }
           }
+          
+          const { subject, html } = buildL1ManagerApprovalEmail(newRequest, l1Manager);
+          const replyTo = newRequest?.employee_email || employeeEmail;
+          
+          console.log(`Sending L1 manager email to ${l1Manager.email} with ${emailAttachments.length} attachment(s)`);
+          
+          sendEmail({ 
+            to: l1Manager.email, 
+            subject, 
+            html, 
+            replyTo,
+            attachments: emailAttachments
+          })
+            .catch((e) => console.error('Failed sending L1 manager email:', e.message));
         }
-        
-        const { subject, html } = buildAdminNewRequestEmail(newRequest);
-        // Office 365 typically requires From to be the authenticated mailbox.
-        // Use configured sender as From and employee as Reply-To.
-        const replyTo = newRequest?.employee_email || employeeEmail;
-        
-        console.log(`Sending admin email with ${emailAttachments.length} attachment(s)`);
-        
-        sendEmail({ 
-          to: adminTo, 
-          subject, 
-          html, 
-          replyTo,
-          attachments: emailAttachments
-        })
-          .catch((e) => console.error('Failed sending admin email:', e.message));
       } else {
-        console.warn('ADMIN_EMAIL is not set; skipping admin notification');
+        // For non-travel requests or travel requests without L1 manager, send to admin
+        const adminTo = process.env.ADMIN_EMAIL;
+        if (adminTo) {
+          // Prepare attachments for email
+          const emailAttachments = [];
+          if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+              try {
+                const filePath = path.join(__dirname, '../../uploads', file.filename);
+                const fileContent = await require('fs').promises.readFile(filePath);
+                
+                emailAttachments.push({
+                  filename: file.originalname,
+                  content: fileContent,
+                  contentType: file.mimetype || 'application/octet-stream'
+                });
+              } catch (err) {
+                console.error(`Error reading attachment file ${file.filename}:`, err);
+              }
+            }
+          }
+          
+          const { subject, html } = buildAdminNewRequestEmail(newRequest);
+          const replyTo = newRequest?.employee_email || employeeEmail;
+          
+          console.log(`Sending admin email with ${emailAttachments.length} attachment(s)`);
+          
+          sendEmail({ 
+            to: adminTo, 
+            subject, 
+            html, 
+            replyTo,
+            attachments: emailAttachments
+          })
+            .catch((e) => console.error('Failed sending admin email:', e.message));
+        } else {
+          console.warn('ADMIN_EMAIL is not set; skipping admin notification');
+        }
       }
     } catch (e) {
-      console.error('Admin email error:', e);
+      console.error('Email notification error:', e);
     }
 
     return res.status(201).json(newRequest);
