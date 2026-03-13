@@ -317,7 +317,7 @@ const Approved = () => {
         <StatCard
           icon={<TrendingUpIcon />}
           label="Average Amount"
-          value={stats.avgAmount}
+          value={`£${stats.avgAmount.toFixed(2)}`}
           color="info"
         />
         <StatCard

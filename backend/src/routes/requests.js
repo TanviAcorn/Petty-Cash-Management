@@ -874,11 +874,13 @@ router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments',
           'Lifexa BV': 'accounts@lifexa.eu',
           'Acme Pharma': 'accounts@acmepharma.co.uk',
           'Jambo BV NL': 'accounts@jambobv.nl',
-          'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com'
+          'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com',
+          'Astute Healthcare Ltd': null // Will use default payment team
         };
 
         // Get company name from request
-        const companyName = (row.company_name || row.company || '').trim();
+        const companyRaw = row.company_name || row.company || '';
+        const companyName = (typeof companyRaw === 'string' ? companyRaw : String(companyRaw || '')).trim();
         
         console.log(`[PAYMENT ROUTING] Request ID: ${id}, Company from DB: "${companyName}"`);
         console.log(`[PAYMENT ROUTING] Available company mappings:`, Object.keys(companyAccountsEmails));
@@ -1010,45 +1012,10 @@ router.post('/bulk-payment', async (req, res) => {
       return res.status(404).json({ message: 'No approved requests found' });
     }
     
-    // Create payment records and update status for each request
-    for (const req of requests) {
-      try {
-        await pool.request()
-          .input('requestId', sql.Int, req.id)
-          .input('method', sql.NVarChar(100), 'Bulk Payment')
-          .input('reference', sql.NVarChar(200), null)
-          .input('paidAmount', sql.Decimal(18,2), req.amount)
-          .input('paidDate', sql.DateTime2, new Date())
-          .input('notes', sql.NVarChar(sql.MAX), 'Sent via bulk payment')
-          .input('createdByEmail', sql.NVarChar(320), null)
-          .input('attachments', sql.NVarChar(sql.MAX), null)
-          .query(`
-            BEGIN TRANSACTION;
-            
-            -- Insert payment record
-            INSERT INTO petty_cash_payments 
-              (request_id, method, reference, paid_amount, paid_date, notes, status, created_by_email, sent_to_payment, attachments)
-            VALUES 
-              (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'processed', @createdByEmail, 1, @attachments);
-            
-            -- Update request status to processed
-            UPDATE petty_cash_requests 
-            SET status = 'processed'
-            WHERE id = @requestId;
-            
-            COMMIT TRANSACTION;
-          `);
-        
-        console.log(`Created payment record and updated status for request ${req.id}`);
-      } catch (err) {
-        console.error(`Error creating payment record for request ${req.id}:`, err);
-        // Continue with other requests even if one fails
-      }
-    }
-    
     // Group requests by company
     const groupedByCompany = requests.reduce((acc, req) => {
-      const company = (req.company_name || req.company || 'Unknown').trim();
+      const companyRaw = req.company_name || req.company || 'Unknown';
+      const company = (typeof companyRaw === 'string' ? companyRaw : String(companyRaw || 'Unknown')).trim();
       if (!acc[company]) {
         acc[company] = [];
       }
@@ -1062,7 +1029,8 @@ router.post('/bulk-payment', async (req, res) => {
       'Lifexa BV': 'accounts@lifexa.eu',
       'Acme Pharma': 'accounts@acmepharma.co.uk',
       'Jambo BV NL': 'accounts@jambobv.nl',
-      'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com'
+      'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com',
+      'Astute Healthcare Ltd': null // Will use default payment team
     };
     
     // Determine recipients based on companies involved
@@ -1107,15 +1075,35 @@ router.post('/bulk-payment', async (req, res) => {
       
       if (req.attachments) {
         try {
-          // Parse attachments if it's a string
-          const attachmentsList = typeof req.attachments === 'string' 
-            ? req.attachments.split(',').map(a => a.trim()).filter(Boolean)
-            : (Array.isArray(req.attachments) ? req.attachments : []);
+          // Parse attachments - it's stored as JSON array of objects
+          let attachmentsList = [];
+          
+          if (typeof req.attachments === 'string') {
+            try {
+              // Try to parse as JSON first
+              const parsed = JSON.parse(req.attachments);
+              if (Array.isArray(parsed)) {
+                attachmentsList = parsed;
+              } else {
+                // Fallback: treat as comma-separated filenames
+                attachmentsList = req.attachments.split(',').map(a => ({ filename: a.trim() })).filter(a => a.filename);
+              }
+            } catch {
+              // If JSON parse fails, treat as comma-separated filenames
+              attachmentsList = req.attachments.split(',').map(a => ({ filename: a.trim() })).filter(a => a.filename);
+            }
+          } else if (Array.isArray(req.attachments)) {
+            attachmentsList = req.attachments;
+          }
           
           console.log(`Request ${req.id}: parsed ${attachmentsList.length} attachment(s):`, attachmentsList);
           
-          for (const filename of attachmentsList) {
+          for (const attachment of attachmentsList) {
             try {
+              // Get filename from attachment object or use as string
+              const filename = attachment.filename || attachment;
+              const originalName = attachment.originalName || filename;
+              
               const filePath = path.join(UPLOADS_DIR, filename);
               console.log(`Trying to read file: ${filePath}`);
               
@@ -1123,16 +1111,16 @@ router.post('/bulk-payment', async (req, res) => {
               
               if (fileContent.byteLength > 0) {
                 allAttachments.push({
-                  filename: `Request_${req.id}_${filename}`,
+                  filename: `Request_${req.id}_${originalName}`,
                   content: fileContent,
-                  contentType: 'application/octet-stream'
+                  contentType: attachment.mimetype || 'application/octet-stream'
                 });
-                console.log(`✓ Added attachment: Request_${req.id}_${filename} (${fileContent.byteLength} bytes)`);
+                console.log(`✓ Added attachment: Request_${req.id}_${originalName} (${fileContent.byteLength} bytes)`);
               } else {
                 console.warn(`✗ File is empty: ${filename}`);
               }
             } catch (fileErr) {
-              console.error(`✗ Error reading attachment ${filename} for request ${req.id}:`, fileErr.message);
+              console.error(`✗ Error reading attachment ${attachment.filename || attachment} for request ${req.id}:`, fileErr.message);
             }
           }
         } catch (err) {
@@ -1151,20 +1139,71 @@ router.post('/bulk-payment', async (req, res) => {
       groupedByCompany 
     });
     
-    await sendEmail({
-      to: toRecipients,
-      cc: ccRecipients,
-      subject,
-      html,
-      attachments: allAttachments,
-      user: {
-        firstName: 'Payment',
-        lastName: 'System',
-        email: process.env.FROM_EMAIL || process.env.SMTP_USER
-      }
-    });
+    // Send email FIRST before updating database
+    try {
+      await sendEmail({
+        to: toRecipients,
+        cc: ccRecipients,
+        subject,
+        html,
+        attachments: allAttachments,
+        user: {
+          firstName: 'Payment',
+          lastName: 'System',
+          email: process.env.FROM_EMAIL || process.env.SMTP_USER
+        }
+      });
+      
+      console.log(`✓ Email sent successfully to ${toRecipients.join(', ')}`);
+    } catch (emailErr) {
+      console.error('✗ Failed to send email:', emailErr);
+      // Return error WITHOUT updating database
+      return res.status(500).json({ 
+        message: 'Failed to send bulk payment notification email',
+        error: process.env.NODE_ENV === 'development' ? emailErr.message : 'Email sending failed',
+        details: 'Requests were NOT processed to prevent data loss'
+      });
+    }
     
-    console.log(`Bulk payment notification sent for ${requests.length} requests with ${allAttachments.length} attachment(s) to ${toRecipients.join(', ')}`);
+    // Email sent successfully, NOW update database
+    console.log('Email sent successfully, now updating database...');
+    
+    for (const req of requests) {
+      try {
+        await pool.request()
+          .input('requestId', sql.Int, req.id)
+          .input('method', sql.NVarChar(100), 'Bulk Payment')
+          .input('reference', sql.NVarChar(200), null)
+          .input('paidAmount', sql.Decimal(18,2), req.amount)
+          .input('paidDate', sql.DateTime2, new Date())
+          .input('notes', sql.NVarChar(sql.MAX), 'Sent via bulk payment')
+          .input('createdByEmail', sql.NVarChar(320), null)
+          .input('attachments', sql.NVarChar(sql.MAX), null)
+          .query(`
+            BEGIN TRANSACTION;
+            
+            -- Insert payment record
+            INSERT INTO petty_cash_payments 
+              (request_id, method, reference, paid_amount, paid_date, notes, status, created_by_email, sent_to_payment, attachments)
+            VALUES 
+              (@requestId, @method, @reference, @paidAmount, @paidDate, @notes, 'processed', @createdByEmail, 1, @attachments);
+            
+            -- Update request status to processed
+            UPDATE petty_cash_requests 
+            SET status = 'processed'
+            WHERE id = @requestId;
+            
+            COMMIT TRANSACTION;
+          `);
+        
+        console.log(`✓ Created payment record and updated status for request ${req.id}`);
+      } catch (err) {
+        console.error(`✗ Error creating payment record for request ${req.id}:`, err);
+        // Continue with other requests even if one fails
+      }
+    }
+    
+    console.log(`Bulk payment completed: ${requests.length} requests processed with ${allAttachments.length} attachment(s)`);
     
     return res.json({ 
       message: `Bulk payment notification sent successfully for ${requests.length} request(s)`,
