@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { getExchangeRate } = require('../utils/exchangeRates');
 const { poolPromise } = require('../config/db');
-const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail, buildBulkPaymentEmail } = require('../utils/mailer');
+const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail, buildBulkPaymentEmail, buildL1ManagerApprovalEmail } = require('../utils/mailer');
 const { getUserById } = require('../utils/userUtils');
 
 // Define uploads directory
@@ -176,13 +176,12 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
     
     await txn.begin();
     
-    // First, get the request details including location and amount
+    // First, get the request details
     const requestResult = await new sql.Request(txn)
       .input('id', sql.Int, id)
       .query(`
-        SELECT r.amount, r.currency, r.location, l.id as locationId 
+        SELECT r.amount, r.currency
         FROM petty_cash_requests r
-        LEFT JOIN petty_Locations l ON r.location = l.location
         WHERE r.id = @id
       `);
       
@@ -231,30 +230,6 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
         WHERE id = @id
       `);
     
-    // Update the location's used amount if location exists
-    if (request.locationId) {
-      const exchangeRate = await getExchangeRate(request.currency || 'GBP', 'GBP');
-      const amountInGBP = parseFloat(request.amount) / exchangeRate;
-      
-      await new sql.Request(txn)
-        .input('id', sql.Int, request.locationId)
-        .input('amount', sql.Decimal(10, 2), amountInGBP)
-        .query(`
-          UPDATE petty_Locations 
-          SET used_amount = ISNULL(used_amount, 0) + @amount,
-              remaining_amount = 30 - (ISNULL(used_amount, 0) + @amount)
-          WHERE id = @id
-          AND (30 - (ISNULL(used_amount, 0) + @amount)) >= 0;
-          
-          IF @@ROWCOUNT = 0
-          BEGIN
-            THROW 50001, 'Insufficient budget for this location', 1;
-          END
-        `);
-        
-      console.log(`Updated budget for location ${request.location} (ID: ${request.locationId})`);
-    }
-    
     await txn.commit();
     
     return res.json({ 
@@ -270,9 +245,6 @@ router.post('/:id/payment-done', receiptUpload.array('receipts', 5), async (req,
       console.error('Error rolling back transaction:', rollbackErr);
     }
     
-    if (err.number === 50001) {
-      return res.status(400).json({ message: err.message || 'Insufficient budget for this location' });
-    }
     return res.status(500).json({ message: 'Failed to mark payment done' });
   }
 });
@@ -902,27 +874,34 @@ router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments',
           'Lifexa BV': 'accounts@lifexa.eu',
           'Acme Pharma': 'accounts@acmepharma.co.uk',
           'Jambo BV NL': 'accounts@jambobv.nl',
-          'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com'
+          'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com',
+          'Astute Healthcare Ltd': null // Will use default payment team
         };
 
         // Get company name from request
-        const companyName = row.company_name || row.company || '';
+        const companyRaw = row.company_name || row.company || '';
+        const companyName = (typeof companyRaw === 'string' ? companyRaw : String(companyRaw || '')).trim();
+        
+        console.log(`[PAYMENT ROUTING] Request ID: ${id}, Company from DB: "${companyName}"`);
+        console.log(`[PAYMENT ROUTING] Available company mappings:`, Object.keys(companyAccountsEmails));
         
         // Determine recipient based on company
         let toRecipients = [];
         const companyAccountEmail = companyAccountsEmails[companyName];
         
+        console.log(`[PAYMENT ROUTING] Matched email for "${companyName}":`, companyAccountEmail || 'NOT FOUND');
+        
         if (companyAccountEmail) {
           // Send to company-specific accounts email
           toRecipients = [companyAccountEmail];
-          console.log(`Routing payment email to company-specific account: ${companyAccountEmail} for company: ${companyName}`);
+          console.log(`[PAYMENT ROUTING] ✓ Routing to company-specific account: ${companyAccountEmail}`);
         } else {
           // Send to default payment team
           toRecipients = [
             'Payment@acornuniversalconsultancy.com',
             'posting@acornuniversalconsultancy.com'
           ];
-          console.log(`Routing payment email to default payment team for company: ${companyName}`);
+          console.log(`[PAYMENT ROUTING] ✗ No match found, routing to default payment team`);
         }
         
         const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
@@ -1033,7 +1012,162 @@ router.post('/bulk-payment', async (req, res) => {
       return res.status(404).json({ message: 'No approved requests found' });
     }
     
-    // Create payment records and update status for each request
+    // Group requests by company
+    const groupedByCompany = requests.reduce((acc, req) => {
+      const companyRaw = req.company_name || req.company || 'Unknown';
+      const company = (typeof companyRaw === 'string' ? companyRaw : String(companyRaw || 'Unknown')).trim();
+      if (!acc[company]) {
+        acc[company] = [];
+      }
+      acc[company].push(req);
+      return acc;
+    }, {});
+    
+    // Company-specific accounts email mapping
+    const companyAccountsEmails = {
+      'Docpharm GmbH': 'account@docpharm.de',
+      'Lifexa BV': 'accounts@lifexa.eu',
+      'Acme Pharma': 'accounts@acmepharma.co.uk',
+      'Jambo BV NL': 'accounts@jambobv.nl',
+      'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com',
+      'Astute Healthcare Ltd': null // Will use default payment team
+    };
+    
+    // Determine recipients based on companies involved
+    const companies = Object.keys(groupedByCompany);
+    console.log(`[BULK PAYMENT ROUTING] Companies in bulk payment:`, companies);
+    console.log(`[BULK PAYMENT ROUTING] Available company mappings:`, Object.keys(companyAccountsEmails));
+    
+    let toRecipients = [];
+    
+    // If all requests are from companies with specific emails, send to those
+    const companyEmails = companies
+      .map(c => {
+        const email = companyAccountsEmails[c];
+        console.log(`[BULK PAYMENT ROUTING] Company "${c}" -> Email: ${email || 'NOT FOUND'}`);
+        return email;
+      })
+      .filter(Boolean);
+    
+    console.log(`[BULK PAYMENT ROUTING] Matched ${companyEmails.length} out of ${companies.length} companies`);
+    
+    if (companyEmails.length === companies.length) {
+      // All companies have specific emails
+      toRecipients = [...new Set(companyEmails)]; // Remove duplicates
+      console.log(`[BULK PAYMENT ROUTING] ✓ All companies matched, sending to:`, toRecipients);
+    } else {
+      // Some companies don't have specific emails, send to default
+      toRecipients = [
+        'Payment@acornuniversalconsultancy.com',
+        'posting@acornuniversalconsultancy.com'
+      ];
+      console.log(`[BULK PAYMENT ROUTING] ✗ Not all companies matched, sending to default payment team`);
+    }
+    
+    const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
+    
+    // Collect all attachments from all requests
+    const allAttachments = [];
+    console.log(`Processing attachments for ${requests.length} request(s)...`);
+    
+    for (const req of requests) {
+      console.log(`Request ${req.id}: attachments field =`, req.attachments);
+      
+      if (req.attachments) {
+        try {
+          // Parse attachments - it's stored as JSON array of objects
+          let attachmentsList = [];
+          
+          if (typeof req.attachments === 'string') {
+            try {
+              // Try to parse as JSON first
+              const parsed = JSON.parse(req.attachments);
+              if (Array.isArray(parsed)) {
+                attachmentsList = parsed;
+              } else {
+                // Fallback: treat as comma-separated filenames
+                attachmentsList = req.attachments.split(',').map(a => ({ filename: a.trim() })).filter(a => a.filename);
+              }
+            } catch {
+              // If JSON parse fails, treat as comma-separated filenames
+              attachmentsList = req.attachments.split(',').map(a => ({ filename: a.trim() })).filter(a => a.filename);
+            }
+          } else if (Array.isArray(req.attachments)) {
+            attachmentsList = req.attachments;
+          }
+          
+          console.log(`Request ${req.id}: parsed ${attachmentsList.length} attachment(s):`, attachmentsList);
+          
+          for (const attachment of attachmentsList) {
+            try {
+              // Get filename from attachment object or use as string
+              const filename = attachment.filename || attachment;
+              const originalName = attachment.originalName || filename;
+              
+              const filePath = path.join(UPLOADS_DIR, filename);
+              console.log(`Trying to read file: ${filePath}`);
+              
+              const fileContent = await fs.promises.readFile(filePath);
+              
+              if (fileContent.byteLength > 0) {
+                allAttachments.push({
+                  filename: `Request_${req.id}_${originalName}`,
+                  content: fileContent,
+                  contentType: attachment.mimetype || 'application/octet-stream'
+                });
+                console.log(`✓ Added attachment: Request_${req.id}_${originalName} (${fileContent.byteLength} bytes)`);
+              } else {
+                console.warn(`✗ File is empty: ${filename}`);
+              }
+            } catch (fileErr) {
+              console.error(`✗ Error reading attachment ${attachment.filename || attachment} for request ${req.id}:`, fileErr.message);
+            }
+          }
+        } catch (err) {
+          console.error(`Error processing attachments for request ${req.id}:`, err);
+        }
+      } else {
+        console.log(`Request ${req.id}: No attachments field`);
+      }
+    }
+    
+    console.log(`\n📎 Collected ${allAttachments.length} attachment(s) from ${requests.length} request(s)\n`);
+    
+    // Build and send bulk payment email
+    const { subject, html } = buildBulkPaymentEmail({ 
+      requests, 
+      groupedByCompany 
+    });
+    
+    // Send email FIRST before updating database
+    try {
+      await sendEmail({
+        to: toRecipients,
+        cc: ccRecipients,
+        subject,
+        html,
+        attachments: allAttachments,
+        user: {
+          firstName: 'Payment',
+          lastName: 'System',
+          email: process.env.FROM_EMAIL || process.env.SMTP_USER
+        }
+      });
+      
+      console.log(`✓ Email sent successfully to ${toRecipients.join(', ')}`);
+    } catch (emailErr) {
+      console.error('✗ Failed to send email:', emailErr);
+      // Return error WITHOUT updating database
+      return res.status(500).json({ 
+        message: 'Failed to send bulk payment notification email',
+        error: process.env.NODE_ENV === 'development' ? emailErr.message : 'Email sending failed',
+        details: 'Requests were NOT processed to prevent data loss'
+      });
+    }
+    
+    // Email sent successfully, NOW update database
+    console.log('Email sent successfully, now updating database...');
+    
     for (const req of requests) {
       try {
         await pool.request()
@@ -1062,73 +1196,14 @@ router.post('/bulk-payment', async (req, res) => {
             COMMIT TRANSACTION;
           `);
         
-        console.log(`Created payment record and updated status for request ${req.id}`);
+        console.log(`✓ Created payment record and updated status for request ${req.id}`);
       } catch (err) {
-        console.error(`Error creating payment record for request ${req.id}:`, err);
+        console.error(`✗ Error creating payment record for request ${req.id}:`, err);
         // Continue with other requests even if one fails
       }
     }
     
-    // Group requests by company
-    const groupedByCompany = requests.reduce((acc, req) => {
-      const company = req.company_name || req.company || 'Unknown';
-      if (!acc[company]) {
-        acc[company] = [];
-      }
-      acc[company].push(req);
-      return acc;
-    }, {});
-    
-    // Company-specific accounts email mapping
-    const companyAccountsEmails = {
-      'Docpharm GmbH': 'account@docpharm.de',
-      'Lifexa BV': 'accounts@lifexa.eu',
-      'Acme Pharma': 'accounts@acmepharma.co.uk',
-      'Jambo BV NL': 'accounts@jambobv.nl',
-      'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com'
-    };
-    
-    // Determine recipients based on companies involved
-    const companies = Object.keys(groupedByCompany);
-    let toRecipients = [];
-    
-    // If all requests are from companies with specific emails, send to those
-    const companyEmails = companies
-      .map(c => companyAccountsEmails[c])
-      .filter(Boolean);
-    
-    if (companyEmails.length === companies.length) {
-      // All companies have specific emails
-      toRecipients = [...new Set(companyEmails)]; // Remove duplicates
-    } else {
-      // Some companies don't have specific emails, send to default
-      toRecipients = [
-        'Payment@acornuniversalconsultancy.com',
-        'posting@acornuniversalconsultancy.com'
-      ];
-    }
-    
-    const ccRecipients = ['ishika.gupta@astutehealthcare.co.uk'];
-    
-    // Build and send bulk payment email
-    const { subject, html } = buildBulkPaymentEmail({ 
-      requests, 
-      groupedByCompany 
-    });
-    
-    await sendEmail({
-      to: toRecipients,
-      cc: ccRecipients,
-      subject,
-      html,
-      user: {
-        firstName: 'Payment',
-        lastName: 'System',
-        email: process.env.FROM_EMAIL || process.env.SMTP_USER
-      }
-    });
-    
-    console.log(`Bulk payment notification sent for ${requests.length} requests to ${toRecipients.join(', ')}`);
+    console.log(`Bulk payment completed: ${requests.length} requests processed with ${allAttachments.length} attachment(s)`);
     
     return res.json({ 
       message: `Bulk payment notification sent successfully for ${requests.length} request(s)`,
@@ -1196,7 +1271,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     let l1ManagerId = null;
     let initialStatus = 'pending'; // Default to admin approval
     
-    if (category === 'Travel Request') {
+    if (category === 'Travel Request' || category === 'Travel') {
       console.log('Travel request detected, checking for L1 manager...');
       const userResult = await pool.request()
         .input('email', sql.NVarChar(320), employeeEmail)
@@ -1318,49 +1393,95 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
         }
       }
     }
-    // Send admin notification email (non-blocking)
+    // Send notification emails (non-blocking)
     try {
-      const adminTo = process.env.ADMIN_EMAIL;
-      if (adminTo) {
-        // Prepare attachments for email
-        const emailAttachments = [];
-        if (req.files && req.files.length > 0) {
-          for (const file of req.files) {
-            try {
-              const filePath = path.join(__dirname, '../../uploads', file.filename);
-              const fileContent = await require('fs').promises.readFile(filePath);
-              
-              emailAttachments.push({
-                filename: file.originalname,
-                content: fileContent,
-                contentType: file.mimetype || 'application/octet-stream'
-              });
-            } catch (err) {
-              console.error(`Error reading attachment file ${file.filename}:`, err);
+      // If this is a travel request with L1 manager, send to L1 manager
+      if (l1ManagerId && initialStatus === 'pending_l1') {
+        console.log('Sending L1 manager approval email...');
+        
+        // Get L1 manager details
+        const l1ManagerResult = await pool.request()
+          .input('managerId', sql.Int, l1ManagerId)
+          .query('SELECT id, firstName, lastName, email FROM petty_Users WHERE id = @managerId');
+        
+        if (l1ManagerResult.recordset.length > 0) {
+          const l1Manager = l1ManagerResult.recordset[0];
+          
+          // Prepare attachments for email
+          const emailAttachments = [];
+          if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+              try {
+                const filePath = path.join(__dirname, '../../uploads', file.filename);
+                const fileContent = await require('fs').promises.readFile(filePath);
+                
+                emailAttachments.push({
+                  filename: file.originalname,
+                  content: fileContent,
+                  contentType: file.mimetype || 'application/octet-stream'
+                });
+              } catch (err) {
+                console.error(`Error reading attachment file ${file.filename}:`, err);
+              }
             }
           }
+          
+          const { subject, html } = buildL1ManagerApprovalEmail(newRequest, l1Manager);
+          const replyTo = newRequest?.employee_email || employeeEmail;
+          
+          console.log(`Sending L1 manager email to ${l1Manager.email} with ${emailAttachments.length} attachment(s)`);
+          
+          sendEmail({ 
+            to: l1Manager.email, 
+            subject, 
+            html, 
+            replyTo,
+            attachments: emailAttachments
+          })
+            .catch((e) => console.error('Failed sending L1 manager email:', e.message));
         }
-        
-        const { subject, html } = buildAdminNewRequestEmail(newRequest);
-        // Office 365 typically requires From to be the authenticated mailbox.
-        // Use configured sender as From and employee as Reply-To.
-        const replyTo = newRequest?.employee_email || employeeEmail;
-        
-        console.log(`Sending admin email with ${emailAttachments.length} attachment(s)`);
-        
-        sendEmail({ 
-          to: adminTo, 
-          subject, 
-          html, 
-          replyTo,
-          attachments: emailAttachments
-        })
-          .catch((e) => console.error('Failed sending admin email:', e.message));
       } else {
-        console.warn('ADMIN_EMAIL is not set; skipping admin notification');
+        // For non-travel requests or travel requests without L1 manager, send to admin
+        const adminTo = process.env.ADMIN_EMAIL;
+        if (adminTo) {
+          // Prepare attachments for email
+          const emailAttachments = [];
+          if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+              try {
+                const filePath = path.join(__dirname, '../../uploads', file.filename);
+                const fileContent = await require('fs').promises.readFile(filePath);
+                
+                emailAttachments.push({
+                  filename: file.originalname,
+                  content: fileContent,
+                  contentType: file.mimetype || 'application/octet-stream'
+                });
+              } catch (err) {
+                console.error(`Error reading attachment file ${file.filename}:`, err);
+              }
+            }
+          }
+          
+          const { subject, html } = buildAdminNewRequestEmail(newRequest);
+          const replyTo = newRequest?.employee_email || employeeEmail;
+          
+          console.log(`Sending admin email with ${emailAttachments.length} attachment(s)`);
+          
+          sendEmail({ 
+            to: adminTo, 
+            subject, 
+            html, 
+            replyTo,
+            attachments: emailAttachments
+          })
+            .catch((e) => console.error('Failed sending admin email:', e.message));
+        } else {
+          console.warn('ADMIN_EMAIL is not set; skipping admin notification');
+        }
       }
     } catch (e) {
-      console.error('Admin email error:', e);
+      console.error('Email notification error:', e);
     }
 
     return res.status(201).json(newRequest);
@@ -1547,13 +1668,12 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
       return res.status(400).json({ message: 'No files uploaded' });
     }
     
-    // First, get the request details including location and amount
+    // First, get the request details
     const requestResult = await request
       .input('id', sql.Int, id)
       .query(`
-        SELECT r.amount, r.currency, r.location, l.id as locationId, r.status
+        SELECT r.amount, r.currency, r.status
         FROM petty_cash_requests r
-        LEFT JOIN petty_Locations l ON r.location = l.location
         WHERE r.id = @id
       `);
       
@@ -1583,49 +1703,6 @@ router.post('/:id/upload-receipts', upload.array('receipts', 5), async (req, res
         SET status = 'payment done'
         WHERE id = @request_id;
       `);
-    
-    // Update the location's used amount if location exists
-    if (requestData.locationId) {
-      const exchangeRate = await getExchangeRate(requestData.currency || 'GBP', 'GBP');
-      const amountInGBP = parseFloat(requestData.amount) / exchangeRate;
-      
-      console.log(`Updating budget for location ${requestData.location} (ID: ${requestData.locationId}) with amount:`, {
-        amount: requestData.amount,
-        currency: requestData.currency,
-        exchangeRate,
-        amountInGBP
-      });
-      
-      const budgetUpdateResult = await new sql.Request(txn)
-        .input('id', sql.Int, requestData.locationId)
-        .input('amount', sql.Decimal(10, 2), amountInGBP)
-        .query(`
-          DECLARE @currentUsed DECIMAL(10,2) = ISNULL((SELECT used_amount FROM petty_Locations WHERE id = @id), 0);
-          DECLARE @newUsed DECIMAL(10,2) = @currentUsed + @amount;
-          DECLARE @budget DECIMAL(10,2) = ISNULL((SELECT budget FROM petty_Locations WHERE id = @id), 30);
-          
-          IF (@budget - @newUsed) < 0
-          BEGIN
-            THROW 50001, 'Insufficient budget for this location', 1;
-          END
-          
-          UPDATE petty_Locations 
-          SET used_amount = @newUsed,
-              remaining_amount = @budget - @newUsed
-          WHERE id = @id;
-          
-          SELECT @newUsed as newUsed, @budget as budget, (@budget - @newUsed) as newRemaining;
-        `);
-        
-      console.log('Budget update result:', {
-        locationId: requestData.locationId,
-        newUsed: budgetUpdateResult.recordset[0].newUsed,
-        budget: budgetUpdateResult.recordset[0].budget,
-        newRemaining: budgetUpdateResult.recordset[0].newRemaining
-      });
-    } else {
-      console.warn('No location ID found for request ID:', id);
-    }
 
     await txn.commit();  // Commit the transaction
 

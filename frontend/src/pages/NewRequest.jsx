@@ -196,9 +196,9 @@ const NewRequest = () => {
 
     // Check budget rule
     if (name === "amount" || name === "category" || name === "location") {
-      // Check if category is "Travel Request"
+      // Check if category is "Travel Request" or "Travel"
       if (name === "category") {
-        const isTravelRequest = value === "Travel Request";
+        const isTravelRequest = value === "Travel Request" || value === "Travel";
         setShowTravelForm(isTravelRequest);
         if (!isTravelRequest) {
           setTravelFormData(null);
