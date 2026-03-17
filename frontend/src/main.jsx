@@ -6,6 +6,7 @@ import App from './App.jsx'
 import { ColorModeProvider } from './theme/ColorMode.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import Login from './pages/Login.jsx'
+import TravelFeedback from './pages/TravelFeedback.jsx'
 
 function AuthGate() {
   const { isAuthenticated, loading } = useAuth();
@@ -24,6 +25,8 @@ function AuthGate() {
   return (
     <Router>
       <Routes>
+        {/* Public route — no auth required */}
+        <Route path="/travel-feedback/:token" element={<TravelFeedback />} />
         <Route 
           path="/*" 
           element={isAuthenticated ? <App /> : <Navigate to="/login" replace />} 
