@@ -25,6 +25,9 @@ const TravelRequestForm = ({ formData, onChange }) => {
     flights: false, rentedVehicle: false, hotel: false, carPark: false, food: false, overnightStay: false
   });
 
+  const [carParkRequired, setCarParkRequired] = useState('no');
+  const [carParkDuration, setCarParkDuration] = useState('');
+
   const [roundTrip, setRoundTrip] = useState({
     fromCity: '', toCity: '', departureDate: '', arrivalDate: ''
   });
@@ -60,6 +63,8 @@ const TravelRequestForm = ({ formData, onChange }) => {
     hotelTo: '',
     hotelNumberOfDays: '',
     foodNumberOfDays: '',
+    carParkRequired: 'no',
+    carParkDuration: '',
     reasonOfTravel: '',
     remarks: ''
   });
@@ -418,16 +423,28 @@ const TravelRequestForm = ({ formData, onChange }) => {
                   {internationalRequirements.carPark && (
                     <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'grey.400' }}>
                       <Typography variant="subtitle2" fontWeight={600} gutterBottom>5. Car Park</Typography>
-                      <FormControl>
-                        <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Car park required?</FormLabel>
-                        <RadioGroup row value={travelData.carParkRequired || 'no'}
-                          onChange={(e) => handleFieldChange({ target: { name: 'carParkRequired', value: e.target.value } })}>
-                          <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
-                          <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
-                        </RadioGroup>
-                      </FormControl>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                        <FormControl>
+                          <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Car park required?</FormLabel>
+                          <RadioGroup row value={carParkRequired}
+                            onChange={(e) => setCarParkRequired(e.target.value)}>
+                            <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                            <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                          </RadioGroup>
+                        </FormControl>
+                        {carParkRequired === 'yes' && (
+                          <TextField
+                            label="Duration (e.g. 3 days, 2 nights)"
+                            value={carParkDuration}
+                            onChange={(e) => setCarParkDuration(e.target.value)}
+                            size="small"
+                            sx={{ minWidth: 220 }}
+                            placeholder="e.g. 3 days"
+                          />
+                        )}
+                      </Box>
                     </Box>
-                  )}
+                  )} 
 
                   {internationalRequirements.food && (
                     <Box sx={{ bgcolor: 'secondary.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'secondary.main' }}>
@@ -558,14 +575,26 @@ const TravelRequestForm = ({ formData, onChange }) => {
                   {domesticRequirements.carPark && (
                     <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'grey.400' }}>
                       <Typography variant="subtitle2" fontWeight={600} gutterBottom>4. Car Park</Typography>
-                      <FormControl>
-                        <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Car park required?</FormLabel>
-                        <RadioGroup row value={travelData.carParkRequired || 'no'}
-                          onChange={(e) => handleFieldChange({ target: { name: 'carParkRequired', value: e.target.value } })}>
-                          <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
-                          <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
-                        </RadioGroup>
-                      </FormControl>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                        <FormControl>
+                          <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Car park required?</FormLabel>
+                          <RadioGroup row value={carParkRequired}
+                            onChange={(e) => setCarParkRequired(e.target.value)}>
+                            <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                            <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                          </RadioGroup>
+                        </FormControl>
+                        {carParkRequired === 'yes' && (
+                          <TextField
+                            label="Duration (e.g. 3 days, 2 nights)"
+                            value={carParkDuration}
+                            onChange={(e) => setCarParkDuration(e.target.value)}
+                            size="small"
+                            sx={{ minWidth: 220 }}
+                            placeholder="e.g. 3 days"
+                          />
+                        )}
+                      </Box>
                     </Box>
                   )}
 
