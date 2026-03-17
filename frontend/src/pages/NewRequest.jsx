@@ -66,16 +66,25 @@ const NewRequest = () => {
     return `${year}-${month}-${day}`;
   };
 
-  const [formData, setFormData] = useState({
-    dateOfPurchase: formatDateForInput(new Date()),
-    category: '',
-    company: '',
-    location: '',
-    description: '',
-    amount: '',
-    currency: 'USD',
-    selectedLocation: null,
-    attachments: ''
+  const [formData, setFormData] = useState(() => {
+    const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+    const employeeName = user.name ||
+      (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) ||
+      user.email?.split('@')[0] || '';
+    return {
+      dateOfPurchase: formatDateForInput(new Date()),
+      category: '',
+      company: '',
+      location: '',
+      description: '',
+      amount: '',
+      currency: 'USD',
+      selectedLocation: null,
+      attachments: '',
+      employeeName,
+      department: user.department || '',
+      company: user.company || ''
+    };
   });
   
   // Fetch request data if in edit mode

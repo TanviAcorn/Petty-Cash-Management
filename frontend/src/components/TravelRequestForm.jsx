@@ -10,7 +10,7 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 
-const defaultLeg = () => ({ fromCity: '', toCity: '', date: '' });
+const defaultLeg = () => ({ fromCity: '', toCity: '', date: '', needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
 
 const TravelRequestForm = ({ formData, onChange }) => {
   const [travelType, setTravelType] = useState('international');
@@ -39,6 +39,7 @@ const TravelRequestForm = ({ formData, onChange }) => {
     travelType: 'international',
     employeeName: formData.employeeName || '',
     department: formData.department || '',
+    company: formData.company || '',
     countryOfTravel: '',
     preferredDepartureAirport: '',
     destinationAirport: '',
@@ -67,9 +68,10 @@ const TravelRequestForm = ({ formData, onChange }) => {
     setTravelData(prev => ({
       ...prev,
       employeeName: formData.employeeName || '',
-      department: formData.department || ''
+      department: formData.department || '',
+      company: formData.company || ''
     }));
-  }, [formData.employeeName, formData.department]);
+  }, [formData.employeeName, formData.department, formData.company]);
 
   const emit = (overrides = {}) => {
     const reqs = travelType === 'international' ? internationalRequirements : domesticRequirements;
@@ -180,7 +182,11 @@ const TravelRequestForm = ({ formData, onChange }) => {
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField fullWidth label="Department" name="department" value={travelData.department}
-              onChange={handleFieldChange} size="small" />
+              onChange={handleFieldChange} size="small" disabled helperText="Auto-filled from your profile" />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField fullWidth label="Company" name="company" value={travelData.company}
+              onChange={handleFieldChange} size="small" disabled helperText="Auto-filled from your profile" />
           </Grid>
 
           {travelType === 'international' ? (
@@ -265,6 +271,41 @@ const TravelRequestForm = ({ formData, onChange }) => {
                               slotProps={{ inputLabel: { shrink: true } }} size="small" required />
                           </Grid>
                         </Grid>
+
+                        {/* Per-leg hotel toggle */}
+                        <Box sx={{ mt: 1.5 }}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                size="small"
+                                checked={leg.needsHotel || false}
+                                onChange={(e) => handleLegChange(index, 'needsHotel', e.target.checked)}
+                              />
+                            }
+                            label={<Typography variant="caption" fontWeight={500}>Hotel / Accommodation needed at {leg.toCity || 'destination'}</Typography>}
+                          />
+                          {leg.needsHotel && (
+                            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                              <Grid item xs={12} md={4}>
+                                <TextField fullWidth label="Check-in" type="date" value={leg.hotelFrom || ''}
+                                  onChange={(e) => handleLegChange(index, 'hotelFrom', e.target.value)}
+                                  slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <TextField fullWidth label="Check-out" type="date" value={leg.hotelTo || ''}
+                                  onChange={(e) => handleLegChange(index, 'hotelTo', e.target.value)}
+                                  slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <TextField fullWidth label="No. of Days" type="number" value={leg.hotelDays || ''}
+                                  onChange={(e) => handleLegChange(index, 'hotelDays', e.target.value)}
+                                  size="small" slotProps={{ htmlInput: { min: 1 } }} />
+                              </Grid>
+                            </Grid>
+                          )}
+                        </Box>
+
+                        {index < multiCityLegs.length - 1 && <Divider sx={{ mt: 2 }} />}
                       </Box>
                     ))}
                     <Button startIcon={<AddIcon />} size="small" onClick={addLeg} variant="outlined" sx={{ mt: 2 }}>
