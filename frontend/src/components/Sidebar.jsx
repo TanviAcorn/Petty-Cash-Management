@@ -28,6 +28,7 @@ import {
   Person,
   AttachMoney,
   AssignmentTurnedIn,
+  FlightTakeoff,
 } from "@mui/icons-material";
 
 const drawerWidth = 260;
@@ -60,6 +61,7 @@ const getMenuItemsByRole = (userRole) => {
     { text: "Dashboard", icon: <Dashboard />, path: "/user-dashboard" },
     { text: "My Requests", icon: <ListAlt />, path: "/my-requests" },
     { text: "New Request", icon: <AddCircle />, path: "/new-request" },
+    { text: "New Travel Request", icon: <FlightTakeoff />, path: "/new-travel-request" },
     { text: "Travel Request Approvals", icon: <AssignmentTurnedIn />, path: "/l1-approvals" },
     { text: "Profile", icon: <Person />, path: "/profile" },
   ];

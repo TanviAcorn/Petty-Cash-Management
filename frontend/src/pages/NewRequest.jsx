@@ -74,7 +74,6 @@ const NewRequest = () => {
     return {
       dateOfPurchase: formatDateForInput(new Date()),
       category: '',
-      company: '',
       location: '',
       description: '',
       amount: '',
@@ -207,7 +206,7 @@ const NewRequest = () => {
     if (name === "amount" || name === "category" || name === "location") {
       // Check if category is "Travel Request" or "Travel"
       if (name === "category") {
-        const isTravelRequest = value === "Travel Request" || value === "Travel";
+        const isTravelRequest = value === "Travel Request";
         setShowTravelForm(isTravelRequest);
         if (!isTravelRequest) {
           setTravelFormData(null);

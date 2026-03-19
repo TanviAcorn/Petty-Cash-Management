@@ -46,6 +46,7 @@ import UserRequestDetails from "./pages/UserRequestDetails";
 import Payments from "./pages/Payments";
 import UploadReceipt from "./pages/UploadReceipt";
 import L1TravelApprovals from "./pages/L1TravelApprovals";
+import NewTravelRequest from "./pages/NewTravelRequest";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
@@ -388,6 +389,14 @@ const App = () => {
             userInfo?.role === 'Payment' ?
             <Navigate to="/payments" replace /> :
             <NewRequest />
+          } />
+          
+          <Route path="/new-travel-request" element={
+            hasAdminAccess(userInfo?.role) ? 
+            <Navigate to="/dashboard" replace /> : 
+            userInfo?.role === 'Payment' ?
+            <Navigate to="/payments" replace /> :
+            <NewTravelRequest />
           } />
           
           <Route path="/l1-approvals" element={
