@@ -114,305 +114,226 @@ const L1TravelApprovals = () => {
   };
 
   const renderTravelDetails = (travelData) => {
-    if (!travelData) return null;
+    if (!travelData) return <Typography color="text.secondary" sx={{ mt: 2 }}>No travel details available.</Typography>;
 
-    const isInternational = travelData.travelType === 'international';
+    const isIntl = travelData.travelType === 'international';
+    const tf = travelData;
+
+    const SectionTitle = ({ children }) => (
+      <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 2.5, mb: 1, color: 'primary.main', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.5 }}>
+        {children}
+      </Typography>
+    );
+
+    const InfoRow = ({ label, value }) => value ? (
+      <TableRow>
+        <TableCell sx={{ fontWeight: 600, width: '35%', bgcolor: 'action.hover', py: 1, fontSize: '0.8125rem' }}>{label}</TableCell>
+        <TableCell sx={{ py: 1, fontSize: '0.8125rem' }}>{value}</TableCell>
+      </TableRow>
+    ) : null;
+
+    const reqs = tf.requirements || {};
+    const reqLabels = { flights: 'Flights', visa: 'Visa', rentedVehicle: 'Rented Vehicle', carPark: 'Car Park', food: 'Food', overnightStay: 'Overnight Stay', baggage: 'Baggage' };
+    const selectedReqs = Object.entries(reqs).filter(([, v]) => v).map(([k]) => reqLabels[k] || k);
 
     return (
-      <Box sx={{ mt: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Travel Details
-        </Typography>
-        
-        {/* Basic Travel Information */}
-        <TableContainer component={Box} sx={{ mb: 3 }}>
+      <Box sx={{ mt: 1 }}>
+
+        {/* ── Employee ── */}
+        <SectionTitle>Employee Information</SectionTitle>
+        <TableContainer component={Box}>
           <Table size="small">
             <TableBody>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600, width: '30%', bgcolor: 'action.hover' }}>
-                  Travel Type
-                </TableCell>
-                <TableCell sx={{ textTransform: 'capitalize' }}>
-                  {travelData.travelType || '-'}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                  Reason for Travel
-                </TableCell>
-                <TableCell>{travelData.reasonOfTravel || '-'}</TableCell>
-              </TableRow>
+              <InfoRow label="Name" value={tf.employeeName} />
+              <InfoRow label="Department" value={tf.department} />
+              <InfoRow label="Company" value={tf.company} />
             </TableBody>
           </Table>
         </TableContainer>
 
-        {/* Destination & Dates */}
-        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-          Destination & Schedule
-        </Typography>
-        <TableContainer component={Box} sx={{ mb: 3 }}>
+        {/* ── Travel Type & Reason ── */}
+        <SectionTitle>Travel Overview</SectionTitle>
+        <TableContainer component={Box}>
           <Table size="small">
             <TableBody>
-              {isInternational ? (
-                <>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: '30%', bgcolor: 'action.hover' }}>
-                      Country
-                    </TableCell>
-                    <TableCell>{travelData.countryOfTravel || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                      City
-                    </TableCell>
-                    <TableCell>{travelData.cityOfTravel || '-'}</TableCell>
-                  </TableRow>
-                </>
-              ) : (
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600, width: '30%', bgcolor: 'action.hover' }}>
-                    City
-                  </TableCell>
-                  <TableCell>{travelData.cityOfTravelDomestic || '-'}</TableCell>
-                </TableRow>
-              )}
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                  Departure Date
-                </TableCell>
-                <TableCell>{formatDate(travelData.departureDate || travelData.dateOfTravel)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                  Return Date
-                </TableCell>
-                <TableCell>{formatDate(travelData.returnDate)}</TableCell>
-              </TableRow>
-              {travelData.numberOfDays && (
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                    Duration
-                  </TableCell>
-                  <TableCell>{travelData.numberOfDays} days</TableCell>
-                </TableRow>
-              )}
+              <InfoRow label="Travel Type" value={isIntl ? 'International' : 'Domestic'} />
+              {isIntl && <InfoRow label="Trip Type" value={tf.tripType === 'roundTrip' ? 'Round Trip' : tf.tripType === 'multiCity' ? 'Multi-City' : 'One Way'} />}
+              {isIntl && <InfoRow label="Country" value={tf.countryOfTravel} />}
+              {!isIntl && <InfoRow label="City of Travel" value={tf.cityOfTravelDomestic} />}
+              {!isIntl && <InfoRow label="Date of Travel" value={formatDate(tf.dateOfTravel)} />}
+              {!isIntl && <InfoRow label="Departure Postcode" value={tf.departurePostcode} />}
+              {!isIntl && <InfoRow label="Destination Postcode" value={tf.destinationPostcode} />}
+              <InfoRow label="Reason for Travel" value={tf.reasonOfTravel} />
+              {tf.remarks && <InfoRow label="Remarks" value={tf.remarks} />}
             </TableBody>
           </Table>
         </TableContainer>
 
-        {/* Flight Details (International only) */}
-        {isInternational && (travelData.preferredDepartureAirport || travelData.destinationAirport) && (
+        {/* ── Round Trip ── */}
+        {isIntl && tf.tripType === 'roundTrip' && tf.roundTrip && (
           <>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              Flight Information
-            </Typography>
-            <TableContainer component={Box} sx={{ mb: 3 }}>
+            <SectionTitle>Round Trip Details</SectionTitle>
+            <TableContainer component={Box}>
               <Table size="small">
                 <TableBody>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: '30%', bgcolor: 'action.hover' }}>
-                      Departure Airport
-                    </TableCell>
-                    <TableCell>{travelData.preferredDepartureAirport || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                      Destination Airport
-                    </TableCell>
-                    <TableCell>{travelData.destinationAirport || '-'}</TableCell>
-                  </TableRow>
+                  <InfoRow label="From City" value={tf.roundTrip.fromCity} />
+                  <InfoRow label="To City" value={tf.roundTrip.toCity} />
+                  <InfoRow label="Departure Date" value={tf.roundTrip.departureDate || 'Flexible'} />
+                  <InfoRow label="Return Date" value={tf.roundTrip.arrivalDate || 'Flexible'} />
+                  {tf.roundTrip.needsHotel && <>
+                    <InfoRow label="Hotel Check-in" value={formatDate(tf.roundTrip.hotelFrom)} />
+                    <InfoRow label="Hotel Check-out" value={formatDate(tf.roundTrip.hotelTo)} />
+                    <InfoRow label="Hotel Days" value={tf.roundTrip.hotelDays} />
+                  </>}
                 </TableBody>
               </Table>
             </TableContainer>
           </>
         )}
 
-        {/* Visa Details (International only) */}
-        {isInternational && (travelData.nationality || travelData.visaType) && (
+        {/* ── Multi-City ── */}
+        {isIntl && tf.tripType === 'multiCity' && tf.multiCityLegs?.length > 0 && (
           <>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              Visa & Nationality
-            </Typography>
-            <TableContainer component={Box} sx={{ mb: 3 }}>
+            <SectionTitle>Multi-City Legs</SectionTitle>
+            {tf.multiCityLegs.map((leg, i) => (
+              <Box key={i} sx={{ mb: 1.5 }}>
+                <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Leg {i + 1}</Typography>
+                <TableContainer component={Box}>
+                  <Table size="small">
+                    <TableBody>
+                      <InfoRow label="From City" value={leg.fromCity} />
+                      <InfoRow label="To City" value={leg.toCity} />
+                      <InfoRow label="Date" value={leg.date || 'Flexible'} />
+                      {leg.needsHotel && <>
+                        <InfoRow label="Hotel Check-in" value={formatDate(leg.hotelFrom)} />
+                        <InfoRow label="Hotel Check-out" value={formatDate(leg.hotelTo)} />
+                        <InfoRow label="Hotel Days" value={leg.hotelDays} />
+                      </>}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            ))}
+          </>
+        )}
+
+        {/* ── Domestic Hotel ── */}
+        {!isIntl && tf.domesticHotel?.needsHotel && (
+          <>
+            <SectionTitle>Hotel / Accommodation</SectionTitle>
+            <TableContainer component={Box}>
               <Table size="small">
                 <TableBody>
-                  {travelData.nationality && (
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, width: '30%', bgcolor: 'action.hover' }}>
-                        Nationality
-                      </TableCell>
-                      <TableCell>{travelData.nationality}</TableCell>
-                    </TableRow>
-                  )}
-                  {travelData.visaType && (
-                    <>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                          Visa Type
-                        </TableCell>
-                        <TableCell>{travelData.visaType}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                          Visa Duration
-                        </TableCell>
-                        <TableCell>{travelData.lengthOfVisa} days</TableCell>
-                      </TableRow>
-                    </>
-                  )}
+                  <InfoRow label="Check-in" value={formatDate(tf.domesticHotel.hotelFrom)} />
+                  <InfoRow label="Check-out" value={formatDate(tf.domesticHotel.hotelTo)} />
+                  <InfoRow label="No. of Days" value={tf.domesticHotel.hotelDays} />
                 </TableBody>
               </Table>
             </TableContainer>
           </>
         )}
 
-        {/* Domestic Travel Details */}
-        {!isInternational && (travelData.departurePostcode || travelData.destinationPostcode) && (
+        {/* ── Requirements ── */}
+        {selectedReqs.length > 0 && (
           <>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              Travel Route
-            </Typography>
-            <TableContainer component={Box} sx={{ mb: 3 }}>
-              <Table size="small">
-                <TableBody>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: '30%', bgcolor: 'action.hover' }}>
-                      Departure Postcode
-                    </TableCell>
-                    <TableCell>{travelData.departurePostcode || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                      Destination Postcode
-                    </TableCell>
-                    <TableCell>{travelData.destinationPostcode || '-'}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
-
-        {/* Vehicle Details */}
-        {travelData.requirements?.rentedVehicle && (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              Vehicle Rental
-            </Typography>
-            <TableContainer component={Box} sx={{ mb: 3 }}>
-              <Table size="small">
-                <TableBody>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: '30%', bgcolor: 'action.hover' }}>
-                      Vehicle Type
-                    </TableCell>
-                    <TableCell>{travelData.vehicleType || 'Manual'}</TableCell>
-                  </TableRow>
-                  {travelData.pickupDate && (
-                    <>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                          Pickup Date
-                        </TableCell>
-                        <TableCell>{formatDate(travelData.pickupDate)}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                          Drop-off Date
-                        </TableCell>
-                        <TableCell>{formatDate(travelData.dropDate)}</TableCell>
-                      </TableRow>
-                    </>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
-
-        {/* Accommodation Details */}
-        {(travelData.requirements?.hotel || travelData.requirements?.overnightStay || travelData.placeOfStay) && (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              Accommodation
-            </Typography>
-            <TableContainer component={Box} sx={{ mb: 3 }}>
-              <Table size="small">
-                <TableBody>
-                  {travelData.placeOfStay && (
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, width: '30%', bgcolor: 'action.hover' }}>
-                        Place of Stay
-                      </TableCell>
-                      <TableCell>{travelData.placeOfStay}</TableCell>
-                    </TableRow>
-                  )}
-                  {travelData.stayFrom && (
-                    <>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                          Check-in Date
-                        </TableCell>
-                        <TableCell>{formatDate(travelData.stayFrom)}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                          Check-out Date
-                        </TableCell>
-                        <TableCell>{formatDate(travelData.stayTo)}</TableCell>
-                      </TableRow>
-                    </>
-                  )}
-                  {travelData.hotelFrom && (
-                    <>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                          Hotel From
-                        </TableCell>
-                        <TableCell>{formatDate(travelData.hotelFrom)}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>
-                          Hotel To
-                        </TableCell>
-                        <TableCell>{formatDate(travelData.hotelTo)}</TableCell>
-                      </TableRow>
-                    </>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
-
-        {/* Requirements */}
-        {travelData.requirements && (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              Requirements
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-              {travelData.requirements.flights && (
-                <Chip label="Flights" size="small" color="primary" />
-              )}
-              {travelData.requirements.visa && (
-                <Chip label="Visa" size="small" color="primary" />
-              )}
-              {travelData.requirements.hotel && (
-                <Chip label="Hotel" size="small" color="primary" />
-              )}
-              {travelData.requirements.food && (
-                <Chip label="Food" size="small" color="primary" />
-              )}
-              {travelData.requirements.rentedVehicle && (
-                <Chip label="Rented Vehicle" size="small" color="primary" />
-              )}
-              {travelData.requirements.overnightStay && (
-                <Chip label="Overnight Stay" size="small" color="primary" />
-              )}
+            <SectionTitle>Travel Requirements</SectionTitle>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+              {selectedReqs.map(r => <Chip key={r} label={r} size="small" color="primary" variant="outlined" />)}
             </Box>
           </>
         )}
+
+        {/* ── Flights ── */}
+        {reqs.flights && tf.preferredDepartureAirport && (
+          <>
+            <SectionTitle>Flight Details</SectionTitle>
+            <TableContainer component={Box}>
+              <Table size="small">
+                <TableBody>
+                  <InfoRow label="Preferred Departure Airport" value={tf.preferredDepartureAirport} />
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
+        )}
+
+        {/* ── Visa ── */}
+        {reqs.visa && tf.visaRequired === 'yes' && (
+          <>
+            <SectionTitle>Visa Details</SectionTitle>
+            <TableContainer component={Box}>
+              <Table size="small">
+                <TableBody>
+                  <InfoRow label="Nationality" value={tf.nationality} />
+                  <InfoRow label="Visa Type" value={tf.visaType} />
+                  <InfoRow label="Length of Visa" value={tf.lengthOfVisa} />
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
+        )}
+
+        {/* ── Rented Vehicle ── */}
+        {reqs.rentedVehicle && (
+          <>
+            <SectionTitle>Rented Vehicle</SectionTitle>
+            <TableContainer component={Box}>
+              <Table size="small">
+                <TableBody>
+                  <InfoRow label="Pick-up Point" value={tf.pickupPoint} />
+                  <InfoRow label="Drop-off Point" value={tf.dropOffPoint} />
+                  <InfoRow label="Vehicle Type" value={tf.vehicleType} />
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
+        )}
+
+        {/* ── Car Park ── */}
+        {reqs.carPark && tf.carParkRequired === 'yes' && (
+          <>
+            <SectionTitle>Car Park</SectionTitle>
+            <TableContainer component={Box}>
+              <Table size="small">
+                <TableBody>
+                  <InfoRow label="Duration" value={tf.carParkDuration} />
+                  <InfoRow label="Vehicle Number" value={tf.carParkVehicleNumber} />
+                  <InfoRow label="Car Color" value={tf.carParkCarColor} />
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
+        )}
+
+        {/* ── Food ── */}
+        {reqs.food && tf.foodOptions && (
+          <>
+            <SectionTitle>Food Preferences</SectionTitle>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+              {Object.entries(tf.foodOptions).filter(([, v]) => v).map(([k]) => (
+                <Chip key={k} label={k.replace(/([A-Z])/g, ' $1').trim()} size="small" color="secondary" variant="outlined" />
+              ))}
+            </Box>
+            {tf.foodNumberOfDays && <Typography variant="caption" color="text.secondary">Duration: {tf.foodNumberOfDays} days</Typography>}
+          </>
+        )}
+
+        {/* ── Baggage ── */}
+        {reqs.baggage && tf.baggageRequired === 'yes' && (
+          <>
+            <SectionTitle>Baggage</SectionTitle>
+            <TableContainer component={Box}>
+              <Table size="small">
+                <TableBody>
+                  <InfoRow label="No. of Bags" value={tf.baggageCount} />
+                  <InfoRow label="Dimension" value={tf.baggageDimension} />
+                  <InfoRow label="Weight" value={tf.baggageWeight} />
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
+        )}
+
       </Box>
     );
   };
@@ -497,36 +418,12 @@ const L1TravelApprovals = () => {
         <DialogContent dividers>
           {selectedRequest && (
             <>
-              <Typography variant="h6" gutterBottom>Employee Information</Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">Name</Typography>
-                  <Typography variant="body1">
-                    {selectedRequest.employeeFirstName} {selectedRequest.employeeLastName}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">Email</Typography>
-                  <Typography variant="body1">{selectedRequest.employee_email}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">Company</Typography>
-                  <Typography variant="body1">{selectedRequest.company || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">Submitted</Typography>
-                  <Typography variant="body1">{formatDate(selectedRequest.created_at)}</Typography>
-                </Grid>
-              </Grid>
-
               {renderTravelDetails(selectedRequest.travel_form_data)}
 
-              {selectedRequest.description && (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="body2" color="text.secondary">Description</Typography>
-                  <Typography variant="body1">{selectedRequest.description}</Typography>
-                </Box>
-              )}
+              {/* Submitted date */}
+              <Box sx={{ mt: 1, mb: 1 }}>
+                <Typography variant="caption" color="text.secondary">Submitted: {formatDate(selectedRequest.created_at)} &nbsp;|&nbsp; Email: {selectedRequest.employee_email}</Typography>
+              </Box>
 
               {!actionType && (
                 <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>

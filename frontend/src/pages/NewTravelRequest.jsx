@@ -304,7 +304,7 @@ const NewTravelRequest = () => {
                   <Typography variant="subtitle1" fontWeight={700}>Supporting Documents</Typography>
                 </Box>
                 <Typography variant="body2" color={errors.attachments ? 'error' : 'text.secondary'} sx={{ mb: 1 }}>
-                  Please upload all relevant documents including travel itinerary, invitation letters, visa support letters, hotel bookings, or any other supporting evidence (PDF, JPG, PNG, DOC, DOCX, ZIP — max 10MB each) *
+                  Please upload all relevant documents including travel itinerary, invitation letters, or any other supporting evidence (PDF, JPG, PNG, DOC, DOCX, ZIP — max 10MB each) *
                 </Typography>
                 {errors.attachments && (
                   <Typography variant="caption" color="error" sx={{ mb: 2, display: 'block' }}>{errors.attachments}</Typography>
