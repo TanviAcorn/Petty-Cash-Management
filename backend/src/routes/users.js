@@ -96,7 +96,63 @@ router.get("/me", async (req, res) => {
   }
 });
 
-// PUT /api/users/change-password - change user password
+// GET /api/users/passport-info - get logged-in user's passport & nationality data
+router.get("/passport-info", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Authentication required' });
+    const userId = token.split('-')[1];
+    if (!userId) return res.status(401).json({ message: 'Invalid token' });
+
+    const pool = await poolPromise;
+
+    // Ensure passport columns exist
+    await pool.request().query(`
+      IF COL_LENGTH('dbo.petty_Users', 'passport_number') IS NULL
+        ALTER TABLE dbo.petty_Users ADD passport_number NVARCHAR(50) NULL;
+      IF COL_LENGTH('dbo.petty_Users', 'nationality') IS NULL
+        ALTER TABLE dbo.petty_Users ADD nationality NVARCHAR(100) NULL;
+      IF COL_LENGTH('dbo.petty_Users', 'passport_expiry') IS NULL
+        ALTER TABLE dbo.petty_Users ADD passport_expiry DATE NULL;
+    `);
+
+    const result = await pool.request()
+      .input('id', sql.Int, parseInt(userId))
+      .query('SELECT passport_number, nationality, passport_expiry FROM petty_Users WHERE id = @id');
+
+    if (result.recordset.length === 0) return res.status(404).json({ message: 'User not found' });
+
+    res.json(result.recordset[0]);
+  } catch (err) {
+    console.error('passport-info GET error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/users/passport-info - update logged-in user's passport data
+router.put("/passport-info", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Authentication required' });
+    const userId = token.split('-')[1];
+    if (!userId) return res.status(401).json({ message: 'Invalid token' });
+
+    const { passport_number, nationality, passport_expiry } = req.body;
+    const pool = await poolPromise;
+
+    await pool.request()
+      .input('id', sql.Int, parseInt(userId))
+      .input('passport_number', sql.NVarChar(50), passport_number || null)
+      .input('nationality', sql.NVarChar(100), nationality || null)
+      .input('passport_expiry', sql.Date, passport_expiry ? new Date(passport_expiry) : null)
+      .query(`UPDATE petty_Users SET passport_number = @passport_number, nationality = @nationality, passport_expiry = @passport_expiry WHERE id = @id`);
+
+    res.json({ message: 'Passport info updated' });
+  } catch (err) {
+    console.error('passport-info PUT error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 router.put("/change-password", async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;

@@ -61,6 +61,7 @@ const healthRoutes = require("./src/routes/health");
 const locationRoutes = require("./src/routes/locations");
 const l1ApprovalsRoutes = require("./src/routes/l1-approvals");
 const travelFeedbackRoutes = require("./src/routes/travel-feedback");
+const visaTypesRoutes = require("./src/routes/visa-types");
 const { startFeedbackScheduler } = require("./src/utils/feedbackScheduler");
 
 // ✅ use it once
@@ -72,6 +73,7 @@ app.use("/api/health", healthRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/l1-approvals", l1ApprovalsRoutes);
 app.use("/api/travel-feedback", travelFeedbackRoutes);
+app.use("/api/visa-types", visaTypesRoutes);
 
 // Start scheduled feedback emails
 startFeedbackScheduler();
