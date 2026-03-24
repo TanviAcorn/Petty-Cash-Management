@@ -114,11 +114,15 @@ router.get("/passport-info", async (req, res) => {
         ALTER TABLE dbo.petty_Users ADD nationality NVARCHAR(100) NULL;
       IF COL_LENGTH('dbo.petty_Users', 'passport_expiry') IS NULL
         ALTER TABLE dbo.petty_Users ADD passport_expiry DATE NULL;
+      IF COL_LENGTH('dbo.petty_Users', 'passport_name') IS NULL
+        ALTER TABLE dbo.petty_Users ADD passport_name NVARCHAR(200) NULL;
+      IF COL_LENGTH('dbo.petty_Users', 'passport_issue_date') IS NULL
+        ALTER TABLE dbo.petty_Users ADD passport_issue_date DATE NULL;
     `);
 
     const result = await pool.request()
       .input('id', sql.Int, parseInt(userId))
-      .query('SELECT passport_number, nationality, passport_expiry FROM petty_Users WHERE id = @id');
+      .query('SELECT passport_number, nationality, passport_expiry, passport_name, passport_issue_date FROM petty_Users WHERE id = @id');
 
     if (result.recordset.length === 0) return res.status(404).json({ message: 'User not found' });
 
@@ -137,7 +141,7 @@ router.put("/passport-info", async (req, res) => {
     const userId = token.split('-')[1];
     if (!userId) return res.status(401).json({ message: 'Invalid token' });
 
-    const { passport_number, nationality, passport_expiry } = req.body;
+    const { passport_number, nationality, passport_expiry, passport_name, passport_issue_date } = req.body;
     const pool = await poolPromise;
 
     await pool.request()
@@ -145,7 +149,9 @@ router.put("/passport-info", async (req, res) => {
       .input('passport_number', sql.NVarChar(50), passport_number || null)
       .input('nationality', sql.NVarChar(100), nationality || null)
       .input('passport_expiry', sql.Date, passport_expiry ? new Date(passport_expiry) : null)
-      .query(`UPDATE petty_Users SET passport_number = @passport_number, nationality = @nationality, passport_expiry = @passport_expiry WHERE id = @id`);
+      .input('passport_name', sql.NVarChar(200), passport_name || null)
+      .input('passport_issue_date', sql.Date, passport_issue_date ? new Date(passport_issue_date) : null)
+      .query(`UPDATE petty_Users SET passport_number = @passport_number, nationality = @nationality, passport_expiry = @passport_expiry, passport_name = @passport_name, passport_issue_date = @passport_issue_date WHERE id = @id`);
 
     res.json({ message: 'Passport info updated' });
   } catch (err) {

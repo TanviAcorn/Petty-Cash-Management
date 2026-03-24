@@ -11,6 +11,15 @@ const axiosClient = axios.create({
  * @returns {string} Full URL to access the file
  */
 // frontend/src/api/axiosClient.js
+// Attach auth token to every request
+axiosClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export const getFileUrl = (filePath) => {
   if (!filePath) return '';
   

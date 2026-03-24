@@ -37,7 +37,7 @@ const TravelRequestForm = ({ formData, onChange }) => {
   const [domesticDateFlexVal, setDomesticDateFlexVal] = useState('');
 
   const [visaTypes, setVisaTypes] = useState([]);
-  const [passportInfo, setPassportInfo] = useState({ passport_number: '', nationality: '', passport_expiry: '' });
+  const [passportInfo, setPassportInfo] = useState({ passport_number: '', nationality: '', passport_expiry: '', passport_name: '', passport_issue_date: '' });
   const [passportLoading, setPassportLoading] = useState(false);
 
   const [locations, setLocations] = useState([]);
@@ -64,7 +64,9 @@ const TravelRequestForm = ({ formData, onChange }) => {
         setPassportInfo({
           passport_number: p.passport_number || '',
           nationality: p.nationality || '',
-          passport_expiry: p.passport_expiry ? p.passport_expiry.split('T')[0] : ''
+          passport_expiry: p.passport_expiry ? p.passport_expiry.split('T')[0] : '',
+          passport_name: p.passport_name || '',
+          passport_issue_date: p.passport_issue_date ? p.passport_issue_date.split('T')[0] : ''
         });
       })
       .catch(err => console.error('Failed to fetch passport info:', err))
@@ -592,26 +594,22 @@ const TravelRequestForm = ({ formData, onChange }) => {
                       </Box>
                       {visaRequired === 'yes' && (
                         <Grid container spacing={2}>
+                          {[
+                            { label: 'a. Name as per Passport', value: passportInfo.passport_name },
+                            { label: 'b. Passport Number',      value: passportInfo.passport_number },
+                            { label: 'c. Nationality',          value: passportInfo.nationality },
+                            { label: 'd. Passport Issue Date',  value: passportInfo.passport_issue_date },
+                            { label: 'e. Passport Expiry',      value: passportInfo.passport_expiry },
+                          ].map(({ label, value }) => (
+                            <Grid item xs={12} md={4} key={label}>
+                              <TextField fullWidth label={label}
+                                value={passportLoading ? 'Loading...' : (value || '')}
+                                size="small" disabled
+                                helperText="Auto-filled from your profile" />
+                            </Grid>
+                          ))}
                           <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="a. Passport Number"
-                              value={passportLoading ? 'Loading...' : (passportInfo.passport_number || '')}
-                              size="small" InputProps={{ readOnly: true }}
-                              helperText="Auto-filled from your profile" />
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="b. Nationality"
-                              value={passportLoading ? 'Loading...' : (passportInfo.nationality || '')}
-                              size="small" InputProps={{ readOnly: true }}
-                              helperText="Auto-filled from your profile" />
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="c. Passport Expiry"
-                              value={passportLoading ? 'Loading...' : (passportInfo.passport_expiry || '')}
-                              size="small" InputProps={{ readOnly: true }}
-                              helperText="Auto-filled from your profile" />
-                          </Grid>
-                          <Grid item xs={12} md={6}>
-                            <TextField fullWidth label="d. Visa Type" name="visaType"
+                            <TextField fullWidth label="f. Visa Type" name="visaType"
                               value={travelData.visaType} onChange={handleFieldChange}
                               size="small" placeholder="e.g. Business, Tourist, Student" />
                           </Grid>
