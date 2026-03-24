@@ -11,7 +11,7 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 
-const defaultLeg = () => ({ fromCity: '', toCity: '', date: '', dateFlex: false, dateFlexVal: '', needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
+const defaultLeg = () => ({ fromCity: '', toCity: '', date: '', dateFlex: false, dateFlexFrom: '', dateFlexTo: '' , needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
 
 const TravelRequestForm = ({ formData, onChange }) => {
   const [travelType, setTravelType] = useState('international');
@@ -34,7 +34,8 @@ const TravelRequestForm = ({ formData, onChange }) => {
   const [baggageRequired, setBaggageRequired] = useState('no');
   const [domesticHotel, setDomesticHotel] = useState({ needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
   const [domesticDateFlex, setDomesticDateFlex] = useState(false);
-  const [domesticDateFlexVal, setDomesticDateFlexVal] = useState('');
+  const [domesticDateFlexFrom, setDomesticDateFlexFrom] = useState('');
+  const [domesticDateFlexTo, setDomesticDateFlexTo] = useState('');
 
   const [visaTypes, setVisaTypes] = useState([]);
   const [passportInfo, setPassportInfo] = useState({ passport_number: '', nationality: '', passport_expiry: '', passport_name: '', passport_issue_date: '' });
@@ -75,7 +76,8 @@ const TravelRequestForm = ({ formData, onChange }) => {
 
   const [roundTrip, setRoundTrip] = useState({
     fromCity: '', toCity: '', departureDate: '', arrivalDate: '',
-    departureDateFlex: '', arrivalDateFlex: '',
+    departureDateFlexFrom: '', departureDateFlexTo: '',
+    arrivalDateFlexFrom: '', arrivalDateFlexTo: '',
     needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: ''
   });
   const [rtDepartureFlex, setRtDepartureFlex] = useState(false);
@@ -119,8 +121,9 @@ const TravelRequestForm = ({ formData, onChange }) => {
     remarks: '',
     baggageCount: '',
     baggageNotes: '',
-    baggageDimension: '',
-    baggageWeight: ''
+    baggageWeight: '',
+    baggageCabinBag: false,
+    baggageCheckIn: false,
   });
 
   useEffect(() => {
@@ -138,7 +141,7 @@ const TravelRequestForm = ({ formData, onChange }) => {
       ...travelData, ...overrides,
       requirements: reqs, tripType, roundTrip, multiCityLegs, foodOptions,
       carParkRequired, carParkDuration, carParkVehicleNumber, carParkCarColor,
-      domesticHotel, domesticDateFlex, domesticDateFlexVal
+      domesticHotel, domesticDateFlex, domesticDateFlexFrom, domesticDateFlexTo
     });
   };
 
@@ -352,19 +355,27 @@ const TravelRequestForm = ({ formData, onChange }) => {
                           <RadioGroup row value={rtDepartureFlex ? 'yes' : 'no'} onChange={(e) => {
                             const isFlex = e.target.value === 'yes';
                             setRtDepartureFlex(isFlex);
-                            // clear the opposite field
                             const u = isFlex
                               ? { ...roundTrip, departureDate: '' }
-                              : { ...roundTrip, departureDateFlex: '' };
+                              : { ...roundTrip, departureDateFlexFrom: '', departureDateFlexTo: '' };
                             setRoundTrip(u); emit({ roundTrip: u });
                           }} sx={{ ml: 0.5 }}>
                             <FormControlLabel value="yes" control={<Radio size="small" />} label={<Typography variant="caption">Yes</Typography>} />
                             <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption">No</Typography>} />
                           </RadioGroup>
                           {rtDepartureFlex && (
-                            <TextField fullWidth label="Flexible Date" name="departureDateFlex" type="date"
-                              value={roundTrip.departureDateFlex || ''} onChange={handleRoundTripChange}
-                              slotProps={{ inputLabel: { shrink: true } }} size="small" sx={{ mt: 0.5 }} />
+                            <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                              <Grid item xs={6}>
+                                <TextField fullWidth label="From" name="departureDateFlexFrom" type="date"
+                                  value={roundTrip.departureDateFlexFrom || ''} onChange={handleRoundTripChange}
+                                  slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                              </Grid>
+                              <Grid item xs={6}>
+                                <TextField fullWidth label="To" name="departureDateFlexTo" type="date"
+                                  value={roundTrip.departureDateFlexTo || ''} onChange={handleRoundTripChange}
+                                  slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                              </Grid>
+                            </Grid>
                           )}
                         </Box>
                       </Grid>
@@ -377,19 +388,27 @@ const TravelRequestForm = ({ formData, onChange }) => {
                           <RadioGroup row value={rtArrivalFlex ? 'yes' : 'no'} onChange={(e) => {
                             const isFlex = e.target.value === 'yes';
                             setRtArrivalFlex(isFlex);
-                            // clear the opposite field
                             const u = isFlex
                               ? { ...roundTrip, arrivalDate: '' }
-                              : { ...roundTrip, arrivalDateFlex: '' };
+                              : { ...roundTrip, arrivalDateFlexFrom: '', arrivalDateFlexTo: '' };
                             setRoundTrip(u); emit({ roundTrip: u });
                           }} sx={{ ml: 0.5 }}>
                             <FormControlLabel value="yes" control={<Radio size="small" />} label={<Typography variant="caption">Yes</Typography>} />
                             <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption">No</Typography>} />
                           </RadioGroup>
                           {rtArrivalFlex && (
-                            <TextField fullWidth label="Flexible Date" name="arrivalDateFlex" type="date"
-                              value={roundTrip.arrivalDateFlex || ''} onChange={handleRoundTripChange}
-                              slotProps={{ inputLabel: { shrink: true } }} size="small" sx={{ mt: 0.5 }} />
+                            <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                              <Grid item xs={6}>
+                                <TextField fullWidth label="From" name="arrivalDateFlexFrom" type="date"
+                                  value={roundTrip.arrivalDateFlexFrom || ''} onChange={handleRoundTripChange}
+                                  slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                              </Grid>
+                              <Grid item xs={6}>
+                                <TextField fullWidth label="To" name="arrivalDateFlexTo" type="date"
+                                  value={roundTrip.arrivalDateFlexTo || ''} onChange={handleRoundTripChange}
+                                  slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                              </Grid>
+                            </Grid>
                           )}
                         </Box>
                       </Grid>
@@ -486,7 +505,8 @@ const TravelRequestForm = ({ formData, onChange }) => {
                                   handleLegChange(index, 'date', '');
                                   handleLegChange(index, 'dateFlex', true);
                                 } else {
-                                  handleLegChange(index, 'dateFlexVal', '');
+                                  handleLegChange(index, 'dateFlexFrom', '');
+                                  handleLegChange(index, 'dateFlexTo', '');
                                   handleLegChange(index, 'dateFlex', false);
                                 }
                               }} sx={{ ml: 0.5 }}>
@@ -494,9 +514,18 @@ const TravelRequestForm = ({ formData, onChange }) => {
                                 <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption">No</Typography>} />
                               </RadioGroup>
                               {leg.dateFlex && (
-                                <TextField fullWidth label="Flexible Date" type="date" value={leg.dateFlexVal || ''}
-                                  onChange={(e) => handleLegChange(index, 'dateFlexVal', e.target.value)}
-                                  slotProps={{ inputLabel: { shrink: true } }} size="small" sx={{ mt: 0.5 }} />
+                                <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                                  <Grid item xs={6}>
+                                    <TextField fullWidth label="From" type="date" value={leg.dateFlexFrom || ''}
+                                      onChange={(e) => handleLegChange(index, 'dateFlexFrom', e.target.value)}
+                                      slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                                  </Grid>
+                                  <Grid item xs={6}>
+                                    <TextField fullWidth label="To" type="date" value={leg.dateFlexTo || ''}
+                                      onChange={(e) => handleLegChange(index, 'dateFlexTo', e.target.value)}
+                                      slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                                  </Grid>
+                                </Grid>
                               )}
                             </Box>
                           </Grid>
@@ -708,21 +737,30 @@ const TravelRequestForm = ({ formData, onChange }) => {
                         </FormControl>
                       </Box>
                       {baggageRequired === 'yes' && (
-                        <Grid container spacing={2}>
+                        <Grid container spacing={2} alignItems="center">
                           <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="a. No. of Bags" name="baggageCount" type="number"
-                              value={travelData.baggageCount || ''} onChange={handleFieldChange}
-                              size="small" slotProps={{ htmlInput: { min: 1 } }} placeholder="e.g. 2" />
+                            <FormControlLabel
+                              control={<Checkbox size="small" checked={travelData.baggageCabinBag || false}
+                                onChange={(e) => handleFieldChange({ target: { name: 'baggageCabinBag', value: e.target.checked } })} />}
+                              label="a. Cabin Bag" />
                           </Grid>
                           <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="b. Dimension" name="baggageDimension"
-                              value={travelData.baggageDimension || ''} onChange={handleFieldChange}
-                              size="small" placeholder="e.g. 55x40x20 cm" />
+                            <FormControl fullWidth size="small">
+                              <InputLabel shrink>b. No. of Check-in Bags</InputLabel>
+                              <Select label="b. No. of Check-in Bags" name="baggageCheckIn"
+                                displayEmpty
+                                value={travelData.baggageCheckIn || ''} onChange={handleFieldChange}>
+                                <MenuItem value=""><em style={{ color: '#aaa' }}>Select no.</em></MenuItem>
+                                {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                                  <MenuItem key={n} value={n}>{n}</MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
                           </Grid>
                           <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="c. Weight" name="baggageWeight"
+                            <TextField fullWidth label="c. Check-in Bags" name="baggageWeight"
                               value={travelData.baggageWeight || ''} onChange={handleFieldChange}
-                              size="small" placeholder="e.g. 23 kg" />
+                              size="small" placeholder="e.g. Hand luggage, suitcase" />
                           </Grid>
                         </Grid>
                       )}
@@ -749,10 +787,11 @@ const TravelRequestForm = ({ formData, onChange }) => {
                         setDomesticDateFlex(isYes);
                         if (isYes) {
                           setTravelData(prev => ({ ...prev, dateOfTravel: '' }));
-                          emit({ dateOfTravel: '', domesticDateFlex: true, domesticDateFlexVal });
+                          emit({ dateOfTravel: '', domesticDateFlex: true, domesticDateFlexFrom, domesticDateFlexTo });
                         } else {
-                          setDomesticDateFlexVal('');
-                          emit({ domesticDateFlex: false, domesticDateFlexVal: '' });
+                          setDomesticDateFlexFrom('');
+                          setDomesticDateFlexTo('');
+                          emit({ domesticDateFlex: false, domesticDateFlexFrom: '', domesticDateFlexTo: '' });
                         }
                       }}>
                       <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
@@ -760,10 +799,20 @@ const TravelRequestForm = ({ formData, onChange }) => {
                     </RadioGroup>
                   </FormControl>
                   {domesticDateFlex && (
-                    <TextField fullWidth label="Flexible Date" type="date"
-                      value={domesticDateFlexVal}
-                      onChange={(e) => { setDomesticDateFlexVal(e.target.value); emit({ domesticDateFlex: true, domesticDateFlexVal: e.target.value }); }}
-                      slotProps={{ inputLabel: { shrink: true } }} size="small" sx={{ mt: 1 }} />
+                    <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                      <Grid item xs={6}>
+                        <TextField fullWidth label="From" type="date"
+                          value={domesticDateFlexFrom}
+                          onChange={(e) => { setDomesticDateFlexFrom(e.target.value); emit({ domesticDateFlex: true, domesticDateFlexFrom: e.target.value, domesticDateFlexTo }); }}
+                          slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                      </Grid>
+                      <Grid item xs={6}>
+                        <TextField fullWidth label="To" type="date"
+                          value={domesticDateFlexTo}
+                          onChange={(e) => { setDomesticDateFlexTo(e.target.value); emit({ domesticDateFlex: true, domesticDateFlexFrom, domesticDateFlexTo: e.target.value }); }}
+                          slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                      </Grid>
+                    </Grid>
                   )}
                 </Box>
               </Grid>
@@ -965,21 +1014,30 @@ const TravelRequestForm = ({ formData, onChange }) => {
                         </FormControl>
                       </Box>
                       {baggageRequired === 'yes' && (
-                        <Grid container spacing={2}>
+                        <Grid container spacing={2} alignItems="center">
                           <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="a. No. of Bags" name="baggageCount" type="number"
-                              value={travelData.baggageCount || ''} onChange={handleFieldChange}
-                              size="small" slotProps={{ htmlInput: { min: 1 } }} placeholder="e.g. 2" />
+                            <FormControlLabel
+                              control={<Checkbox size="small" checked={travelData.baggageCabinBag || false}
+                                onChange={(e) => handleFieldChange({ target: { name: 'baggageCabinBag', value: e.target.checked } })} />}
+                              label="a. Cabin Bag" />
                           </Grid>
                           <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="b. Dimension" name="baggageDimension"
-                              value={travelData.baggageDimension || ''} onChange={handleFieldChange}
-                              size="small" placeholder="e.g. 55x40x20 cm" />
+                            <FormControl fullWidth size="small">
+                              <InputLabel shrink>b. No. of Check-in Bags</InputLabel>
+                              <Select label="b. No. of Check-in Bags" name="baggageCheckIn"
+                                displayEmpty
+                                value={travelData.baggageCheckIn || ''} onChange={handleFieldChange}>
+                                <MenuItem value=""><em style={{ color: '#aaa' }}>Select no.</em></MenuItem>
+                                {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                                  <MenuItem key={n} value={n}>{n}</MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
                           </Grid>
                           <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="c. Weight" name="baggageWeight"
+                            <TextField fullWidth label="c. Check-in Bags" name="baggageWeight"
                               value={travelData.baggageWeight || ''} onChange={handleFieldChange}
-                              size="small" placeholder="e.g. 23 kg" />
+                              size="small" placeholder="e.g. Hand luggage, suitcase" />
                           </Grid>
                         </Grid>
                       )}
