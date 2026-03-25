@@ -38,6 +38,8 @@ async function ensureFeedbackTable(pool) {
         ALTER TABLE dbo.petty_travel_feedback ADD baggage_rating INT NULL;
       IF COL_LENGTH('dbo.petty_travel_feedback','baggage_remarks') IS NULL
         ALTER TABLE dbo.petty_travel_feedback ADD baggage_remarks NVARCHAR(MAX) NULL;
+      IF COL_LENGTH('dbo.petty_travel_feedback','sub_ratings') IS NULL
+        ALTER TABLE dbo.petty_travel_feedback ADD sub_ratings NVARCHAR(MAX) NULL;
     END
   `);
 }
@@ -53,7 +55,7 @@ router.get('/:token', async (req, res) => {
       .input('token', sql.NVarChar(64), token)
       .query(`
         SELECT 
-          f.id, f.request_id, f.submitted_at, f.token,
+          f.id, f.request_id, f.submitted_at, f.token, f.employee_email,
           f.hotel_rating, f.food_rating, f.vehicle_rating,
           f.car_park_rating, f.flights_rating, f.overall_rating,
           f.remarks, f.hotel_remarks, f.food_remarks,
@@ -61,7 +63,7 @@ router.get('/:token', async (req, res) => {
           r.employee_name, r.travel_form_data, r.travel_details,
           r.category_name
         FROM petty_travel_feedback f
-        JOIN petty_cash_requests r ON r.id = f.request_id
+        LEFT JOIN petty_cash_requests r ON r.id = f.request_id
         WHERE f.token = @token
       `);
 
@@ -71,17 +73,25 @@ router.get('/:token', async (req, res) => {
 
     const row = result.recordset[0];
 
-    // Parse travel form data
+    // Parse travel form data — for test records (request_id=0) use mock data
     let travelData = null;
-    try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
-    if (!travelData) {
-      try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {}
+    if (row.request_id === 0) {
+      travelData = {
+        travelType: 'international',
+        requirements: { flights: true, food: true },
+        roundTrip: { needsHotel: true },
+      };
+    } else {
+      try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+      if (!travelData) {
+        try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {}
+      }
     }
 
     return res.json({
       data: {
         requestId: row.request_id,
-        employeeName: row.employee_name,
+        employeeName: row.employee_name || row.employee_email?.split('@')[0] || 'Employee',
         alreadySubmitted: !!row.submitted_at,
         travelData,
         existing: row.submitted_at ? {
@@ -114,7 +124,7 @@ router.post('/:token', async (req, res) => {
       hotelRating, foodRating, vehicleRating, carParkRating,
       flightsRating, baggageRating, overallRating, remarks,
       hotelRemarks, foodRemarks, vehicleRemarks, carParkRemarks,
-      flightsRemarks, baggageRemarks
+      flightsRemarks, baggageRemarks, subRatings
     } = req.body;
 
     const pool = await poolPromise;
@@ -148,6 +158,7 @@ router.post('/:token', async (req, res) => {
       .input('carParkRemarks', sql.NVarChar(sql.MAX), carParkRemarks || null)
       .input('flightsRemarks', sql.NVarChar(sql.MAX), flightsRemarks || null)
       .input('baggageRemarks', sql.NVarChar(sql.MAX), baggageRemarks || null)
+      .input('subRatings', sql.NVarChar(sql.MAX), subRatings ? JSON.stringify(subRatings) : null)
       .query(`
         UPDATE petty_travel_feedback SET
           submitted_at = SYSUTCDATETIME(),
@@ -164,7 +175,8 @@ router.post('/:token', async (req, res) => {
           vehicle_remarks = @vehicleRemarks,
           car_park_remarks = @carParkRemarks,
           flights_remarks = @flightsRemarks,
-          baggage_remarks = @baggageRemarks
+          baggage_remarks = @baggageRemarks,
+          sub_ratings = @subRatings
         WHERE token = @token
       `);
 

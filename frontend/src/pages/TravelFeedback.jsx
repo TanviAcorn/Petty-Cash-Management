@@ -26,16 +26,79 @@ const CATEGORIES = [
 
 const ratingLabels = { 1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent' };
 
-function CategoryRating({ category, rating, remarks, onRatingChange, onRemarksChange, disabled }) {
+// Deep sub-questions per category
+const CATEGORY_QUESTIONS = {
+  flights: [
+    { key: 'punctuality',    label: 'Punctuality & On-time departure' },
+    { key: 'comfort',        label: 'Seat comfort & cabin cleanliness' },
+    { key: 'crew',           label: 'Cabin crew service' },
+    { key: 'checkin',        label: 'Check-in & boarding experience' },
+  ],
+  hotel: [
+    { key: 'roomQuality',    label: 'Room quality & cleanliness' },
+    { key: 'staff',          label: 'Staff & service' },
+    { key: 'amenities',      label: 'Amenities & facilities' },
+    { key: 'location',       label: 'Location & accessibility' },
+  ],
+  food: [
+    { key: 'quality',        label: 'Food quality & taste' },
+    { key: 'variety',        label: 'Menu variety' },
+    { key: 'service',        label: 'Service & wait time' },
+    { key: 'value',          label: 'Value for money' },
+  ],
+  vehicle: [
+    { key: 'condition',      label: 'Vehicle condition & cleanliness' },
+    { key: 'pickup',         label: 'Pick-up & drop-off experience' },
+    { key: 'value',          label: 'Value for money' },
+  ],
+  carPark: [
+    { key: 'security',       label: 'Security & safety' },
+    { key: 'accessibility',  label: 'Ease of access & signage' },
+    { key: 'value',          label: 'Value for money' },
+  ],
+  baggage: [
+    { key: 'handling',       label: 'Baggage handling & care' },
+    { key: 'delivery',       label: 'Delivery speed at destination' },
+    { key: 'allowance',      label: 'Allowance was sufficient' },
+  ],
+};
+
+function SubRating({ label, value, onChange, disabled }) {
   const [hover, setHover] = useState(-1);
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{label}</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Rating
+          size="small"
+          value={value}
+          onChange={(_, val) => onChange(val)}
+          onChangeActive={(_, val) => setHover(val)}
+          disabled={disabled}
+          emptyIcon={<StarIcon style={{ opacity: 0.3 }} fontSize="inherit" />}
+        />
+        <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60, textAlign: 'right' }}>
+          {ratingLabels[hover !== -1 ? hover : value] || ''}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function CategoryRating({ category, rating, subRatings, remarks, onRatingChange, onSubRatingChange, onRemarksChange, disabled }) {
+  const [hover, setHover] = useState(-1);
+  const questions = CATEGORY_QUESTIONS[category.key] || [];
 
   return (
-    <Box sx={{ p: 2.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', mb: 2 }}>
+    <Box sx={{ p: 2.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', mb: 2.5 }}>
+      {/* Header + overall rating */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
         <Box sx={{ color: category.color, display: 'flex' }}>{category.icon}</Box>
-        <Typography variant="subtitle2" fontWeight={600}>{category.label}</Typography>
+        <Typography variant="subtitle1" fontWeight={700}>{category.label}</Typography>
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Overall rating</Typography>
         <Rating
           value={rating}
           onChange={(_, val) => onRatingChange(val)}
@@ -45,17 +108,34 @@ function CategoryRating({ category, rating, remarks, onRatingChange, onRemarksCh
           emptyIcon={<StarIcon style={{ opacity: 0.3 }} fontSize="inherit" />}
         />
         {(hover !== -1 || rating) && (
-          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 70 }}>
+          <Typography variant="body2" color="text.secondary">
             {ratingLabels[hover !== -1 ? hover : rating] || ''}
           </Typography>
         )}
       </Box>
+
+      {/* Sub-questions */}
+      {questions.length > 0 && (
+        <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, px: 2, mb: 2 }}>
+          {questions.map(q => (
+            <SubRating
+              key={q.key}
+              label={q.label}
+              value={subRatings?.[q.key] || 0}
+              onChange={(val) => onSubRatingChange(q.key, val)}
+              disabled={disabled}
+            />
+          ))}
+        </Box>
+      )}
+
+      {/* Comments */}
       <TextField
         fullWidth
         size="small"
         multiline
         rows={2}
-        placeholder={`Any comments about ${category.label.toLowerCase()}?`}
+        placeholder={`Any specific comments about ${category.label.toLowerCase()}?`}
         value={remarks}
         onChange={(e) => onRemarksChange(e.target.value)}
         disabled={disabled}
@@ -78,6 +158,7 @@ export default function TravelFeedback() {
   const [remarks, setRemarks] = useState({
     flights: '', hotel: '', vehicle: '', carPark: '', food: '', baggage: '', overall: ''
   });
+  const [subRatings, setSubRatings] = useState({});
 
   useEffect(() => {
     fetch(`${API}/api/travel-feedback/${token}`)
@@ -136,6 +217,7 @@ export default function TravelFeedback() {
           foodRemarks: remarks.food || null,
           baggageRemarks: remarks.baggage || null,
           remarks: remarks.overall || null,
+          subRatings: subRatings || {},
         })
       });
       const data = await res.json();
@@ -230,8 +312,13 @@ export default function TravelFeedback() {
                   key={cat.key}
                   category={cat}
                   rating={ratings[cat.key]}
+                  subRatings={subRatings[cat.key] || {}}
                   remarks={remarks[cat.key]}
                   onRatingChange={(val) => setRatings(r => ({ ...r, [cat.key]: val }))}
+                  onSubRatingChange={(subKey, val) => setSubRatings(s => ({
+                    ...s,
+                    [cat.key]: { ...(s[cat.key] || {}), [subKey]: val }
+                  }))}
                   onRemarksChange={(val) => setRemarks(r => ({ ...r, [cat.key]: val }))}
                   disabled={false}
                 />
