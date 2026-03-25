@@ -62,6 +62,8 @@ router.get('/payments/list', async (req, res) => {
 
   // Build WHERE clause for search and company filtering
   const whereClauses = [];
+  // Always exclude Travel Requests from normal request flow
+  whereClauses.push("r.category_name NOT IN ('Travel Request', 'Travel')");
   const params = {};
   
   // Filter by company for Payment role users
@@ -639,6 +641,8 @@ router.get('/', async (req, res) => {
 
   // Build dynamic WHERE clause safely
   const where = [];
+  // Always exclude Travel Requests — they have their own dedicated flow
+  where.push("r.category_name NOT IN ('Travel Request', 'Travel')");
   const params = {};
 
   // Filter by company for Payment role users

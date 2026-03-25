@@ -291,13 +291,6 @@ router.get("/", async (req, res) => {
 
     // Map to expected structure for frontend
     const users = result.recordset.map((u) => {
-        id: u.id, 
-        firstName: u.firstName,
-        l1_manager_id: u.l1_manager_id,
-        l1ManagerFirstName: u.l1ManagerFirstName,
-        l1ManagerLastName: u.l1ManagerLastName
-      });
-      
       return {
         id: u.id,
         firstName: u.firstName,
@@ -370,10 +363,8 @@ router.put("/:id", async (req, res) => {
     let l1ManagerValue = null;
     if (l1ManagerId !== null && l1ManagerId !== undefined && l1ManagerId !== '') {
       l1ManagerValue = parseInt(l1ManagerId, 10);
-    } else {
     }
-    
-    
+
     const pool = await poolPromise;
     const updateResult = await pool
       .request()
@@ -401,17 +392,9 @@ router.put("/:id", async (req, res) => {
     
     
     if (updateResult.rowsAffected[0] === 0) {
+      console.error('PUT /users/:id — no rows updated for id:', id);
     }
-    
-    // Verify the update by querying the database
-    const verifyResult = await pool
-      .request()
-      .input("userId", sql.Int, parseInt(id, 10))
-      .query('SELECT id, firstName, lastName, l1_manager_id FROM petty_Users WHERE id = @userId');
-    
-    if (verifyResult.recordset.length > 0) {
-    }
-    
+
     // Fetch and return the updated user with manager info
     const userResult = await pool
       .request()
@@ -427,10 +410,8 @@ router.put("/:id", async (req, res) => {
         WHERE u.id = @userId
       `);
     
-    
     if (userResult.recordset.length > 0) {
       const u = userResult.recordset[0];
-      
       const updatedUser = {
         id: u.id,
         firstName: u.firstName,
