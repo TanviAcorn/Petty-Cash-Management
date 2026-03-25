@@ -102,6 +102,42 @@ router.delete('/:requestId/:docId', async (req, res) => {
   }
 });
 
+// GET /api/travel-documents/:requestId/draft — load saved draft details
+router.get('/:requestId/draft', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const requestId = parseInt(req.params.requestId);
+
+    await pool.request().query(`
+      IF COL_LENGTH('dbo.petty_cash_requests','travel_admin_details') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD travel_admin_details NVARCHAR(MAX) NULL;
+      IF COL_LENGTH('dbo.petty_cash_requests','travel_admin_remarks') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD travel_admin_remarks NVARCHAR(MAX) NULL;
+    `);
+
+    const result = await pool.request()
+      .input('id', sql.Int, requestId)
+      .query('SELECT travel_admin_details, travel_admin_remarks FROM petty_cash_requests WHERE id = @id');
+
+    if (!result.recordset.length) return res.json({ data: null });
+
+    const row = result.recordset[0];
+    let details = {};
+    try { details = row.travel_admin_details ? JSON.parse(row.travel_admin_details) : {}; } catch {}
+
+    const hasContent = Object.values(details).some(sec =>
+      Object.values(sec || {}).some(v => v?.trim())
+    ) || row.travel_admin_remarks;
+
+    res.json({
+      data: hasContent ? { details, globalRemarks: row.travel_admin_remarks || '' } : null
+    });
+  } catch (err) {
+    console.error('draft GET error:', err);
+    res.status(500).json({ message: 'Failed to load draft' });
+  }
+});
+
 // POST /api/travel-documents/:requestId/save-details — store text details per section
 router.post('/:requestId/save-details', async (req, res) => {
   try {

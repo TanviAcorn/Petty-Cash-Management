@@ -76,6 +76,38 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/l1-approvals/last-trip?email=xxx — fetch user's last approved travel request
+router.get('/last-trip', async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ message: 'Email required' });
+
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('email', sql.NVarChar(320), email)
+      .query(`
+        SELECT TOP 1 id, travel_details, travel_form_data, created_at
+        FROM petty_cash_requests
+        WHERE employee_email = @email
+          AND (category_name = 'Travel Request' OR category_name = 'Travel')
+          AND l1_approval_status = 'approved'
+        ORDER BY created_at DESC
+      `);
+
+    if (!result.recordset.length) return res.json({ data: null });
+
+    const row = result.recordset[0];
+    let travelData = null;
+    try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+    if (!travelData) { try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {} }
+
+    res.json({ data: travelData ? { id: row.id, travelData, createdAt: row.created_at } : null });
+  } catch (err) {
+    console.error('last-trip error:', err);
+    res.status(500).json({ message: 'Failed to fetch last trip' });
+  }
+});
+
 // GET /api/l1-approvals/:id - Get a single request for L1 approval
 router.get('/:id', async (req, res) => {
   try {

@@ -25,6 +25,12 @@ import {
   TableCell,
   TableContainer,
   TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Chip,
+  Divider,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
@@ -36,6 +42,7 @@ import {
   Delete,
   InsertDriveFile,
   FlightTakeoff,
+  History,
 } from '@mui/icons-material';
 
 const NewTravelRequest = () => {
@@ -76,6 +83,10 @@ const NewTravelRequest = () => {
   const [submitting, setSubmitting] = useState(false);
   const [travelFormData, setTravelFormData] = useState(null);
 
+  // Last trip recommendation
+  const [lastTrip, setLastTrip] = useState(null);
+  const [showRecommendation, setShowRecommendation] = useState(false);
+
   const [companies, setCompanies] = useState([]);
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,13 +96,20 @@ const NewTravelRequest = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [companiesRes, locationsRes] = await Promise.all([
+        const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+        const [companiesRes, locationsRes, lastTripRes] = await Promise.all([
           axiosClient.get('/companies'),
           axiosClient.get('/locations'),
+          user.email ? axiosClient.get(`/l1-approvals/last-trip?email=${encodeURIComponent(user.email)}`).catch(() => ({ data: { data: null } })) : Promise.resolve({ data: { data: null } }),
         ]);
         const companiesData = Array.isArray(companiesRes.data?.data) ? companiesRes.data.data : companiesRes.data;
         setCompanies(Array.isArray(companiesData) ? companiesData : []);
         setLocations(locationsRes.data);
+
+        if (lastTripRes.data?.data) {
+          setLastTrip(lastTripRes.data.data);
+          setShowRecommendation(true);
+        }
         setDataError('');
       } catch (err) {
         console.error('Failed to fetch data:', err);
@@ -226,8 +244,75 @@ const NewTravelRequest = () => {
     }
   };
 
+  // Build a readable summary of last trip for display
+  const buildLastTripSummary = (td) => {
+    if (!td) return [];
+    const items = [];
+    items.push({ label: 'Travel Type', value: td.travelType === 'domestic' ? 'Domestic' : 'International' });
+    if (td.countryOfTravel) items.push({ label: 'Country', value: td.countryOfTravel });
+    if (td.cityOfTravelDomestic) items.push({ label: 'City', value: td.cityOfTravelDomestic });
+    if (td.tripType) items.push({ label: 'Trip Type', value: td.tripType === 'roundTrip' ? 'Round Trip' : td.tripType === 'multiCity' ? 'Multi-City' : 'One Way' });
+    if (td.roundTrip?.fromCity) items.push({ label: 'Route', value: `${td.roundTrip.fromCity} → ${td.roundTrip.toCity}` });
+    if (td.roundTrip?.departureDate) items.push({ label: 'Departure', value: td.roundTrip.departureDate });
+    if (td.roundTrip?.arrivalDate) items.push({ label: 'Return', value: td.roundTrip.arrivalDate });
+    const reqs = td.requirements || {};
+    const reqLabels = { flights: 'Flights', visa: 'Visa', rentedVehicle: 'Rented Vehicle', carPark: 'Car Park', food: 'Food', baggage: 'Baggage' };
+    const selected = Object.entries(reqs).filter(([, v]) => v).map(([k]) => reqLabels[k] || k);
+    if (selected.length) items.push({ label: 'Requirements', value: selected.join(', ') });
+    if (td.reasonOfTravel) {
+      const words = td.reasonOfTravel.trim().split(/\s+/);
+      items.push({ label: 'Reason', value: words.length > 10 ? words.slice(0, 10).join(' ') + '…' : td.reasonOfTravel });
+    }
+    return items;
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', p: 3, backgroundColor: 'background.default' }}>
+
+      {/* ── Last Trip Recommendation Dialog ── */}
+      <Dialog open={showRecommendation} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
+          <History color="primary" />
+          <Box>
+            <Typography variant="h6" fontWeight={700}>Welcome back!</Typography>
+            <Typography variant="caption" color="text.secondary">
+              We found your last trip — Trip #{lastTrip?.id} on {lastTrip?.createdAt ? new Date(lastTrip.createdAt).toLocaleDateString() : ''}
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Here are the details from your last travel request. Would you like to use them again?
+          </Typography>
+          <Table size="small">
+            <TableBody>
+              {buildLastTripSummary(lastTrip?.travelData).map(row => (
+                <TableRow key={row.label}>
+                  <TableCell sx={{ fontWeight: 600, color: 'text.secondary', width: '40%', bgcolor: 'action.hover', fontSize: '0.8rem', py: 1 }}>{row.label}</TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem', py: 1 }}>{row.value}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => { setShowRecommendation(false); setLastTrip(null); }}
+          >
+            No, start fresh
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setTravelFormData(lastTrip.travelData);
+              setShowRecommendation(false);
+            }}
+          >
+            Yes, use last trip details
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Box sx={{ mb: 3, p: 2, borderRadius: 2, backgroundColor: 'background.paper', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <FlightTakeoff sx={{ color: 'primary.main' }} />
@@ -294,7 +379,7 @@ const NewTravelRequest = () => {
             {errors.travelForm && (
               <Typography variant="caption" color="error" sx={{ mb: 1, px: 1 }}>{errors.travelForm}</Typography>
             )}
-            <TravelRequestForm formData={formData} onChange={handleTravelFormChange} />
+            <TravelRequestForm formData={formData} onChange={handleTravelFormChange} initialData={travelFormData} />
 
             {/* Attachments */}
             <Card variant="outlined" sx={{ mb: 2, borderRadius: 2, borderColor: 'divider' }}>

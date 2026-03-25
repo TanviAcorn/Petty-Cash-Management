@@ -5,7 +5,7 @@ import {
   Box, Card, CardContent, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Grid, Alert, Divider,
-  IconButton, LinearProgress, Tooltip,
+  IconButton, LinearProgress,
 } from '@mui/material';
 import {
   CheckCircle, Cancel, Visibility, CloudUpload, Delete, AttachFile,
@@ -212,14 +212,43 @@ const L1TravelApprovals = () => {
     return active;
   };
 
-  const openUploadDialog = (request) => {
+  const openUploadDialog = async (request) => {
     setUploadRequest(request);
     setSectionFiles({});
-    setSectionDetails({});
     setGlobalFiles([]);
-    setGlobalRemarks('');
     setUploadAlert(null);
+
+    // Load existing draft if any
+    try {
+      const res = await axiosClient.get(`/travel-documents/${request.id}/draft`);
+      const draft = res.data?.data;
+      if (draft) {
+        setSectionDetails(draft.details || {});
+        setGlobalRemarks(draft.globalRemarks || '');
+      } else {
+        setSectionDetails({});
+        setGlobalRemarks('');
+      }
+    } catch {
+      setSectionDetails({});
+      setGlobalRemarks('');
+    }
+
     setUploadOpen(true);
+  };
+
+  const saveDraft = async () => {
+    if (!uploadRequest) return;
+    try {
+      await axiosClient.post(`/travel-documents/${uploadRequest.id}/save-details`, {
+        details: sectionDetails,
+        globalRemarks: globalRemarks.trim() || null,
+        uploadedBy: currentUser.email,
+        isDraft: true,
+      });
+    } catch (err) {
+      console.error('Draft save failed:', err);
+    }
   };
 
   const handleSectionDetailChange = (section, field, value) => {
@@ -251,14 +280,30 @@ const L1TravelApprovals = () => {
     setGlobalFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const hasAnyContent = () => {
-    const hasDetails = Object.values(sectionDetails).some((sec) =>
-      Object.values(sec || {}).some((v) => v?.trim())
-    );
-    const hasFiles =
-      Object.values(sectionFiles).some((arr) => arr?.length > 0) ||
-      globalFiles.length > 0;
-    return hasDetails || hasFiles || globalRemarks.trim().length > 0;
+  // Required fields per section — at least these must be filled to enable Send
+  const REQUIRED_FIELDS = {
+    flights:      ['airline', 'flightNumber', 'bookingRef'],
+    hotel:        ['hotelName', 'hotelAddress', 'confirmationNumber'],
+    visa:         ['visaNumber', 'visaExpiryDate'],
+    carPark:      ['carParkLocation', 'carParkBookingRef'],
+    food:         ['venue'],
+    baggage:      ['baggageAllowance'],
+    rentedVehicle:['rentalCompany', 'vehicleReg', 'pickupAddress'],
+    overnightStay:['stayLocation'],
+  };
+
+  const isAllSectionsFilled = () => {
+    if (!uploadRequest) return false;
+    const td = uploadRequest.travel_form_data;
+    const sections = getActiveSections(td);
+    if (sections.length === 0) return globalRemarks.trim().length > 0 || globalFiles.length > 0;
+
+    return sections.every((sectionKey) => {
+      const required = REQUIRED_FIELDS[sectionKey] || [];
+      if (required.length === 0) return true;
+      const filled = sectionDetails[sectionKey] || {};
+      return required.every((f) => filled[f]?.trim());
+    });
   };
 
   const handleSendTravelDetails = async () => {
@@ -543,18 +588,19 @@ const L1TravelApprovals = () => {
                             <Button size="small" startIcon={<Visibility />} onClick={() => handleViewDetails(request.id)}>
                               Review
                             </Button>
-                            {isApproved && (
-                              <Tooltip title="Upload travel documents & details for this employee">
-                                <Button
-                                  size="small"
-                                  variant="contained"
-                                  color="primary"
-                                  startIcon={<CloudUpload />}
-                                  onClick={() => openUploadDialog(request)}
-                                >
-                                  Upload Travel Details
-                                </Button>
-                              </Tooltip>
+                        {isApproved && !request.travel_docs_sent_at && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="primary"
+                                startIcon={<CloudUpload />}
+                                onClick={() => openUploadDialog(request)}
+                              >
+                                Upload Travel Details
+                              </Button>
+                            )}
+                            {isApproved && request.travel_docs_sent_at && (
+                              <Chip label="Details Sent" color="success" size="small" icon={<CheckCircle />} />
                             )}
                           </Box>
                         </TableCell>
@@ -759,14 +805,23 @@ const L1TravelApprovals = () => {
           })()}
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setUploadOpen(false)} disabled={uploadSending}>Cancel</Button>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button onClick={() => setUploadOpen(false)} disabled={uploadSending}>
+            Cancel
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={async () => { await saveDraft(); setUploadAlert({ type: 'success', msg: 'Draft saved.' }); setTimeout(() => setUploadOpen(false), 1000); }}
+            disabled={uploadSending}
+          >
+            Save Draft
+          </Button>
           <Button
             variant="contained"
             color="primary"
             startIcon={<CloudUpload />}
             onClick={handleSendTravelDetails}
-            disabled={uploadSending || !hasAnyContent()}
+            disabled={uploadSending || !isAllSectionsFilled()}
           >
             {uploadSending ? 'Sending...' : `Save & Send to ${uploadRequest?.employeeFirstName || 'Employee'}`}
           </Button>

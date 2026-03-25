@@ -13,26 +13,29 @@ import RemoveIcon from '@mui/icons-material/Remove';
 
 const defaultLeg = () => ({ fromCity: '', toCity: '', date: '', dateFlex: false, dateFlexFrom: '', dateFlexTo: '' , needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
 
-const TravelRequestForm = ({ formData, onChange }) => {
-  const [travelType, setTravelType] = useState('international');
-  const [tripType, setTripType] = useState('roundTrip');
+const TravelRequestForm = ({ formData, onChange, initialData }) => {
+  const [travelType, setTravelType] = useState(initialData?.travelType || 'international');
+  const [tripType, setTripType] = useState(initialData?.tripType || 'roundTrip');
 
-  const [internationalRequirements, setInternationalRequirements] = useState({
-    flights: false, visa: false, rentedVehicle: false,
-    carPark: false, food: false, baggage: false
-  });
+  const [internationalRequirements, setInternationalRequirements] = useState(
+    initialData?.requirements && initialData?.travelType === 'international'
+      ? initialData.requirements
+      : { flights: false, visa: false, rentedVehicle: false, carPark: false, food: false, baggage: false }
+  );
 
-  const [domesticRequirements, setDomesticRequirements] = useState({
-    flights: false, rentedVehicle: false, carPark: false, food: false, overnightStay: false, baggage: false
-  });
+  const [domesticRequirements, setDomesticRequirements] = useState(
+    initialData?.requirements && initialData?.travelType === 'domestic'
+      ? initialData.requirements
+      : { flights: false, rentedVehicle: false, carPark: false, food: false, overnightStay: false, baggage: false }
+  );
 
-  const [carParkRequired, setCarParkRequired] = useState('no');
-  const [carParkDuration, setCarParkDuration] = useState('');
-  const [carParkVehicleNumber, setCarParkVehicleNumber] = useState('');
-  const [carParkCarColor, setCarParkCarColor] = useState('');
-  const [visaRequired, setVisaRequired] = useState('no');
-  const [baggageRequired, setBaggageRequired] = useState('no');
-  const [domesticHotel, setDomesticHotel] = useState({ needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
+  const [carParkRequired, setCarParkRequired] = useState(initialData?.carParkRequired || 'no');
+  const [carParkDuration, setCarParkDuration] = useState(initialData?.carParkDuration || '');
+  const [carParkVehicleNumber, setCarParkVehicleNumber] = useState(initialData?.carParkVehicleNumber || '');
+  const [carParkCarColor, setCarParkCarColor] = useState(initialData?.carParkCarColor || '');
+  const [visaRequired, setVisaRequired] = useState(initialData?.visaRequired || 'no');
+  const [baggageRequired, setBaggageRequired] = useState(initialData?.baggageRequired || 'no');
+  const [domesticHotel, setDomesticHotel] = useState(initialData?.domesticHotel || { needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
   const [domesticDateFlex, setDomesticDateFlex] = useState(false);
   const [domesticDateFlexFrom, setDomesticDateFlexFrom] = useState('');
   const [domesticDateFlexTo, setDomesticDateFlexTo] = useState('');
@@ -74,7 +77,7 @@ const TravelRequestForm = ({ formData, onChange }) => {
       .finally(() => setPassportLoading(false));
   };
 
-  const [roundTrip, setRoundTrip] = useState({
+  const [roundTrip, setRoundTrip] = useState(initialData?.roundTrip || {
     fromCity: '', toCity: '', departureDate: '', arrivalDate: '',
     departureDateFlexFrom: '', departureDateFlexTo: '',
     arrivalDateFlexFrom: '', arrivalDateFlexTo: '',
@@ -83,47 +86,49 @@ const TravelRequestForm = ({ formData, onChange }) => {
   const [rtDepartureFlex, setRtDepartureFlex] = useState(false);
   const [rtArrivalFlex, setRtArrivalFlex] = useState(false);
 
-  const [multiCityLegs, setMultiCityLegs] = useState([defaultLeg(), defaultLeg()]);
+  const [multiCityLegs, setMultiCityLegs] = useState(
+    initialData?.multiCityLegs?.length ? initialData.multiCityLegs : [defaultLeg(), defaultLeg()]
+  );
   const [autoFilledLegs, setAutoFilledLegs] = useState(new Set());
 
-  const [foodOptions, setFoodOptions] = useState({
+  const [foodOptions, setFoodOptions] = useState(initialData?.foodOptions || {
     breakfastIncl: false, veg: false, vegan: false, nonVegan: false
   });
 
   const [travelData, setTravelData] = useState({
-    travelType: 'international',
+    travelType: initialData?.travelType || 'international',
     employeeName: formData.employeeName || '',
     department: formData.department || '',
     company: formData.company || '',
-    countryOfTravel: '',
-    preferredDepartureAirport: '',
-    destinationAirport: '',
-    nationality: '',
-    visaType: '',
-    lengthOfVisa: '',
-    dateOfTravel: '',
-    cityOfTravelDomestic: '',
-    departurePostcode: '',
-    destinationPostcode: '',
-    placeOfStay: '',
-    stayFrom: '',
-    stayTo: '',
-    pickupPoint: '',
-    dropOffPoint: '',
-    vehicleType: 'Manual',
-    hotelFrom: '',
-    hotelTo: '',
-    hotelNumberOfDays: '',
-    foodNumberOfDays: '',
-    carParkRequired: 'no',
-    carParkDuration: '',
-    reasonOfTravel: '',
+    countryOfTravel: initialData?.countryOfTravel || '',
+    preferredDepartureAirport: initialData?.preferredDepartureAirport || '',
+    destinationAirport: initialData?.destinationAirport || '',
+    nationality: initialData?.nationality || '',
+    visaType: initialData?.visaType || '',
+    lengthOfVisa: initialData?.lengthOfVisa || '',
+    dateOfTravel: initialData?.dateOfTravel || '',
+    cityOfTravelDomestic: initialData?.cityOfTravelDomestic || '',
+    departurePostcode: initialData?.departurePostcode || '',
+    destinationPostcode: initialData?.destinationPostcode || '',
+    placeOfStay: initialData?.placeOfStay || '',
+    stayFrom: initialData?.stayFrom || '',
+    stayTo: initialData?.stayTo || '',
+    pickupPoint: initialData?.pickupPoint || '',
+    dropOffPoint: initialData?.dropOffPoint || '',
+    vehicleType: initialData?.vehicleType || 'Manual',
+    hotelFrom: initialData?.hotelFrom || '',
+    hotelTo: initialData?.hotelTo || '',
+    hotelNumberOfDays: initialData?.hotelNumberOfDays || '',
+    foodNumberOfDays: initialData?.foodNumberOfDays || '',
+    carParkRequired: initialData?.carParkRequired || 'no',
+    carParkDuration: initialData?.carParkDuration || '',
+    reasonOfTravel: '',  // always start fresh — reason is trip-specific
     remarks: '',
-    baggageCount: '',
-    baggageNotes: '',
-    baggageWeight: '',
-    baggageCabinBag: false,
-    baggageCheckIn: false,
+    baggageCount: initialData?.baggageCount || '',
+    baggageNotes: initialData?.baggageNotes || '',
+    baggageWeight: initialData?.baggageWeight || '',
+    baggageCabinBag: initialData?.baggageCabinBag || false,
+    baggageCheckIn: initialData?.baggageCheckIn || false,
   });
 
   useEffect(() => {
