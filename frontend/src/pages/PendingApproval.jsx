@@ -131,38 +131,21 @@ const PendingApproval = () => {
     setLoading(true);
     setError('');
     try {
-      const params = {
-        page,
-        limit,
-        status: 'pending', // Always fetch pending requests
-      };
-      
-      // Add user role and company for Payment users
+      const params = { page, limit, status: 'pending' };
       if (user) {
         params.userRole = user.role;
-        if (user.role === 'Payment' && user.company) {
-          params.assignedCompany = user.company;
-        }
+        if (user.role === 'Payment' && user.company) params.assignedCompany = user.company;
       }
-      
-      // Add search if present
-      if (search.trim()) {
-        params.q = search.trim();
-      }
-      
+      if (search.trim()) params.q = search.trim();
       const { data } = await axiosClient.get('/requests', { params });
       const list = Array.isArray(data?.data || data) ? (data.data || data) : [];
       setRows(list);
-      
-      // Update pagination state if pagination data is available
-      if (data?.pagination) {
-        setPagination(data.pagination);
-      }
+      if (data?.pagination) setPagination(data.pagination);
     } catch (err) {
       setError(err?.response?.data?.message || err.message || 'Failed to load requests');
       setRows([]);
-    } finally { 
-      setLoading(false); 
+    } finally {
+      setLoading(false);
     }
   }, [search, pagination.currentPage, pagination.itemsPerPage, user]);
 
@@ -171,6 +154,11 @@ const PendingApproval = () => {
     fetchData();
     return () => controller.abort();
   }, [fetchData]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [search]);
 
   const stats = useMemo(() => {
     const total = pagination.totalItems;

@@ -4,12 +4,12 @@ const sql = require('mssql');
 const crypto = require('crypto');
 const { poolPromise } = require('../config/db');
 
-// Ensure travel_feedback table exists
+// Ensure petty_travel_feedback table exists
 async function ensureFeedbackTable(pool) {
   await pool.request().query(`
-    IF OBJECT_ID('dbo.travel_feedback', 'U') IS NULL
+    IF OBJECT_ID('dbo.petty_travel_feedback', 'U') IS NULL
     BEGIN
-      CREATE TABLE dbo.travel_feedback (
+      CREATE TABLE dbo.petty_travel_feedback (
         id INT IDENTITY(1,1) PRIMARY KEY,
         request_id INT NOT NULL,
         token NVARCHAR(64) NOT NULL UNIQUE,
@@ -21,14 +21,23 @@ async function ensureFeedbackTable(pool) {
         vehicle_rating INT NULL,
         car_park_rating INT NULL,
         flights_rating INT NULL,
+        baggage_rating INT NULL,
         overall_rating INT NULL,
         remarks NVARCHAR(MAX) NULL,
         hotel_remarks NVARCHAR(MAX) NULL,
         food_remarks NVARCHAR(MAX) NULL,
         vehicle_remarks NVARCHAR(MAX) NULL,
         car_park_remarks NVARCHAR(MAX) NULL,
-        flights_remarks NVARCHAR(MAX) NULL
+        flights_remarks NVARCHAR(MAX) NULL,
+        baggage_remarks NVARCHAR(MAX) NULL
       );
+    END
+    ELSE
+    BEGIN
+      IF COL_LENGTH('dbo.petty_travel_feedback','baggage_rating') IS NULL
+        ALTER TABLE dbo.petty_travel_feedback ADD baggage_rating INT NULL;
+      IF COL_LENGTH('dbo.petty_travel_feedback','baggage_remarks') IS NULL
+        ALTER TABLE dbo.petty_travel_feedback ADD baggage_remarks NVARCHAR(MAX) NULL;
     END
   `);
 }
@@ -51,7 +60,7 @@ router.get('/:token', async (req, res) => {
           f.vehicle_remarks, f.car_park_remarks, f.flights_remarks,
           r.employee_name, r.travel_form_data, r.travel_details,
           r.category_name
-        FROM travel_feedback f
+        FROM petty_travel_feedback f
         JOIN petty_cash_requests r ON r.id = f.request_id
         WHERE f.token = @token
       `);
@@ -103,8 +112,9 @@ router.post('/:token', async (req, res) => {
     const { token } = req.params;
     const {
       hotelRating, foodRating, vehicleRating, carParkRating,
-      flightsRating, overallRating, remarks,
-      hotelRemarks, foodRemarks, vehicleRemarks, carParkRemarks, flightsRemarks
+      flightsRating, baggageRating, overallRating, remarks,
+      hotelRemarks, foodRemarks, vehicleRemarks, carParkRemarks,
+      flightsRemarks, baggageRemarks
     } = req.body;
 
     const pool = await poolPromise;
@@ -113,7 +123,7 @@ router.post('/:token', async (req, res) => {
     // Check token exists and not already submitted
     const check = await pool.request()
       .input('token', sql.NVarChar(64), token)
-      .query('SELECT id, submitted_at FROM travel_feedback WHERE token = @token');
+      .query('SELECT id, submitted_at FROM petty_travel_feedback WHERE token = @token');
 
     if (!check.recordset.length) {
       return res.status(404).json({ message: 'Feedback link not found' });
@@ -129,6 +139,7 @@ router.post('/:token', async (req, res) => {
       .input('vehicleRating', sql.Int, vehicleRating || null)
       .input('carParkRating', sql.Int, carParkRating || null)
       .input('flightsRating', sql.Int, flightsRating || null)
+      .input('baggageRating', sql.Int, baggageRating || null)
       .input('overallRating', sql.Int, overallRating || null)
       .input('remarks', sql.NVarChar(sql.MAX), remarks || null)
       .input('hotelRemarks', sql.NVarChar(sql.MAX), hotelRemarks || null)
@@ -136,21 +147,24 @@ router.post('/:token', async (req, res) => {
       .input('vehicleRemarks', sql.NVarChar(sql.MAX), vehicleRemarks || null)
       .input('carParkRemarks', sql.NVarChar(sql.MAX), carParkRemarks || null)
       .input('flightsRemarks', sql.NVarChar(sql.MAX), flightsRemarks || null)
+      .input('baggageRemarks', sql.NVarChar(sql.MAX), baggageRemarks || null)
       .query(`
-        UPDATE travel_feedback SET
+        UPDATE petty_travel_feedback SET
           submitted_at = SYSUTCDATETIME(),
           hotel_rating = @hotelRating,
           food_rating = @foodRating,
           vehicle_rating = @vehicleRating,
           car_park_rating = @carParkRating,
           flights_rating = @flightsRating,
+          baggage_rating = @baggageRating,
           overall_rating = @overallRating,
           remarks = @remarks,
           hotel_remarks = @hotelRemarks,
           food_remarks = @foodRemarks,
           vehicle_remarks = @vehicleRemarks,
           car_park_remarks = @carParkRemarks,
-          flights_remarks = @flightsRemarks
+          flights_remarks = @flightsRemarks,
+          baggage_remarks = @baggageRemarks
         WHERE token = @token
       `);
 

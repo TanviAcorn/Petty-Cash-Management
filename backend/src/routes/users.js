@@ -28,8 +28,6 @@ router.post("/login", async (req, res) => {
     const u = userByEmail.recordset[0];
     
     // For development: Log the password comparison
-    console.log('Stored password:', u.password);
-    console.log('Provided password:', password);
     
     const pwdOk = String(u.password || "").trim() === String(password).trim();
     
@@ -246,19 +244,21 @@ router.get("/", async (req, res) => {
   const itemsPerPage = parseInt(limit, 10);
   const offset = (currentPage - 1) * itemsPerPage;
 
-  // Build WHERE clause for search
+  // Build WHERE clause for search — two versions: one for count (no alias), one for data query (u. alias)
   let whereClause = "";
+  let whereClauseAliased = "";
   const params = {};
   
   if (search) {
     whereClause = "WHERE (LOWER(firstName) LIKE @search OR LOWER(lastName) LIKE @search OR LOWER(email) LIKE @search OR LOWER(company) LIKE @search OR LOWER(role) LIKE @search)";
+    whereClauseAliased = "WHERE (LOWER(u.firstName) LIKE @search OR LOWER(u.lastName) LIKE @search OR LOWER(u.email) LIKE @search OR LOWER(u.company) LIKE @search OR LOWER(u.role) LIKE @search)";
     params.search = `%${search.toLowerCase()}%`;
   }
 
   try {
     const pool = await poolPromise;
     
-    // Get total count
+    // Get total count (no join, no alias needed)
     const countQuery = `SELECT COUNT(*) as total FROM petty_Users ${whereClause}`;
     const countRequest = pool.request();
     if (search) {
@@ -267,7 +267,7 @@ router.get("/", async (req, res) => {
     const countResult = await countRequest.query(countQuery);
     const totalItems = countResult.recordset[0].total;
     
-    // Get paginated data with L1 manager info
+    // Get paginated data with L1 manager info (uses u. alias)
     const dataQuery = `
       SELECT 
         u.*,
@@ -276,7 +276,7 @@ router.get("/", async (req, res) => {
         m.email as l1ManagerEmail
       FROM petty_Users u
       LEFT JOIN petty_Users m ON u.l1_manager_id = m.id
-      ${whereClause}
+      ${whereClauseAliased}
       ORDER BY u.id
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `;
@@ -291,7 +291,6 @@ router.get("/", async (req, res) => {
 
     // Map to expected structure for frontend
     const users = result.recordset.map((u) => {
-      console.log('Raw user from DB:', { 
         id: u.id, 
         firstName: u.firstName,
         l1_manager_id: u.l1_manager_id,
@@ -366,21 +365,14 @@ router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const { firstName, lastName, email, password, role, company, department, l1ManagerId } = req.body;
     
-    console.log('=== PUT /users/:id START ===');
-    console.log('User ID:', id);
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
-    console.log('l1ManagerId received:', l1ManagerId, 'Type:', typeof l1ManagerId);
     
     // Convert l1ManagerId to proper type
     let l1ManagerValue = null;
     if (l1ManagerId !== null && l1ManagerId !== undefined && l1ManagerId !== '') {
       l1ManagerValue = parseInt(l1ManagerId, 10);
-      console.log('Converted l1ManagerId to:', l1ManagerValue, 'Type:', typeof l1ManagerValue);
     } else {
-      console.log('l1ManagerId is null/undefined/empty, setting to NULL');
     }
     
-    console.log('About to execute UPDATE query with l1_manager_id =', l1ManagerValue);
     
     const pool = await poolPromise;
     const updateResult = await pool
@@ -407,21 +399,17 @@ router.put("/:id", async (req, res) => {
          WHERE id = @id`
       );
     
-    console.log('UPDATE executed. Rows affected:', updateResult.rowsAffected[0]);
     
     if (updateResult.rowsAffected[0] === 0) {
-      console.log('WARNING: No rows were updated!');
     }
     
     // Verify the update by querying the database
-    console.log('Verifying update by querying database...');
     const verifyResult = await pool
       .request()
       .input("userId", sql.Int, parseInt(id, 10))
       .query('SELECT id, firstName, lastName, l1_manager_id FROM petty_Users WHERE id = @userId');
     
     if (verifyResult.recordset.length > 0) {
-      console.log('Database verification:', verifyResult.recordset[0]);
     }
     
     // Fetch and return the updated user with manager info
@@ -439,11 +427,9 @@ router.put("/:id", async (req, res) => {
         WHERE u.id = @userId
       `);
     
-    console.log('Fetch result count:', userResult.recordset.length);
     
     if (userResult.recordset.length > 0) {
       const u = userResult.recordset[0];
-      console.log('Fetched user l1_manager_id from DB:', u.l1_manager_id);
       
       const updatedUser = {
         id: u.id,
@@ -459,12 +445,8 @@ router.put("/:id", async (req, res) => {
           ? `${u.l1ManagerFirstName} ${u.l1ManagerLastName}`.trim() 
           : u.l1ManagerEmail || null,
       };
-      console.log('Returning user object:', JSON.stringify(updatedUser, null, 2));
-      console.log('=== PUT /users/:id END ===');
       return res.json(updatedUser);
     } else {
-      console.log('WARNING: User not found after update!');
-      console.log('=== PUT /users/:id END ===');
       return res.send("User updated");
     }
   } catch (err) {

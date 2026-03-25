@@ -71,29 +71,12 @@ const UserManagement = () => {
   const fetchUsers = useCallback(async (page = pagination.currentPage, limit = pagination.itemsPerPage) => {
     setLoading(true);
     try {
-      const params = {
-        page,
-        limit,
-      };
-      
-      // Add search if present
-      if (searchQuery.trim()) {
-        params.search = searchQuery.trim();
-      }
-      
+      const params = { page, limit };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
       const res = await axiosClient.get("/users", { params });
       const usersList = Array.isArray(res.data?.data || res.data) ? (res.data.data || res.data) : [];
-      console.log('Fetched users:', usersList.length, 'users');
-      const user65 = usersList.find(u => u.id === 65);
-      if (user65) {
-        console.log('User 65 full data:', JSON.stringify(user65, null, 2));
-      }
       setUsers(usersList);
-      
-      // Update pagination state if pagination data is available
-      if (res.data?.pagination) {
-        setPagination(res.data.pagination);
-      }
+      if (res.data?.pagination) setPagination(res.data.pagination);
     } catch (error) {
       console.error("Failed to fetch users:", error);
       setUsers([]);
@@ -105,6 +88,11 @@ const UserManagement = () => {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [searchQuery]);
 
   // Fetch companies from backend
   useEffect(() => {

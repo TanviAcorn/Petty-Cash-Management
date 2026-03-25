@@ -87,30 +87,13 @@ const MyRequests = () => {
     setLoading(true);
     setError('');
     try {
-      const params = {
-        email: user.email,
-        page,
-        limit,
-      };
-      
-      // Add search if present
-      if (searchTerm.trim()) {
-        params.q = searchTerm.trim();
-      }
-      
-      // Add status filter if not "All Status"
-      if (statusFilter !== 'All Status') {
-        params.status = statusFilter.toLowerCase();
-      }
-      
+      const params = { email: user.email, page, limit };
+      if (searchTerm.trim()) params.q = searchTerm.trim();
+      if (statusFilter !== 'All Status') params.status = statusFilter.toLowerCase();
       const { data } = await axiosClient.get('/requests', { params });
       const requestsList = Array.isArray(data?.data || data) ? (data.data || data) : [];
       setRows(requestsList);
-      
-      // Update pagination state if pagination data is available
-      if (data?.pagination) {
-        setPagination(data.pagination);
-      }
+      if (data?.pagination) setPagination(data.pagination);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to load your requests');
       setRows([]);
@@ -120,6 +103,11 @@ const MyRequests = () => {
   }, [user?.email, pagination.currentPage, pagination.itemsPerPage, searchTerm, statusFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [searchTerm, statusFilter]);
 
   // Preload companies for edit dropdown
   useEffect(() => {

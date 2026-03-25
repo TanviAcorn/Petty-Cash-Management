@@ -167,6 +167,11 @@ const AllRequests = () => {
     return () => controller.abort();
   }, [fetchData]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [search, statusFilter]);
+
   const stats = useMemo(() => {
     const total = pagination.totalItems;
     // For other stats, we'd need to fetch them separately or calculate from filtered data

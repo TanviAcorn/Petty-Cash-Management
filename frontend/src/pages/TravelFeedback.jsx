@@ -9,17 +9,19 @@ import HotelIcon from '@mui/icons-material/Hotel';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import LocalParkingIcon from '@mui/icons-material/LocalParking';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
+import LuggageIcon from '@mui/icons-material/Luggage';
 import StarIcon from '@mui/icons-material/Star';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-const API = import.meta.env.VITE_API_URL || '';
+const API = (import.meta.env.VITE_API_URL || '/api').replace(/\/api$/, '');
 
 const CATEGORIES = [
-  { key: 'flights',  label: 'Flights',              icon: <FlightTakeoffIcon />,  color: '#3B82F6', reqKey: 'flights' },
-  { key: 'hotel',    label: 'Hotel & Accommodation', icon: <HotelIcon />,          color: '#6366F1', reqKey: 'hotel' },
-  { key: 'vehicle',  label: 'Rented Vehicle',        icon: <DirectionsCarIcon />,  color: '#F59E0B', reqKey: 'rentedVehicle' },
-  { key: 'carPark',  label: 'Car Park',              icon: <LocalParkingIcon />,   color: '#6B7280', reqKey: 'carPark' },
-  { key: 'food',     label: 'Food',                  icon: <RestaurantIcon />,     color: '#10B981', reqKey: 'food' },
+  { key: 'flights',  label: 'Flights',              icon: <FlightTakeoffIcon />, color: '#3B82F6', reqKey: 'flights' },
+  { key: 'hotel',    label: 'Hotel & Accommodation', icon: <HotelIcon />,         color: '#6366F1', reqKey: 'hotel' },
+  { key: 'vehicle',  label: 'Rented Vehicle',        icon: <DirectionsCarIcon />, color: '#F59E0B', reqKey: 'rentedVehicle' },
+  { key: 'carPark',  label: 'Car Park',              icon: <LocalParkingIcon />,  color: '#6B7280', reqKey: 'carPark' },
+  { key: 'food',     label: 'Food',                  icon: <RestaurantIcon />,    color: '#10B981', reqKey: 'food' },
+  { key: 'baggage',  label: 'Baggage',               icon: <LuggageIcon />,       color: '#8B5CF6', reqKey: 'baggage' },
 ];
 
 const ratingLabels = { 1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent' };
@@ -71,10 +73,10 @@ export default function TravelFeedback() {
   const [feedbackData, setFeedbackData] = useState(null);
 
   const [ratings, setRatings] = useState({
-    flights: 0, hotel: 0, vehicle: 0, carPark: 0, food: 0, overall: 0
+    flights: 0, hotel: 0, vehicle: 0, carPark: 0, food: 0, baggage: 0, overall: 0
   });
   const [remarks, setRemarks] = useState({
-    flights: '', hotel: '', vehicle: '', carPark: '', food: '', overall: ''
+    flights: '', hotel: '', vehicle: '', carPark: '', food: '', baggage: '', overall: ''
   });
 
   useEffect(() => {
@@ -91,6 +93,7 @@ export default function TravelFeedback() {
               vehicle: e.vehicleRating || 0,
               carPark: e.carParkRating || 0,
               food: e.foodRating || 0,
+              baggage: e.baggageRating || 0,
               overall: e.overallRating || 0,
             });
             setRemarks({
@@ -99,6 +102,7 @@ export default function TravelFeedback() {
               vehicle: e.vehicleRemarks || '',
               carPark: e.carParkRemarks || '',
               food: e.foodRemarks || '',
+              baggage: e.baggageRemarks || '',
               overall: e.remarks || '',
             });
             setSubmitted(true);
@@ -123,12 +127,14 @@ export default function TravelFeedback() {
           vehicleRating: ratings.vehicle || null,
           carParkRating: ratings.carPark || null,
           foodRating: ratings.food || null,
+          baggageRating: ratings.baggage || null,
           overallRating: ratings.overall || null,
           flightsRemarks: remarks.flights || null,
           hotelRemarks: remarks.hotel || null,
           vehicleRemarks: remarks.vehicle || null,
           carParkRemarks: remarks.carPark || null,
           foodRemarks: remarks.food || null,
+          baggageRemarks: remarks.baggage || null,
           remarks: remarks.overall || null,
         })
       });
@@ -163,7 +169,19 @@ export default function TravelFeedback() {
 
   const travelData = feedbackData?.travelData;
   const reqs = travelData?.requirements || {};
-  const visibleCategories = CATEGORIES.filter(c => reqs[c.reqKey]);
+
+  // Match same logic as upload dialog — check requirements + trip structure
+  const hasHotel = reqs.hotel || reqs.overnightStay ||
+    travelData?.roundTrip?.needsHotel ||
+    travelData?.multiCityLegs?.some(l => l.needsHotel) ||
+    travelData?.domesticHotel?.needsHotel;
+  const hasFlights = reqs.flights || travelData?.travelType === 'international';
+
+  const visibleCategories = CATEGORIES.filter(c => {
+    if (c.key === 'hotel')   return hasHotel;
+    if (c.key === 'flights') return hasFlights;
+    return reqs[c.reqKey];
+  });
 
   if (submitted) {
     return (

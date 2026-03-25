@@ -134,6 +134,11 @@ const Rejected = () => {
     return () => controller.abort();
   }, [fetchData]);
 
+  // Reset to page 1 when any filter changes
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [search, company, category, range]);
+
   const handlePageChange = (newPage) => {
     setPagination(prev => ({ ...prev, currentPage: newPage }));
     fetchData(newPage, pagination.itemsPerPage);

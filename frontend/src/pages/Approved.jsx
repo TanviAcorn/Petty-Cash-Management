@@ -202,7 +202,6 @@ const Approved = () => {
 
   useEffect(() => {
     fetchData();
-    // Load payments list for badges
     (async () => {
       try {
         const { data } = await axiosClient.get('/requests/payments/list');
@@ -210,6 +209,11 @@ const Approved = () => {
       } catch {}
     })();
   }, [fetchData]);
+
+  // Reset to page 1 when any filter changes
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [searchTerm, company, category, range]);
 
   const filteredRequests = useMemo(() => {
     // Since filtering is now done on the backend, we just return the requests as-is

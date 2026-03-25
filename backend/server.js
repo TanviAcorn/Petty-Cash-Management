@@ -45,13 +45,6 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(express.json());
 
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  console.log('Headers:', req.headers);
-  console.log('Body:', req.body);
-  next();
-});
-
 // ✅ import once
 const userRoutes = require("./src/routes/users");
 const companyRoutes = require("./src/routes/companies");
@@ -62,6 +55,7 @@ const locationRoutes = require("./src/routes/locations");
 const l1ApprovalsRoutes = require("./src/routes/l1-approvals");
 const travelFeedbackRoutes = require("./src/routes/travel-feedback");
 const visaTypesRoutes = require("./src/routes/visa-types");
+const travelDocumentsRoutes = require("./src/routes/travel-documents");
 const { startFeedbackScheduler } = require("./src/utils/feedbackScheduler");
 
 // ✅ use it once
@@ -74,6 +68,8 @@ app.use("/api/locations", locationRoutes);
 app.use("/api/l1-approvals", l1ApprovalsRoutes);
 app.use("/api/travel-feedback", travelFeedbackRoutes);
 app.use("/api/visa-types", visaTypesRoutes);
+
+app.use("/api/travel-documents", travelDocumentsRoutes);
 
 // Start scheduled feedback emails
 startFeedbackScheduler();
