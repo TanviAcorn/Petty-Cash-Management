@@ -29,6 +29,7 @@ import {
   AttachMoney,
   AssignmentTurnedIn,
   FlightTakeoff,
+  CalendarMonth,
 } from "@mui/icons-material";
 
 const drawerWidth = 260;
@@ -42,6 +43,7 @@ const getMenuItemsByRole = (userRole) => {
     { text: "Approved", icon: <CheckCircle />, path: "/approved" },
     { text: "Rejected", icon: <Cancel />, path: "/rejected" },
     { text: "Travel Request Approvals", icon: <AssignmentTurnedIn />, path: "/l1-approvals" },
+    { text: "Travel Calendar", icon: <CalendarMonth />, path: "/travel-calendar" },
     { text: "User Management", icon: <People />, path: "/users" },
     { text: "Companies", icon: <Business />, path: "/companies" },
     { text: "Payments", icon: <AttachMoney />, path: "/payments" },

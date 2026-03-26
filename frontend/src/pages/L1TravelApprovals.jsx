@@ -398,7 +398,14 @@ const L1TravelApprovals = () => {
           {isIntl && <InfoRow label="Trip Type" value={tf.tripType === 'roundTrip' ? 'Round Trip' : tf.tripType === 'multiCity' ? 'Multi-City' : 'One Way'} />}
           {isIntl && <InfoRow label="Country" value={tf.countryOfTravel} />}
           {!isIntl && <InfoRow label="City of Travel" value={tf.cityOfTravelDomestic} />}
-          {!isIntl && <InfoRow label="Date of Travel" value={formatDate(tf.dateOfTravel)} />}
+          {!isIntl && (
+            tf.domesticDateFlex
+              ? <>
+                  <InfoRow label="Travel Date (From)" value={tf.domesticDateFlexFrom || '—'} />
+                  <InfoRow label="Travel Date (To)" value={tf.domesticDateFlexTo || '—'} />
+                </>
+              : <InfoRow label="Date of Travel" value={formatDate(tf.dateOfTravel)} />
+          )}
           {!isIntl && <InfoRow label="Departure Postcode" value={tf.departurePostcode} />}
           {!isIntl && <InfoRow label="Destination Postcode" value={tf.destinationPostcode} />}
           <InfoRow label="Reason for Travel" value={tf.reasonOfTravel} />
@@ -520,8 +527,10 @@ const L1TravelApprovals = () => {
             <SectionTitle>Baggage</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
               <InfoRow label="Cabin Bag" value={tf.baggageCabinBag ? 'Yes' : null} />
-              <InfoRow label="No. of Check-in Bags" value={tf.baggageCheckInCount} />
+              <InfoRow label="No. of Check-in Bags" value={tf.baggageCheckIn || tf.baggageCheckInCount} />
               <InfoRow label="Check-in Bags Info" value={tf.baggageCheckInDetails} />
+              <InfoRow label="Weight" value={tf.baggageWeight} />
+              <InfoRow label="Notes" value={tf.baggageNotes} />
             </TableBody></Table></TableContainer>
           </>
         )}

@@ -146,7 +146,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
       ...travelData, ...overrides,
       requirements: reqs, tripType, roundTrip, multiCityLegs, foodOptions,
       carParkRequired, carParkDuration, carParkVehicleNumber, carParkCarColor,
-      domesticHotel, domesticDateFlex, domesticDateFlexFrom, domesticDateFlexTo
+      domesticHotel, domesticDateFlex, domesticDateFlexFrom, domesticDateFlexTo,
     });
   };
 
@@ -781,8 +781,8 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                 <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ mt: 2 }}>Travel Information</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Date of Travel *" name="dateOfTravel" type="date" value={travelData.dateOfTravel}
-                  onChange={handleFieldChange} slotProps={{ inputLabel: { shrink: true } }} size="small" required />
+                <TextField fullWidth label="Date of Travel" name="dateOfTravel" type="date" value={travelData.dateOfTravel}
+                  onChange={handleFieldChange} slotProps={{ inputLabel: { shrink: true } }} size="small" />
                 <Box sx={{ mt: 1 }}>
                   <FormControl>
                     <FormLabel sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 0.5 }}>Flexible date?</FormLabel>

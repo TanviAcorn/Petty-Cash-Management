@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const sql = require('mssql');
 const { poolPromise } = require('../config/db');
-const { sendEmail, buildAdminNewRequestEmail, buildL1ApprovalNotificationEmail } = require('../utils/mailer');
+const { sendEmail, buildL1ApprovalNotificationEmail } = require('../utils/mailer');
 
 // GET /api/l1-approvals - Get all requests pending L1 approval for a manager
 router.get('/', async (req, res) => {
@@ -211,45 +211,6 @@ router.put('/:id/approve', async (req, res) => {
       });
     } catch (e) {
       console.error('Failed to send employee notification:', e);
-    }
-    
-    // Send notification to admin
-    try {
-      const adminTo = process.env.ADMIN_EMAIL;
-      if (adminTo) {
-        // Prepare attachments for email
-        const emailAttachments = [];
-        if (request.attachments && request.attachments.length > 0) {
-          const fs = require('fs').promises;
-          const path = require('path');
-          
-          for (const attachment of request.attachments) {
-            try {
-              const filePath = path.join(__dirname, '../../uploads', attachment.filename);
-              const fileContent = await fs.readFile(filePath);
-              
-              emailAttachments.push({
-                filename: attachment.originalName,
-                content: fileContent,
-                contentType: attachment.mimetype || 'application/octet-stream'
-              });
-            } catch (err) {
-              console.error(`Error reading attachment file ${attachment.filename}:`, err);
-            }
-          }
-        }
-        
-        const { subject, html } = buildAdminNewRequestEmail(request);
-        await sendEmail({ 
-          to: adminTo, 
-          subject: `${subject} (L1 Approved)`, 
-          html,
-          replyTo: request.employee_email,
-          attachments: emailAttachments
-        });
-      }
-    } catch (e) {
-      console.error('Failed to send admin notification:', e);
     }
     
     res.json({ message: 'Request approved at L1 level', data: request });

@@ -47,6 +47,7 @@ import Payments from "./pages/Payments";
 import UploadReceipt from "./pages/UploadReceipt";
 import L1TravelApprovals from "./pages/L1TravelApprovals";
 import NewTravelRequest from "./pages/NewTravelRequest";
+import TravelCalendar from "./pages/TravelCalendar";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
@@ -403,6 +404,12 @@ const App = () => {
             userInfo ? 
             <L1TravelApprovals /> : 
             <Navigate to="/login" replace />
+          } />
+
+          <Route path="/travel-calendar" element={
+            hasAdminAccess(userInfo?.role) ?
+            <TravelCalendar /> :
+            <Navigate to="/user-dashboard" replace />
           } />
           
           {/* Public Routes */}
