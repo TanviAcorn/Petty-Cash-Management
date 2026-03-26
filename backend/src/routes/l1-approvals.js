@@ -3,6 +3,7 @@ const router = express.Router();
 const sql = require('mssql');
 const { poolPromise } = require('../config/db');
 const { sendEmail, buildL1ApprovalNotificationEmail } = require('../utils/mailer');
+const { bookTravelCalendarEvent, buildTripSummary, extractTravelDates } = require('../utils/teamsCalendar');
 
 // GET /api/l1-approvals - Get all requests pending L1 approval for a manager
 router.get('/', async (req, res) => {
@@ -181,7 +182,8 @@ router.put('/:id/approve', async (req, res) => {
         UPDATE petty_cash_requests
         SET l1_approval_status = 'approved',
             l1_approved_at = SYSUTCDATETIME(),
-            status = 'pending',
+            status = 'approved',
+            approved_at = SYSUTCDATETIME(),
             l1_rejection_reason = @note
         WHERE id = @id
       `);
@@ -212,7 +214,31 @@ router.put('/:id/approve', async (req, res) => {
     } catch (e) {
       console.error('Failed to send employee notification:', e);
     }
-    
+
+    // Auto-book Teams/Outlook calendar event for the employee
+    try {
+      let travelData = null;
+      try { travelData = request.travel_form_data ? JSON.parse(request.travel_form_data) : null; } catch {}
+      if (!travelData) { try { travelData = request.travel_details ? JSON.parse(request.travel_details) : null; } catch {} }
+
+      if (travelData) {
+        const { startDate, endDate } = extractTravelDates(travelData);
+        if (startDate) {
+          const tripSummary = buildTripSummary(travelData);
+          await bookTravelCalendarEvent({
+            employeeEmail: request.employee_email,
+            employeeName: request.employee_name,
+            startDate,
+            endDate: endDate || startDate,
+            tripSummary,
+            requestId: request.id,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Failed to book Teams calendar event:', e);
+    }
+
     res.json({ message: 'Request approved at L1 level', data: request });
   } catch (err) {
     console.error('Error approving L1 request:', err);

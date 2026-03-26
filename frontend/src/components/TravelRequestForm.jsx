@@ -35,6 +35,10 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   const [carParkDuration, setCarParkDuration] = useState(initialData?.carParkDuration || '');
   const [carParkVehicleNumber, setCarParkVehicleNumber] = useState(initialData?.carParkVehicleNumber || '');
   const [carParkCarColor, setCarParkCarColor] = useState(initialData?.carParkCarColor || '');
+  const [rentedVehicleRequired, setRentedVehicleRequired] = useState(initialData?.rentedVehicleRequired || 'no');
+  const [rentedVehicleLegs, setRentedVehicleLegs] = useState(
+    initialData?.rentedVehicleLegs?.length ? initialData.rentedVehicleLegs : [{ pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' }, { pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' }]
+  );
   const [visaRequired, setVisaRequired] = useState(initialData?.visaRequired || 'no');
   const [baggageRequired, setBaggageRequired] = useState(initialData?.baggageRequired || 'no');
   const [domesticHotel, setDomesticHotel] = useState(initialData?.domesticHotel || { needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
@@ -148,6 +152,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
       ...travelData, ...overrides,
       requirements: reqs, tripType, roundTrip, multiCityLegs, foodOptions,
       carParkRequired, carParkDuration, carParkVehicleNumber, carParkCarColor,
+      rentedVehicleRequired, rentedVehicleLegs,
       domesticHotel, domesticDateFlex, domesticDateFlexFrom, domesticDateFlexTo,
     });
   };
@@ -213,6 +218,13 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     if (field === 'fromCity') {
       setAutoFilledLegs(prev => { const s = new Set(prev); s.delete(index); return s; });
     }
+    // Auto-cascade date to next leg if next leg date is empty
+    if (field === 'date' && value && index + 1 < updated.length) {
+      if (!updated[index + 1].date) {
+        updated = updated.map((leg, i) => i === index + 1 ? { ...leg, date: value } : leg);
+        setMultiCityLegs(updated);
+      }
+    }
     emit({ multiCityLegs: updated });
   };
 
@@ -232,16 +244,19 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     const newFromCity = lastLeg?.toCity?.trim() || '';
     const updated = [...multiCityLegs, { ...defaultLeg(), fromCity: newFromCity }];
     setMultiCityLegs(updated);
-    if (newFromCity) {
-      setAutoFilledLegs(prev => new Set([...prev, updated.length - 1]));
-    }
-    emit({ multiCityLegs: updated });
+    // Sync rented vehicle legs
+    const updatedVehicleLegs = [...rentedVehicleLegs, { pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' }];
+    setRentedVehicleLegs(updatedVehicleLegs);
+    if (newFromCity) setAutoFilledLegs(prev => new Set([...prev, updated.length - 1]));
+    emit({ multiCityLegs: updated, rentedVehicleLegs: updatedVehicleLegs });
   };
 
   const removeLeg = (index) => {
     if (multiCityLegs.length <= 2) return;
     const updated = multiCityLegs.filter((_, i) => i !== index);
     setMultiCityLegs(updated);
+    const updatedVehicleLegs = rentedVehicleLegs.filter((_, i) => i !== index);
+    setRentedVehicleLegs(updatedVehicleLegs.length ? updatedVehicleLegs : [{ pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' }]);
     setAutoFilledLegs(prev => {
       const s = new Set();
       prev.forEach(i => { if (i < index) s.add(i); else if (i > index) s.add(i - 1); });
@@ -585,7 +600,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                           <Grid item xs={12} md={4}>
                             <TextField fullWidth label="Date" type="date" value={leg.date}
                               onChange={(e) => handleLegChange(index, 'date', e.target.value)}
-                              slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                              slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: index > 0 && multiCityLegs[index-1]?.date ? multiCityLegs[index-1].date : today }} size="small" />
                             <Box sx={{ mt: 0.5 }}>
                               <Typography variant="caption" color="text.secondary">Flexible date?</Typography>
                               <RadioGroup row value={leg.dateFlex ? 'yes' : 'no'} onChange={(e) => {
@@ -739,23 +754,48 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                   {internationalRequirements.rentedVehicle && (
                     <Box sx={{ bgcolor: 'warning.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'warning.main' }}>
                       <Typography variant="subtitle2" fontWeight={600} gutterBottom>3. Rented Vehicle</Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
-                          <TextField fullWidth label="a. Pick-up Point" name="pickupPoint" value={travelData.pickupPoint}
-                            onChange={handleFieldChange} size="small" placeholder="e.g., Airport, City Centre" />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                          <TextField fullWidth label="b. Drop-off Point" name="dropOffPoint" value={travelData.dropOffPoint}
-                            onChange={handleFieldChange} size="small" placeholder="e.g., Hotel, Airport" />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                          <TextField fullWidth select label="c. Manual/Automatic" name="vehicleType"
-                            value={travelData.vehicleType} onChange={handleFieldChange} size="small">
-                            <MenuItem value="Manual">Manual</MenuItem>
-                            <MenuItem value="Automatic">Automatic</MenuItem>
-                          </TextField>
-                        </Grid>
-                      </Grid>
+                      <FormControl sx={{ mb: 1.5 }}>
+                        <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Rented vehicle required?</FormLabel>
+                        <RadioGroup row value={rentedVehicleRequired} onChange={(e) => { setRentedVehicleRequired(e.target.value); emit({ rentedVehicleRequired: e.target.value }); }}>
+                          <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                          <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                        </RadioGroup>
+                      </FormControl>
+                      {rentedVehicleRequired === 'yes' && (
+                        <>
+                          {(tripType === 'multiCity' ? multiCityLegs : multiCityLegs.slice(0, 1)).map((cityLeg, idx) => {
+                            const vLeg = rentedVehicleLegs[idx] || { pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' };
+                            return (
+                              <Box key={idx} sx={{ mb: 1.5, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                                {tripType === 'multiCity' && (
+                                  <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                    Leg {idx + 1}: {cityLeg.fromCity || '?'} → {cityLeg.toCity || '?'}
+                                  </Typography>
+                                )}
+                                <Grid container spacing={2}>
+                                  <Grid item xs={12} md={4}>
+                                    <TextField fullWidth label="Pick-up Point" size="small" value={vLeg.pickupPoint}
+                                      onChange={(e) => { const u = rentedVehicleLegs.map((l,i) => i===idx ? {...l, pickupPoint: e.target.value} : l); while(u.length <= idx) u.push({ pickupPoint:'', dropOffPoint:'', vehicleType:'Manual' }); setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
+                                      placeholder="e.g., Airport, City Centre" />
+                                  </Grid>
+                                  <Grid item xs={12} md={4}>
+                                    <TextField fullWidth label="Drop-off Point" size="small" value={vLeg.dropOffPoint}
+                                      onChange={(e) => { const u = rentedVehicleLegs.map((l,i) => i===idx ? {...l, dropOffPoint: e.target.value} : l); while(u.length <= idx) u.push({ pickupPoint:'', dropOffPoint:'', vehicleType:'Manual' }); setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
+                                      placeholder="e.g., Hotel, Airport" />
+                                  </Grid>
+                                  <Grid item xs={12} md={4}>
+                                    <TextField fullWidth select label="Manual/Automatic" size="small" value={vLeg.vehicleType || 'Manual'}
+                                      onChange={(e) => { const u = rentedVehicleLegs.map((l,i) => i===idx ? {...l, vehicleType: e.target.value} : l); while(u.length <= idx) u.push({ pickupPoint:'', dropOffPoint:'', vehicleType:'Manual' }); setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}>
+                                      <MenuItem value="Manual">Manual</MenuItem>
+                                      <MenuItem value="Automatic">Automatic</MenuItem>
+                                    </TextField>
+                                  </Grid>
+                                </Grid>
+                              </Box>
+                            );
+                          })}
+                        </>
+                      )}
                     </Box>
                   )}
 
@@ -996,23 +1036,39 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                   {domesticRequirements.rentedVehicle && (
                     <Box sx={{ bgcolor: 'warning.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'warning.main' }}>
                       <Typography variant="subtitle2" fontWeight={600} gutterBottom>2. Rented Vehicle</Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
-                          <TextField fullWidth label="a. Pick-up Point" name="pickupPoint" value={travelData.pickupPoint}
-                            onChange={handleFieldChange} size="small" placeholder="e.g., Airport, City Centre" />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                          <TextField fullWidth label="b. Drop-off Point" name="dropOffPoint" value={travelData.dropOffPoint}
-                            onChange={handleFieldChange} size="small" placeholder="e.g., Hotel, Station" />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                          <TextField fullWidth select label="c. Manual/Automatic" name="vehicleType"
-                            value={travelData.vehicleType} onChange={handleFieldChange} size="small">
-                            <MenuItem value="Manual">Manual</MenuItem>
-                            <MenuItem value="Automatic">Automatic</MenuItem>
-                          </TextField>
-                        </Grid>
-                      </Grid>
+                      <FormControl sx={{ mb: 1.5 }}>
+                        <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Rented vehicle required?</FormLabel>
+                        <RadioGroup row value={rentedVehicleRequired} onChange={(e) => { setRentedVehicleRequired(e.target.value); emit({ rentedVehicleRequired: e.target.value }); }}>
+                          <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                          <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                        </RadioGroup>
+                      </FormControl>
+                      {rentedVehicleRequired === 'yes' && (
+                        <Box sx={{ p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} md={4}>
+                              <TextField fullWidth label="Pick-up Point" size="small"
+                                value={rentedVehicleLegs[0]?.pickupPoint || ''}
+                                onChange={(e) => { const u = [{ ...rentedVehicleLegs[0], pickupPoint: e.target.value }]; setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
+                                placeholder="e.g., Airport, City Centre" />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <TextField fullWidth label="Drop-off Point" size="small"
+                                value={rentedVehicleLegs[0]?.dropOffPoint || ''}
+                                onChange={(e) => { const u = [{ ...rentedVehicleLegs[0], dropOffPoint: e.target.value }]; setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
+                                placeholder="e.g., Hotel, Station" />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <TextField fullWidth select label="Manual/Automatic" size="small"
+                                value={rentedVehicleLegs[0]?.vehicleType || 'Manual'}
+                                onChange={(e) => { const u = [{ ...rentedVehicleLegs[0], vehicleType: e.target.value }]; setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}>
+                                <MenuItem value="Manual">Manual</MenuItem>
+                                <MenuItem value="Automatic">Automatic</MenuItem>
+                              </TextField>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                      )}
                     </Box>
                   )}
 
