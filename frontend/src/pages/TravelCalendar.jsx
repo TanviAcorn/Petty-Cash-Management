@@ -54,11 +54,12 @@ export default function TravelCalendar() {
               const flexTo   = td.domesticDateFlexTo;
               departure  = flexFrom ? new Date(flexFrom) : (td.dateOfTravel ? new Date(td.dateOfTravel) : null);
               returnDate = flexTo   ? new Date(flexTo)   : null;
-            } else if (td.tripType === 'roundTrip' && td.roundTrip) {
+            } else if ((td.tripType === 'roundTrip' || td.tripType === 'oneWay') && td.roundTrip) {
               departure  = td.roundTrip.departureDate || td.roundTrip.departureDateFlexFrom
                 ? new Date(td.roundTrip.departureDate || td.roundTrip.departureDateFlexFrom) : null;
-              returnDate = td.roundTrip.arrivalDate || td.roundTrip.arrivalDateFlexFrom
-                ? new Date(td.roundTrip.arrivalDate || td.roundTrip.arrivalDateFlexFrom) : null;
+              returnDate = td.tripType === 'oneWay' ? null :
+                (td.roundTrip.arrivalDate || td.roundTrip.arrivalDateFlexFrom
+                ? new Date(td.roundTrip.arrivalDate || td.roundTrip.arrivalDateFlexFrom) : null);
             } else if (td.tripType === 'multiCity' && td.multiCityLegs?.length) {
               departure  = td.multiCityLegs[0]?.date ? new Date(td.multiCityLegs[0].date) : null;
               const last = td.multiCityLegs[td.multiCityLegs.length - 1];
@@ -217,7 +218,7 @@ export default function TravelCalendar() {
                       { label: 'Travel Type', value: selected.td.travelType === 'domestic' ? 'Domestic' : 'International' },
                       selected.td.countryOfTravel && { label: 'Country', value: selected.td.countryOfTravel },
                       selected.td.cityOfTravelDomestic && { label: 'City', value: selected.td.cityOfTravelDomestic },
-                      selected.td.tripType && { label: 'Trip Type', value: selected.td.tripType === 'roundTrip' ? 'Round Trip' : selected.td.tripType === 'multiCity' ? 'Multi-City' : 'One Way' },
+                      selected.td.tripType && { label: 'Trip Type', value: selected.td.tripType === 'roundTrip' ? 'Round Trip' : selected.td.tripType === 'multiCity' ? 'Multi-City' : selected.td.tripType === 'oneWay' ? 'One-Way' : selected.td.tripType },
                       selected.td.roundTrip?.fromCity && { label: 'Route', value: `${selected.td.roundTrip.fromCity} → ${selected.td.roundTrip.toCity}` },
                       { label: 'Departure', value: formatDate(selected.departure) },
                       selected.returnDate && { label: 'Return', value: formatDate(selected.returnDate) },

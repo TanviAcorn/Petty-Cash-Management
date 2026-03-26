@@ -395,7 +395,7 @@ const L1TravelApprovals = () => {
         <SectionTitle>Travel Overview</SectionTitle>
         <TableContainer component={Box}><Table size="small"><TableBody>
           <InfoRow label="Travel Type" value={isIntl ? 'International' : 'Domestic'} />
-          {isIntl && <InfoRow label="Trip Type" value={tf.tripType === 'roundTrip' ? 'Round Trip' : tf.tripType === 'multiCity' ? 'Multi-City' : 'One Way'} />}
+          {isIntl && <InfoRow label="Trip Type" value={tf.tripType === 'roundTrip' ? 'Round Trip' : tf.tripType === 'multiCity' ? 'Multi-City' : tf.tripType === 'oneWay' ? 'One-Way' : tf.tripType} />}
           {isIntl && <InfoRow label="Country" value={tf.countryOfTravel} />}
           {!isIntl && <InfoRow label="City of Travel" value={tf.cityOfTravelDomestic} />}
           {!isIntl && (
@@ -420,6 +420,22 @@ const L1TravelApprovals = () => {
               <InfoRow label="To City" value={tf.roundTrip.toCity} />
               <InfoRow label="Departure Date" value={tf.roundTrip.departureDate || 'Flexible'} />
               <InfoRow label="Return Date" value={tf.roundTrip.arrivalDate || 'Flexible'} />
+              {tf.roundTrip.needsHotel && <>
+                <InfoRow label="Hotel Check-in" value={formatDate(tf.roundTrip.hotelFrom)} />
+                <InfoRow label="Hotel Check-out" value={formatDate(tf.roundTrip.hotelTo)} />
+                <InfoRow label="Hotel Days" value={tf.roundTrip.hotelDays} />
+              </>}
+            </TableBody></Table></TableContainer>
+          </>
+        )}
+
+        {isIntl && tf.tripType === 'oneWay' && tf.roundTrip && (
+          <>
+            <SectionTitle>One-Way Details</SectionTitle>
+            <TableContainer component={Box}><Table size="small"><TableBody>
+              <InfoRow label="From City" value={tf.roundTrip.fromCity} />
+              <InfoRow label="To City" value={tf.roundTrip.toCity} />
+              <InfoRow label="Departure Date" value={tf.roundTrip.departureDate || 'Flexible'} />
               {tf.roundTrip.needsHotel && <>
                 <InfoRow label="Hotel Check-in" value={formatDate(tf.roundTrip.hotelFrom)} />
                 <InfoRow label="Hotel Check-out" value={formatDate(tf.roundTrip.hotelTo)} />
