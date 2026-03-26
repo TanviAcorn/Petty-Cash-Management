@@ -235,7 +235,7 @@ export default function TravelCalendar() {
               {/* Requirements chips */}
               {(() => {
                 const reqs = selected.td.requirements || {};
-                const labels = { flights:'Flights', visa:'Visa', rentedVehicle:'Rented Vehicle', carPark:'Car Park', food:'Food', baggage:'Baggage' };
+                const labels = { flights:'Flights', visa:'Visa', rentedVehicle:'Rented Vehicle', carPark:'Airport Car Park', food:'Food Preferance', baggage:'Baggage Requirements' };
                 const active = Object.entries(reqs).filter(([,v])=>v).map(([k])=>k);
                 return active.length > 0 ? (
                   <Box sx={{ mt: 2 }}>

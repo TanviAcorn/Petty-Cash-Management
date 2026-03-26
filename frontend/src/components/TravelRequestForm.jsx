@@ -588,9 +588,9 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                   <FormControlLabel control={<Checkbox checked={internationalRequirements.flights} onChange={handleIntlReqChange} name="flights" />} label="1. Flights" />
                   <FormControlLabel control={<Checkbox checked={internationalRequirements.visa} onChange={handleIntlReqChange} name="visa" />} label="2. Visa" />
                   <FormControlLabel control={<Checkbox checked={internationalRequirements.rentedVehicle} onChange={handleIntlReqChange} name="rentedVehicle" />} label="3. Rented Vehicle" />
-                  <FormControlLabel control={<Checkbox checked={internationalRequirements.carPark} onChange={handleIntlReqChange} name="carPark" />} label="4. Car Park" />
-                  <FormControlLabel control={<Checkbox checked={internationalRequirements.food} onChange={handleIntlReqChange} name="food" />} label="5. Food" />
-                  <FormControlLabel control={<Checkbox checked={internationalRequirements.baggage} onChange={handleIntlReqChange} name="baggage" />} label="6. Baggage" />
+                  <FormControlLabel control={<Checkbox checked={internationalRequirements.carPark} onChange={handleIntlReqChange} name="carPark" />} label="4. Airport Car Park" />
+                  <FormControlLabel control={<Checkbox checked={internationalRequirements.food} onChange={handleIntlReqChange} name="food" />} label="5. Food Preferance" />
+                  <FormControlLabel control={<Checkbox checked={internationalRequirements.baggage} onChange={handleIntlReqChange} name="baggage" />} label="6. Baggage Requirements" />
                 </FormGroup>
               </Grid>
 
@@ -677,7 +677,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
 
                   {internationalRequirements.carPark && (
                     <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'grey.400' }}>
-                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>4. Car Park</Typography>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>4. Airport Car Park</Typography>
                       <Box sx={{ mb: carParkRequired === 'yes' ? 2 : 0 }}>
                         <FormControl>
                           <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Car park required?</FormLabel>
@@ -887,10 +887,10 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                 <FormGroup row>
                   <FormControlLabel control={<Checkbox checked={domesticRequirements.flights} onChange={handleDomReqChange} name="flights" />} label="1. Flights" />
                   <FormControlLabel control={<Checkbox checked={domesticRequirements.rentedVehicle} onChange={handleDomReqChange} name="rentedVehicle" />} label="2. Rented Vehicle" />
-                  <FormControlLabel control={<Checkbox checked={domesticRequirements.carPark} onChange={handleDomReqChange} name="carPark" />} label="3. Car Park" />
-                  <FormControlLabel control={<Checkbox checked={domesticRequirements.food} onChange={handleDomReqChange} name="food" />} label="4. Food" />
+                  <FormControlLabel control={<Checkbox checked={domesticRequirements.carPark} onChange={handleDomReqChange} name="carPark" />} label="3. Airport Car Park" />
+                  <FormControlLabel control={<Checkbox checked={domesticRequirements.food} onChange={handleDomReqChange} name="food" />} label="4. Food Preferance" />
                   <FormControlLabel control={<Checkbox checked={domesticRequirements.overnightStay} onChange={handleDomReqChange} name="overnightStay" />} label="5. Overnight Stay" />
-                  <FormControlLabel control={<Checkbox checked={domesticRequirements.baggage} onChange={handleDomReqChange} name="baggage" />} label="6. Baggage" />
+                  <FormControlLabel control={<Checkbox checked={domesticRequirements.baggage} onChange={handleDomReqChange} name="baggage" />} label="6. Baggage Requirements" />
                 </FormGroup>
               </Grid>
 
@@ -934,7 +934,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
 
                   {domesticRequirements.carPark && (
                     <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'grey.400' }}>
-                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>3. Car Park</Typography>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>3. Airport Car Park</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap', mb: carParkRequired === 'yes' ? 2 : 0 }}>
                         <FormControl>
                           <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Car park required?</FormLabel>

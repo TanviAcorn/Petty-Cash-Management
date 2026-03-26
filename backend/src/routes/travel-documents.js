@@ -261,9 +261,9 @@ const SECTION_LABELS = {
   flights: 'Flight Details',
   hotel: 'Hotel / Accommodation',
   visa: 'Visa Details',
-  carPark: 'Car Park',
-  food: 'Food / Meals',
-  baggage: 'Baggage',
+  carPark: 'Airport Car Park',
+  food: 'Food Preferance',
+  baggage: 'Baggage Requirements',
   rentedVehicle: 'Rented Vehicle',
   overnightStay: 'Overnight Stay',
 };

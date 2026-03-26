@@ -132,7 +132,7 @@ const L1TravelApprovals = () => {
       ],
     },
     carPark: {
-      label: 'Car Park',
+      label: 'Airport Car Park',
       fields: [
         { key: 'carParkName', label: 'Car Park Name' },
         { key: 'carParkLocation', label: 'Location / Address' },
@@ -144,7 +144,7 @@ const L1TravelApprovals = () => {
       ],
     },
     food: {
-      label: 'Food / Meals',
+      label: 'Food Preferance',
       fields: [
         { key: 'venue', label: 'Restaurant / Venue' },
         { key: 'mealAllowance', label: 'Daily Meal Allowance (£)' },
@@ -153,7 +153,7 @@ const L1TravelApprovals = () => {
       ],
     },
     baggage: {
-      label: 'Baggage',
+      label: 'Baggage Requirements',
       fields: [
         { key: 'baggageAllowance', label: 'Baggage Allowance' },
         { key: 'baggageBookingRef', label: 'Booking Reference' },
@@ -380,7 +380,7 @@ const L1TravelApprovals = () => {
     ) : null;
 
     const reqs = tf.requirements || {};
-    const reqLabels = { flights: 'Flights', visa: 'Visa', rentedVehicle: 'Rented Vehicle', carPark: 'Car Park', food: 'Food', overnightStay: 'Overnight Stay', baggage: 'Baggage' };
+    const reqLabels = { flights: 'Flights', visa: 'Visa', rentedVehicle: 'Rented Vehicle', carPark: 'Airport Car Park', food: 'Food Preferance', overnightStay: 'Overnight Stay', baggage: 'Baggage Requirements' };
     const selectedReqs = Object.entries(reqs).filter(([, v]) => v).map(([k]) => reqLabels[k] || k);
 
     return (
@@ -502,7 +502,7 @@ const L1TravelApprovals = () => {
 
         {reqs.carPark && tf.carParkRequired === 'yes' && (
           <>
-            <SectionTitle>Car Park</SectionTitle>
+            <SectionTitle>Airport Car Park</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
               <InfoRow label="Vehicle Number" value={tf.carParkVehicleNumber} />
               <InfoRow label="Car Color" value={tf.carParkCarColor} />
@@ -512,7 +512,7 @@ const L1TravelApprovals = () => {
 
         {reqs.food && tf.foodOptions && (
           <>
-            <SectionTitle>Food Preferences</SectionTitle>
+            <SectionTitle>Food Preferance</SectionTitle>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
               {Object.entries(tf.foodOptions).filter(([, v]) => v).map(([k]) => (
                 <Chip key={k} label={k.replace(/([A-Z])/g, ' $1').trim()} size="small" color="secondary" variant="outlined" />

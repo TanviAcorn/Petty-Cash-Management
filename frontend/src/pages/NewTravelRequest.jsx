@@ -256,7 +256,7 @@ const NewTravelRequest = () => {
     if (td.roundTrip?.departureDate) items.push({ label: 'Departure', value: td.roundTrip.departureDate });
     if (td.roundTrip?.arrivalDate) items.push({ label: 'Return', value: td.roundTrip.arrivalDate });
     const reqs = td.requirements || {};
-    const reqLabels = { flights: 'Flights', visa: 'Visa', rentedVehicle: 'Rented Vehicle', carPark: 'Car Park', food: 'Food', baggage: 'Baggage' };
+    const reqLabels = { flights: 'Flights', visa: 'Visa', rentedVehicle: 'Rented Vehicle', carPark: 'Airport Car Park', food: 'Food Preferance', baggage: 'Baggage Requirements' };
     const selected = Object.entries(reqs).filter(([, v]) => v).map(([k]) => reqLabels[k] || k);
     if (selected.length) items.push({ label: 'Requirements', value: selected.join(', ') });
     if (td.reasonOfTravel) {
@@ -503,7 +503,7 @@ const NewTravelRequest = () => {
                           const reqs = tf.requirements || {};
                           const reqLabels = {
                             flights: 'Flights', visa: 'Visa', rentedVehicle: 'Rented Vehicle',
-                            carPark: 'Car Park', food: 'Food', overnightStay: 'Overnight Stay', baggage: 'Baggage'
+                            carPark: 'Airport Car Park', food: 'Food Preferance', overnightStay: 'Overnight Stay', baggage: 'Baggage Requirements'
                           };
                           const selectedReqs = Object.entries(reqs).filter(([, v]) => v).map(([k]) => reqLabels[k] || k);
                           if (selectedReqs.length) rows.push({ label: 'Requirements', value: selectedReqs.join(', ') });
