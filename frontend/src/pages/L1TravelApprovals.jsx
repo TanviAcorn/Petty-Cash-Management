@@ -145,11 +145,10 @@ const L1TravelApprovals = () => {
     },
     food: {
       label: 'Food Preferance',
+      hint: 'Standard meal allowances apply: East Europe = €40/day fixed rate, West Europe = €80/day fixed rate. Please enter the applicable amount based on the destination.',
       fields: [
-        { key: 'venue', label: 'Restaurant / Venue' },
-        { key: 'mealAllowance', label: 'Daily Meal Allowance (£)' },
-        { key: 'totalMealBudget', label: 'Total Meal Budget (£)' },
-        { key: 'foodNotes', label: 'Additional Notes' },
+        { key: 'eastEurope', label: 'East Europe Allowance (€40 fixed)' },
+        { key: 'westEurope', label: 'West Europe Allowance (€80 fixed)' },
       ],
     },
     baggage: {
@@ -280,31 +279,8 @@ const L1TravelApprovals = () => {
     setGlobalFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // Required fields per section — at least these must be filled to enable Send
-  const REQUIRED_FIELDS = {
-    flights:      ['airline', 'flightNumber', 'bookingRef'],
-    hotel:        ['hotelName', 'hotelAddress', 'confirmationNumber'],
-    visa:         ['visaNumber', 'visaExpiryDate'],
-    carPark:      ['carParkLocation', 'carParkBookingRef'],
-    food:         ['venue'],
-    baggage:      ['baggageAllowance'],
-    rentedVehicle:['rentalCompany', 'vehicleReg', 'pickupAddress'],
-    overnightStay:['stayLocation'],
-  };
-
-  const isAllSectionsFilled = () => {
-    if (!uploadRequest) return false;
-    const td = uploadRequest.travel_form_data;
-    const sections = getActiveSections(td);
-    if (sections.length === 0) return globalRemarks.trim().length > 0 || globalFiles.length > 0;
-
-    return sections.every((sectionKey) => {
-      const required = REQUIRED_FIELDS[sectionKey] || [];
-      if (required.length === 0) return true;
-      const filled = sectionDetails[sectionKey] || {};
-      return required.every((f) => filled[f]?.trim());
-    });
-  };
+  // All fields are optional — Save & Send is enabled as long as dialog is open
+  const isAllSectionsFilled = () => true;
 
   const handleSendTravelDetails = async () => {
     if (!uploadRequest) return;
@@ -739,6 +715,14 @@ const L1TravelApprovals = () => {
                       <Typography variant="subtitle1" fontWeight={700} color="primary.main" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         {config.label}
                       </Typography>
+
+                      {config.hint && (
+                        <Box sx={{ bgcolor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 1, px: 2, py: 1.25, mb: 1.5, display: 'flex', gap: 1 }}>
+                          <Typography variant="caption" sx={{ color: '#1e40af', lineHeight: 1.6 }}>
+                            ℹ️ {config.hint}
+                          </Typography>
+                        </Box>
+                      )}
 
                       <Grid container spacing={2}>
                         {config.fields.map((field) => (

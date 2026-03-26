@@ -284,6 +284,7 @@ const FIELD_LABELS = {
   carParkEntryDate: 'Entry Date', carParkExitDate: 'Exit Date', carParkCost: 'Total Cost (£)',
   venue: 'Restaurant / Venue', mealAllowance: 'Daily Meal Allowance (£)',
   totalMealBudget: 'Total Meal Budget (£)', foodNotes: 'Notes',
+  eastEurope: 'East Europe Allowance (€40 fixed)', westEurope: 'West Europe Allowance (€80 fixed)',
   baggageAllowance: 'Baggage Allowance', baggageBookingRef: 'Booking Reference',
   baggageWeight: 'Max Weight (kg)', baggageNotes: 'Notes',
   rentalCompany: 'Rental Company', vehicleReg: 'Vehicle Registration',
