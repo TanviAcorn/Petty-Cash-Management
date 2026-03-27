@@ -44,6 +44,44 @@ async function ensureFeedbackTable(pool) {
   `);
 }
 
+// POST /api/travel-feedback/test-send — manually generate a feedback link for any request (testing only)
+router.post('/test-send', async (req, res) => {
+  try {
+    const { requestId } = req.body;
+    if (!requestId) return res.status(400).json({ message: 'requestId is required' });
+
+    const pool = await poolPromise;
+    await ensureFeedbackTable(pool);
+
+    // Check request exists
+    const reqCheck = await pool.request()
+      .input('id', sql.Int, parseInt(requestId))
+      .query('SELECT id, employee_email, employee_name FROM petty_cash_requests WHERE id = @id');
+    if (!reqCheck.recordset.length) return res.status(404).json({ message: 'Request not found' });
+
+    const row = reqCheck.recordset[0];
+
+    // Delete any existing feedback record for this request so we can re-test
+    await pool.request()
+      .input('id', sql.Int, parseInt(requestId))
+      .query('DELETE FROM petty_travel_feedback WHERE request_id = @id');
+
+    const token = crypto.randomBytes(32).toString('hex');
+    await pool.request()
+      .input('requestId', sql.Int, parseInt(requestId))
+      .input('token', sql.NVarChar(64), token)
+      .input('email', sql.NVarChar(320), row.employee_email)
+      .query(`INSERT INTO petty_travel_feedback (request_id, token, employee_email, sent_at)
+              VALUES (@requestId, @token, @email, SYSUTCDATETIME())`);
+
+    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5176').split(',')[0].trim();
+    return res.json({ token, url: `${baseUrl}/travel-feedback/${token}`, requestId, employee: row.employee_name });
+  } catch (err) {
+    console.error('test-send error:', err);
+    return res.status(500).json({ message: 'Failed to generate test link' });
+  }
+});
+
 // GET /api/travel-feedback/:token — fetch request info for the feedback form
 router.get('/:token', async (req, res) => {
   try {
@@ -61,6 +99,7 @@ router.get('/:token', async (req, res) => {
           f.remarks, f.hotel_remarks, f.food_remarks,
           f.vehicle_remarks, f.car_park_remarks, f.flights_remarks,
           r.employee_name, r.travel_form_data, r.travel_details,
+          r.travel_admin_details,
           r.category_name
         FROM petty_travel_feedback f
         LEFT JOIN petty_cash_requests r ON r.id = f.request_id
@@ -88,12 +127,17 @@ router.get('/:token', async (req, res) => {
       }
     }
 
+    // Parse admin details
+    let adminDetails = {};
+    try { adminDetails = row.travel_admin_details ? JSON.parse(row.travel_admin_details) : {}; } catch {}
+
     return res.json({
       data: {
         requestId: row.request_id,
         employeeName: row.employee_name || row.employee_email?.split('@')[0] || 'Employee',
         alreadySubmitted: !!row.submitted_at,
         travelData,
+        adminDetails,
         existing: row.submitted_at ? {
           hotelRating: row.hotel_rating,
           foodRating: row.food_rating,

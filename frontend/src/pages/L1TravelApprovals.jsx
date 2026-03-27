@@ -144,6 +144,7 @@ const L1TravelApprovals = () => {
         { key: 'carParkBookingRef', label: 'Booking Reference' },
         { key: 'carParkEntryDate', label: 'Entry Date & Time', type: 'datetime-local' },
         { key: 'carParkExitDate', label: 'Exit Date & Time', type: 'datetime-local' },
+        { key: 'shuttleCost', label: 'Additional Cost for Shuttle / Pick-up & Drop' },
       ],
     },
     food: {
@@ -177,6 +178,7 @@ const L1TravelApprovals = () => {
         { key: 'dropoffAddress', label: 'Drop-off Address' },
         { key: 'dropoffDateTime', label: 'Drop-off Date & Time', type: 'datetime-local' },
         { key: 'rentalBookingRef', label: 'Booking Reference' },
+        { key: 'vehicleDeposit', label: 'Deposit to be Paid on Vehicle Collection' },
       ],
     },
   };
@@ -184,33 +186,29 @@ const L1TravelApprovals = () => {
   const getActiveSections = (travelData) => {
     if (!travelData) return [];
     const reqs = travelData.requirements || {};
+    const isIntl = travelData.travelType === 'international';
+    const isMultiCity = travelData.tripType === 'multiCity';
+    const legs = travelData.multiCityLegs || [];
     const active = [];
 
-    // Flights — show for any international trip, or if explicitly requested
-    const isIntl = travelData.travelType === 'international';
-    if (isIntl || reqs.flights) active.push('flights');
+    if (isMultiCity && legs.length > 0) {
+      // Per-leg: flights, hotel (if needsHotel), carPark (if carPark req)
+      legs.forEach((leg, i) => {
+        if (isIntl || reqs.flights) active.push(`flights_leg_${i}`);
+        if (leg.needsHotel) active.push(`hotel_leg_${i}`);
+        if (reqs.carPark || travelData.carParkRequired === 'yes') active.push(`carPark_leg_${i}`);
+      });
+    } else {
+      if (isIntl || reqs.flights) active.push('flights');
+      const hasHotel = travelData.roundTrip?.needsHotel || travelData.domesticHotel?.needsHotel || reqs.overnightStay;
+      if (hasHotel) active.push('hotel');
+      if (reqs.carPark || travelData.carParkRequired === 'yes') active.push('carPark');
+    }
 
-    // Hotel — show if any leg has hotel, or overnightStay requirement
-    const hasHotel =
-      travelData.roundTrip?.needsHotel ||
-      travelData.multiCityLegs?.some((l) => l.needsHotel) ||
-      travelData.domesticHotel?.needsHotel ||
-      reqs.overnightStay;
-    if (hasHotel) active.push('hotel');
-
-    // Visa
+    // Single sections regardless of trip type
     if (reqs.visa || travelData.visaRequired === 'yes') active.push('visa');
-
-    // Car Park
-    if (reqs.carPark || travelData.carParkRequired === 'yes') active.push('carPark');
-
-    // Food
     if (reqs.food) active.push('food');
-
-    // Baggage
     if (reqs.baggage || travelData.baggageRequired === 'yes') active.push('baggage');
-
-    // Rented Vehicle
     if (reqs.rentedVehicle) active.push('rentedVehicle');
 
     return active;
@@ -733,16 +731,27 @@ const L1TravelApprovals = () => {
                 )}
 
                 {sections.map((sectionKey) => {
-                  const config = SECTION_CONFIG[sectionKey];
+                  // Resolve base config key for per-leg sections (e.g. flights_leg_0 → flights)
+                  const legMatch = sectionKey.match(/^(.+)_leg_(\d+)$/);
+                  const baseKey = legMatch ? legMatch[1] : sectionKey;
+                  const legIndex = legMatch ? parseInt(legMatch[2]) : null;
+                  const leg = legIndex !== null ? (td.multiCityLegs || [])[legIndex] : null;
+
+                  const config = SECTION_CONFIG[baseKey];
                   if (!config) return null;
                   const files = sectionFiles[sectionKey] || [];
                   const details = sectionDetails[sectionKey] || {};
                   const fileInputId = `file-input-${sectionKey}`;
 
+                  // Build label — for per-leg sections show leg route
+                  const sectionLabel = leg
+                    ? `${config.label} — Leg ${legIndex + 1}: ${leg.fromCity || '?'} → ${leg.toCity || '?'}`
+                    : config.label;
+
                   return (
                     <Box key={sectionKey} sx={{ mb: 3 }}>
                       <Typography variant="subtitle1" fontWeight={700} color="primary.main" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        {config.label}
+                        {sectionLabel}
                       </Typography>
 
                       {config.hint && (

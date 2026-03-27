@@ -63,6 +63,63 @@ const CATEGORY_QUESTIONS = {
   ],
 };
 
+// Key details to show per section from admin-entered data
+const ADMIN_DETAIL_KEYS = {
+  flights: [
+    { key: 'airline',           label: 'Airline' },
+    { key: 'flightNumber',      label: 'Flight No.' },
+    { key: 'departureAirport',  label: 'From' },
+    { key: 'arrivalAirport',    label: 'To' },
+    { key: 'departureTime',     label: 'Departure' },
+    { key: 'arrivalTime',       label: 'Arrival' },
+    { key: 'seatNumber',        label: 'Seat' },
+  ],
+  hotel: [
+    { key: 'hotelName',         label: 'Hotel' },
+    { key: 'hotelAddress',      label: 'Address' },
+    { key: 'roomType',          label: 'Room Type' },
+    { key: 'roomNumber',        label: 'Room No.' },
+    { key: 'checkIn',           label: 'Check-in' },
+    { key: 'checkOut',          label: 'Check-out' },
+  ],
+  food: [
+    { key: 'venue',             label: 'Venue' },
+    { key: 'mealAllowance',     label: 'Daily Allowance' },
+    { key: 'totalMealBudget',   label: 'Total Budget' },
+  ],
+  rentedVehicle: [
+    { key: 'rentalCompany',     label: 'Company' },
+    { key: 'vehicleModel',      label: 'Vehicle' },
+    { key: 'vehicleReg',        label: 'Reg. No.' },
+    { key: 'pickupAddress',     label: 'Pick-up' },
+    { key: 'dropoffAddress',    label: 'Drop-off' },
+    { key: 'vehicleDeposit',    label: 'Deposit' },
+  ],
+  carPark: [
+    { key: 'carParkName',       label: 'Car Park' },
+    { key: 'carParkLocation',   label: 'Location' },
+    { key: 'bayNumber',         label: 'Bay No.' },
+    { key: 'carParkEntryDate',  label: 'Entry' },
+    { key: 'carParkExitDate',   label: 'Exit' },
+    { key: 'shuttleCost',       label: 'Shuttle Cost' },
+  ],
+  baggage: [
+    { key: 'baggageAllowance',  label: 'Allowance' },
+    { key: 'baggageWeight',     label: 'Max Weight' },
+    { key: 'baggageBookingRef', label: 'Booking Ref' },
+  ],
+};
+
+// Map feedback category key → admin details section key
+const SECTION_MAP = {
+  flights: 'flights',
+  hotel: 'hotel',
+  food: 'food',
+  vehicle: 'rentedVehicle',
+  carPark: 'carPark',
+  baggage: 'baggage',
+};
+
 function SubRating({ label, value, onChange, disabled }) {
   const [hover, setHover] = useState(-1);
   return (
@@ -85,9 +142,15 @@ function SubRating({ label, value, onChange, disabled }) {
   );
 }
 
-function CategoryRating({ category, rating, subRatings, remarks, onRatingChange, onSubRatingChange, onRemarksChange, disabled }) {
+function CategoryRating({ category, rating, subRatings, remarks, onRatingChange, onSubRatingChange, onRemarksChange, disabled, adminDetails }) {
   const [hover, setHover] = useState(-1);
-  const questions = CATEGORY_QUESTIONS[category.key] || [];
+  const questions = CATEGORY_QUESTIONS[category.questionKey || category.key] || [];
+
+  // For per-leg keys (flights_leg_0, hotel_leg_1 etc.) use adminKey directly, else fall back to SECTION_MAP
+  const adminSectionKey = category.adminKey || SECTION_MAP[category.key] || category.key;
+  const sectionData = adminDetails?.[adminSectionKey] || {};
+  const detailLookupKey = adminSectionKey.replace(/_leg_\d+$/, '');
+  const detailFields = (ADMIN_DETAIL_KEYS[detailLookupKey] || []).filter(f => sectionData[f.key]?.trim());
 
   return (
     <Box sx={{ p: 2.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', mb: 2.5 }}>
@@ -96,6 +159,18 @@ function CategoryRating({ category, rating, subRatings, remarks, onRatingChange,
         <Box sx={{ color: category.color, display: 'flex' }}>{category.icon}</Box>
         <Typography variant="subtitle1" fontWeight={700}>{category.label}</Typography>
       </Box>
+
+      {/* Admin-entered details summary */}
+      {detailFields.length > 0 && (
+        <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, px: 2, py: 1.5, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+          {detailFields.map(f => (
+            <Box key={f.key}>
+              <Typography variant="caption" color="text.secondary" display="block" lineHeight={1.2}>{f.label}</Typography>
+              <Typography variant="body2" fontWeight={600}>{sectionData[f.key]}</Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
         <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>Overall rating</Typography>
@@ -157,8 +232,7 @@ export default function TravelFeedback() {
   });
   const [remarks, setRemarks] = useState({
     flights: '', hotel: '', vehicle: '', carPark: '', food: '', baggage: '', overall: ''
-  });
-  const [subRatings, setSubRatings] = useState({});
+  });  const [subRatings, setSubRatings] = useState({});
 
   useEffect(() => {
     fetch(`${API}/api/travel-feedback/${token}`)
@@ -250,20 +324,49 @@ export default function TravelFeedback() {
   }
 
   const travelData = feedbackData?.travelData;
+  const adminDetails = feedbackData?.adminDetails || {};
   const reqs = travelData?.requirements || {};
 
-  // Match same logic as upload dialog — check requirements + trip structure
-  const hasHotel = reqs.hotel || reqs.overnightStay ||
-    travelData?.roundTrip?.needsHotel ||
-    travelData?.multiCityLegs?.some(l => l.needsHotel) ||
-    travelData?.domesticHotel?.needsHotel;
   const hasFlights = reqs.flights || travelData?.travelType === 'international';
 
-  const visibleCategories = CATEGORIES.filter(c => {
-    if (c.key === 'hotel')   return hasHotel;
-    if (c.key === 'flights') return hasFlights;
-    return reqs[c.reqKey];
-  });
+  // Build hotel cards — one per leg for multi-city, single for round trip / domestic
+  const isMultiCity = travelData?.tripType === 'multiCity';
+  const hotelLegs = isMultiCity
+    ? (travelData?.multiCityLegs || [])
+        .map((leg, i) => ({ leg, i }))
+        .filter(({ leg }) => leg.needsHotel)
+    : [];
+
+  const hasHotel = reqs.hotel || reqs.overnightStay ||
+    travelData?.roundTrip?.needsHotel ||
+    hotelLegs.length > 0 ||
+    travelData?.domesticHotel?.needsHotel;
+
+  const legs = travelData?.multiCityLegs || [];
+
+  // For multi-city: generate per-leg categories for flights, hotel, carPark
+  const buildMultiCityCategories = () => {
+    const cats = [];
+    legs.forEach((leg, i) => {
+      const legLabel = `Leg ${i + 1}: ${leg.fromCity || '?'} → ${leg.toCity || '?'}`;
+      if (hasFlights) cats.push({ key: `flights_leg_${i}`, label: `Flight — ${legLabel}`, icon: <FlightTakeoffIcon />, color: '#3B82F6', adminKey: `flights_leg_${i}`, questionKey: 'flights' });
+      if (leg.needsHotel) cats.push({ key: `hotel_leg_${i}`, label: `Hotel — ${legLabel}`, icon: <HotelIcon />, color: '#6366F1', adminKey: `hotel_leg_${i}`, questionKey: 'hotel' });
+      if (reqs.carPark) cats.push({ key: `carPark_leg_${i}`, label: `Car Park — ${legLabel}`, icon: <LocalParkingIcon />, color: '#6B7280', adminKey: `carPark_leg_${i}`, questionKey: 'carPark' });
+    });
+    return cats;
+  };
+
+  const visibleCategories = isMultiCity && legs.length > 0
+    ? [
+        ...buildMultiCityCategories(),
+        ...CATEGORIES.filter(c => !['flights','hotel','carPark'].includes(c.key) && reqs[c.reqKey]),
+      ]
+    : [
+        ...(hasFlights ? [{ ...CATEGORIES.find(c => c.key === 'flights'), adminKey: 'flights', questionKey: 'flights' }] : []),
+        ...(hasHotel   ? [{ ...CATEGORIES.find(c => c.key === 'hotel'),   adminKey: 'hotel',   questionKey: 'hotel'   }] : []),
+        ...CATEGORIES.filter(c => c.key !== 'flights' && c.key !== 'hotel' && reqs[c.reqKey])
+          .map(c => ({ ...c, adminKey: c.key, questionKey: c.key })),
+      ];
 
   if (submitted) {
     return (
@@ -321,6 +424,7 @@ export default function TravelFeedback() {
                   }))}
                   onRemarksChange={(val) => setRemarks(r => ({ ...r, [cat.key]: val }))}
                   disabled={false}
+                  adminDetails={adminDetails}
                 />
               ))
             ) : (
