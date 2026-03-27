@@ -22,13 +22,13 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   const [internationalRequirements, setInternationalRequirements] = useState(
     initialData?.requirements && initialData?.travelType === 'international'
       ? initialData.requirements
-      : { flights: false, visa: false, rentedVehicle: false, carPark: false, food: false, baggage: false }
+      : { flights: false, visa: false, rentedVehicle: false, carPark: false, food: false, baggage: false, accompanying: false }
   );
 
   const [domesticRequirements, setDomesticRequirements] = useState(
     initialData?.requirements && initialData?.travelType === 'domestic'
       ? initialData.requirements
-      : { flights: false, rentedVehicle: false, carPark: false, food: false, overnightStay: false, baggage: false }
+      : { flights: false, rentedVehicle: false, carPark: false, food: false, overnightStay: false, baggage: false, accompanying: false }
   );
 
   const [carParkRequired, setCarParkRequired] = useState(initialData?.carParkRequired || 'no');
@@ -41,6 +41,8 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   );
   const [visaRequired, setVisaRequired] = useState(initialData?.visaRequired || 'no');
   const [baggageRequired, setBaggageRequired] = useState(initialData?.baggageRequired || 'no');
+  const [accompanying, setAccompanying] = useState(initialData?.accompanying || 'no');
+  const [accompanyingNames, setAccompanyingNames] = useState(initialData?.accompanyingNames || '');
   const [domesticHotel, setDomesticHotel] = useState(initialData?.domesticHotel || { needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
   const [domesticDateFlex, setDomesticDateFlex] = useState(false);
   const [domesticDateFlexFrom, setDomesticDateFlexFrom] = useState('');
@@ -154,6 +156,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
       carParkRequired, carParkDuration, carParkVehicleNumber, carParkCarColor,
       rentedVehicleRequired, rentedVehicleLegs,
       domesticHotel, domesticDateFlex, domesticDateFlexFrom, domesticDateFlexTo,
+      accompanying, accompanyingNames,
     });
   };
 
@@ -662,6 +665,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                   <FormControlLabel control={<Checkbox checked={internationalRequirements.carPark} onChange={handleIntlReqChange} name="carPark" />} label="4. Airport Car Park" />
                   <FormControlLabel control={<Checkbox checked={internationalRequirements.food} onChange={handleIntlReqChange} name="food" />} label="5. Food Preferance" />
                   <FormControlLabel control={<Checkbox checked={internationalRequirements.baggage} onChange={handleIntlReqChange} name="baggage" />} label="6. Baggage Requirements" />
+                  <FormControlLabel control={<Checkbox checked={internationalRequirements.accompanying} onChange={handleIntlReqChange} name="accompanying" />} label="7. Anyone Accompanying?" />
                 </FormGroup>
               </Grid>
 
@@ -867,6 +871,34 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                       )}
                     </Box>
                   )}
+
+                  {internationalRequirements.accompanying && (
+                    <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'grey.400' }}>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>7. Anyone Accompanying?</Typography>
+                      <Box sx={{ mb: accompanying === 'yes' ? 2 : 0 }}>
+                        <FormControl>
+                          <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Is anyone accompanying?</FormLabel>
+                          <RadioGroup row value={accompanying} onChange={(e) => {
+                            setAccompanying(e.target.value);
+                            if (e.target.value === 'no') { setAccompanyingNames(''); emit({ accompanying: 'no', accompanyingNames: '' }); }
+                            else emit({ accompanying: 'yes', accompanyingNames });
+                          }}>
+                            <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                            <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                          </RadioGroup>
+                        </FormControl>
+                      </Box>
+                      {accompanying === 'yes' && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12}>
+                            <TextField fullWidth label="Name(s)" value={accompanyingNames}
+                              onChange={(e) => { setAccompanyingNames(e.target.value); emit({ accompanying, accompanyingNames: e.target.value }); }}
+                              size="small" placeholder="e.g. John Smith, Jane Doe" />
+                          </Grid>
+                        </Grid>
+                      )}
+                    </Box>
+                  )}
                 </Box>
               </Grid>
             </>
@@ -987,6 +1019,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                   <FormControlLabel control={<Checkbox checked={domesticRequirements.food} onChange={handleDomReqChange} name="food" />} label="4. Food Preferance" />
                   <FormControlLabel control={<Checkbox checked={domesticRequirements.overnightStay} onChange={handleDomReqChange} name="overnightStay" />} label="5. Overnight Stay" />
                   <FormControlLabel control={<Checkbox checked={domesticRequirements.baggage} onChange={handleDomReqChange} name="baggage" />} label="6. Baggage Requirements" />
+                  <FormControlLabel control={<Checkbox checked={domesticRequirements.accompanying} onChange={handleDomReqChange} name="accompanying" />} label="7. Anyone Accompanying?" />
                 </FormGroup>
               </Grid>
 
@@ -1155,6 +1188,34 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                             <TextField fullWidth label="c. Check-in Bags" name="baggageWeight"
                               value={travelData.baggageWeight || ''} onChange={handleFieldChange}
                               size="small" placeholder="e.g. Hand luggage, suitcase" />
+                          </Grid>
+                        </Grid>
+                      )}
+                    </Box>
+                  )}
+
+                  {domesticRequirements.accompanying && (
+                    <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'grey.400' }}>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>7. Anyone Accompanying?</Typography>
+                      <Box sx={{ mb: accompanying === 'yes' ? 2 : 0 }}>
+                        <FormControl>
+                          <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Is anyone accompanying?</FormLabel>
+                          <RadioGroup row value={accompanying} onChange={(e) => {
+                            setAccompanying(e.target.value);
+                            if (e.target.value === 'no') { setAccompanyingNames(''); emit({ accompanying: 'no', accompanyingNames: '' }); }
+                            else emit({ accompanying: 'yes', accompanyingNames });
+                          }}>
+                            <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                            <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                          </RadioGroup>
+                        </FormControl>
+                      </Box>
+                      {accompanying === 'yes' && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12}>
+                            <TextField fullWidth label="Name(s)" value={accompanyingNames}
+                              onChange={(e) => { setAccompanyingNames(e.target.value); emit({ accompanying, accompanyingNames: e.target.value }); }}
+                              size="small" placeholder="e.g. John Smith, Jane Doe" />
                           </Grid>
                         </Grid>
                       )}
