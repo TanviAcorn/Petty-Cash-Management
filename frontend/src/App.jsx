@@ -48,6 +48,7 @@ import UploadReceipt from "./pages/UploadReceipt";
 import L1TravelApprovals from "./pages/L1TravelApprovals";
 import NewTravelRequest from "./pages/NewTravelRequest";
 import TravelCalendar from "./pages/TravelCalendar";
+import TravelCostAudit from "./pages/TravelCostAudit";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
@@ -409,6 +410,12 @@ const App = () => {
           <Route path="/travel-calendar" element={
             hasAdminAccess(userInfo?.role) ?
             <TravelCalendar /> :
+            <Navigate to="/user-dashboard" replace />
+          } />
+
+          <Route path="/travel-cost-audit" element={
+            hasAdminAccess(userInfo?.role) ?
+            <TravelCostAudit /> :
             <Navigate to="/user-dashboard" replace />
           } />
           

@@ -5,7 +5,7 @@ import {
   Box, Card, CardContent, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Grid, Alert, Divider,
-  IconButton, LinearProgress,
+  IconButton, LinearProgress, MenuItem,
 } from '@mui/material';
 import {
   CheckCircle, Cancel, Visibility, CloudUpload, Delete, AttachFile,
@@ -25,6 +25,8 @@ const L1TravelApprovals = () => {
   const [uploadRequest, setUploadRequest] = useState(null);
   const [sectionFiles, setSectionFiles] = useState({});   // { sectionKey: File[] }
   const [sectionDetails, setSectionDetails] = useState({}); // { sectionKey: { fieldKey: value } }
+  const [costDetails, setCostDetails] = useState({});       // { sectionKey: amount }
+  const [currency, setCurrency] = useState('GBP');
   const [globalFiles, setGlobalFiles] = useState([]);
   const [globalRemarks, setGlobalRemarks] = useState('');
   const [uploadSending, setUploadSending] = useState(false);
@@ -95,56 +97,58 @@ const L1TravelApprovals = () => {
   const SECTION_CONFIG = {
     flights: {
       label: 'Flight Details',
+      costField: { key: 'flightCost', label: 'Total Flight Cost' },
       fields: [
         { key: 'airline', label: 'Airline' },
         { key: 'flightNumber', label: 'Flight Number' },
         { key: 'bookingRef', label: 'Booking Reference' },
+        { key: 'flightClass', label: 'Flight Class', type: 'select', options: ['Economy Class', 'Premium Economy', 'Business Class', 'First Class', 'Charter'] },
         { key: 'departureAirport', label: 'Departure Airport' },
         { key: 'arrivalAirport', label: 'Arrival Airport' },
         { key: 'departureTerminal', label: 'Departure Terminal' },
-        { key: 'departureTime', label: 'Departure Date & Time' },
-        { key: 'arrivalTime', label: 'Arrival Date & Time' },
+        { key: 'departureTime', label: 'Departure Date & Time', type: 'datetime-local' },
+        { key: 'arrivalTime', label: 'Arrival Date & Time', type: 'datetime-local' },
         { key: 'seatNumber', label: 'Seat Number' },
         { key: 'baggageAllowanceFlight', label: 'Baggage Allowance' },
       ],
     },
     hotel: {
       label: 'Hotel / Accommodation',
+      costField: { key: 'hotelCost', label: 'Total Hotel Cost' },
       fields: [
         { key: 'hotelName', label: 'Hotel Name' },
         { key: 'hotelAddress', label: 'Address' },
-        { key: 'roomNumber', label: 'Room Number' },
-        { key: 'roomType', label: 'Room Type' },
         { key: 'confirmationNumber', label: 'Confirmation Number' },
-        { key: 'checkIn', label: 'Check-in Date' },
-        { key: 'checkOut', label: 'Check-out Date' },
-        { key: 'hotelPhone', label: 'Hotel Phone Number' },
+        { key: 'checkIn', label: 'Check-in Date & Time', type: 'datetime-local' },
+        { key: 'checkOut', label: 'Check-out Date & Time', type: 'datetime-local' },
       ],
     },
     visa: {
       label: 'Visa Details',
+      costField: { key: 'visaCost', label: 'Total Visa Cost' },
       fields: [
         { key: 'visaNumber', label: 'Visa Number' },
-        { key: 'visaIssueDate', label: 'Issue Date' },
-        { key: 'visaExpiryDate', label: 'Expiry Date' },
+        { key: 'visaIssueDate', label: 'Issue Date', type: 'datetime-local' },
+        { key: 'visaExpiryDate', label: 'Expiry Date', type: 'datetime-local' },
         { key: 'visaType', label: 'Visa Type' },
         { key: 'visaIssuingCountry', label: 'Issuing Country' },
       ],
     },
     carPark: {
       label: 'Airport Car Park',
+      costField: { key: 'carParkCost', label: 'Total Car Park Cost' },
       fields: [
         { key: 'carParkName', label: 'Car Park Name' },
         { key: 'carParkLocation', label: 'Location / Address' },
         { key: 'bayNumber', label: 'Bay / Space Number' },
         { key: 'carParkBookingRef', label: 'Booking Reference' },
-        { key: 'carParkEntryDate', label: 'Entry Date' },
-        { key: 'carParkExitDate', label: 'Exit Date' },
-        { key: 'carParkCost', label: 'Total Cost (£)' },
+        { key: 'carParkEntryDate', label: 'Entry Date & Time', type: 'datetime-local' },
+        { key: 'carParkExitDate', label: 'Exit Date & Time', type: 'datetime-local' },
       ],
     },
     food: {
       label: 'Food Preferance',
+      costField: { key: 'foodCost', label: 'Total Food Cost' },
       hint: 'Standard meal allowances apply: East Europe = €40/day fixed rate, West Europe = €80/day fixed rate. Please enter the applicable amount based on the destination.',
       fields: [
         { key: 'eastEurope', label: 'East Europe Allowance (€40 fixed)' },
@@ -153,6 +157,7 @@ const L1TravelApprovals = () => {
     },
     baggage: {
       label: 'Baggage Requirements',
+      costField: { key: 'baggageCost', label: 'Total Baggage Cost' },
       fields: [
         { key: 'baggageAllowance', label: 'Baggage Allowance' },
         { key: 'baggageBookingRef', label: 'Booking Reference' },
@@ -162,16 +167,16 @@ const L1TravelApprovals = () => {
     },
     rentedVehicle: {
       label: 'Rented Vehicle',
+      costField: { key: 'transportCost', label: 'Total Vehicle Cost' },
       fields: [
         { key: 'rentalCompany', label: 'Rental Company' },
         { key: 'vehicleReg', label: 'Vehicle Registration' },
         { key: 'vehicleModel', label: 'Vehicle Make / Model' },
         { key: 'pickupAddress', label: 'Pick-up Address' },
-        { key: 'pickupDateTime', label: 'Pick-up Date & Time' },
+        { key: 'pickupDateTime', label: 'Pick-up Date & Time', type: 'datetime-local' },
         { key: 'dropoffAddress', label: 'Drop-off Address' },
-        { key: 'dropoffDateTime', label: 'Drop-off Date & Time' },
+        { key: 'dropoffDateTime', label: 'Drop-off Date & Time', type: 'datetime-local' },
         { key: 'rentalBookingRef', label: 'Booking Reference' },
-        { key: 'rentalCost', label: 'Total Cost (£)' },
       ],
     },
   };
@@ -215,6 +220,8 @@ const L1TravelApprovals = () => {
     setUploadRequest(request);
     setSectionFiles({});
     setGlobalFiles([]);
+    setCostDetails({});
+    setCurrency('GBP');
     setUploadAlert(null);
 
     // Load existing draft if any
@@ -241,6 +248,8 @@ const L1TravelApprovals = () => {
     try {
       await axiosClient.post(`/travel-documents/${uploadRequest.id}/save-details`, {
         details: sectionDetails,
+        costDetails,
+        currency,
         globalRemarks: globalRemarks.trim() || null,
         uploadedBy: currentUser.email,
         isDraft: true,
@@ -292,6 +301,8 @@ const L1TravelApprovals = () => {
       // 1. Save text details
       await axiosClient.post(`/travel-documents/${requestId}/save-details`, {
         details: sectionDetails,
+        costDetails,
+        currency,
         globalRemarks: globalRemarks.trim() || null,
         uploadedBy: currentUser.email,
       });
@@ -699,6 +710,24 @@ const L1TravelApprovals = () => {
 
             return (
               <>
+                {/* Currency selector */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                  <Typography variant="body2" fontWeight={600}>Cost Currency:</Typography>
+                  <TextField
+                    select size="small" value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    sx={{ minWidth: 100 }}
+                    disabled={uploadSending}
+                  >
+                    {['GBP','EUR','USD','INR'].map(c => (
+                      <MenuItem key={c} value={c}>{c}</MenuItem>
+                    ))}
+                  </TextField>
+                  <Typography variant="caption" color="text.secondary">
+                    All cost fields below will use this currency
+                  </Typography>
+                </Box>
+
                 {sections.length === 0 && (
                   <Alert severity="info">No specific requirements found for this request. Use the general upload area below.</Alert>
                 )}
@@ -727,16 +756,55 @@ const L1TravelApprovals = () => {
                       <Grid container spacing={2}>
                         {config.fields.map((field) => (
                           <Grid item xs={12} sm={6} key={field.key}>
+                            {field.type === 'select' ? (
+                              <TextField
+                                fullWidth select size="small" label={field.label}
+                                value={details[field.key] || ''}
+                                onChange={(e) => handleSectionDetailChange(sectionKey, field.key, e.target.value)}
+                                disabled={uploadSending}
+                                InputLabelProps={{ shrink: true }}
+                              >
+                                <MenuItem value=""><em>— Select —</em></MenuItem>
+                                {field.options.map(opt => (
+                                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                                ))}
+                              </TextField>
+                            ) : (
+                              <TextField
+                                fullWidth size="small"
+                                label={field.label}
+                                type={field.type || 'text'}
+                                value={details[field.key] || ''}
+                                onChange={(e) => handleSectionDetailChange(sectionKey, field.key, e.target.value)}
+                                disabled={uploadSending}
+                                InputLabelProps={field.type === 'datetime-local' ? { shrink: true } : undefined}
+                              />
+                            )}
+                          </Grid>
+                        ))}
+
+                        {/* Cost field for this section */}
+                        {config.costField && (
+                          <Grid item xs={12} sm={6}>
                             <TextField
                               fullWidth
                               size="small"
-                              label={field.label}
-                              value={details[field.key] || ''}
-                              onChange={(e) => handleSectionDetailChange(sectionKey, field.key, e.target.value)}
+                              label={config.costField.label}
+                              type="number"
+                              value={costDetails[config.costField.key] || ''}
+                              onChange={(e) => setCostDetails(prev => ({ ...prev, [config.costField.key]: e.target.value }))}
                               disabled={uploadSending}
+                              InputProps={{
+                                startAdornment: (
+                                  <Box component="span" sx={{ mr: 0.5, color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>
+                                    {currency}
+                                  </Box>
+                                ),
+                              }}
+                              sx={{ bgcolor: 'warning.50', '& .MuiOutlinedInput-root': { borderColor: 'warning.main' } }}
                             />
                           </Grid>
-                        ))}
+                        )}
 
                         {/* Section file upload */}
                         <Grid item xs={12}>

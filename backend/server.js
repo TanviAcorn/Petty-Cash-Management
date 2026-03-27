@@ -56,6 +56,7 @@ const l1ApprovalsRoutes = require("./src/routes/l1-approvals");
 const travelFeedbackRoutes = require("./src/routes/travel-feedback");
 const visaTypesRoutes = require("./src/routes/visa-types");
 const travelDocumentsRoutes = require("./src/routes/travel-documents");
+const travelCostsRoutes = require("./src/routes/travel-costs");
 const { startFeedbackScheduler } = require("./src/utils/feedbackScheduler");
 
 // ✅ use it once
@@ -70,6 +71,7 @@ app.use("/api/travel-feedback", travelFeedbackRoutes);
 app.use("/api/visa-types", visaTypesRoutes);
 
 app.use("/api/travel-documents", travelDocumentsRoutes);
+app.use("/api/travel-costs", travelCostsRoutes);
 
 // Start scheduled feedback emails
 startFeedbackScheduler();

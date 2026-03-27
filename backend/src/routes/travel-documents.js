@@ -143,7 +143,7 @@ router.post('/:requestId/save-details', async (req, res) => {
   try {
     const pool = await poolPromise;
     const requestId = parseInt(req.params.requestId);
-    const { details, globalRemarks } = req.body;
+    const { details, costDetails, currency, globalRemarks, isDraft } = req.body;
 
     // Ensure columns exist
     await pool.request().query(`
@@ -158,6 +158,98 @@ router.post('/:requestId/save-details', async (req, res) => {
       .input('details', sql.NVarChar(sql.MAX), JSON.stringify(details || {}))
       .input('remarks', sql.NVarChar(sql.MAX), globalRemarks || null)
       .query(`UPDATE petty_cash_requests SET travel_admin_details = @details, travel_admin_remarks = @remarks WHERE id = @id`);
+
+    // Save costs to petty_travel_costs if costDetails provided and not just a draft
+    if (costDetails && Object.keys(costDetails).length > 0) {
+      try {
+        // Ensure costs table exists
+        await pool.request().query(`
+          IF OBJECT_ID('dbo.petty_travel_costs','U') IS NULL
+          CREATE TABLE dbo.petty_travel_costs (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            request_id INT NOT NULL,
+            employee_name NVARCHAR(200) NULL, employee_email NVARCHAR(320) NULL,
+            trip_summary NVARCHAR(500) NULL, travel_date DATE NULL,
+            flight_cost DECIMAL(10,2) NULL, hotel_cost DECIMAL(10,2) NULL,
+            food_cost DECIMAL(10,2) NULL, car_park_cost DECIMAL(10,2) NULL,
+            visa_cost DECIMAL(10,2) NULL, baggage_cost DECIMAL(10,2) NULL,
+            transport_cost DECIMAL(10,2) NULL, other_cost DECIMAL(10,2) NULL,
+            other_notes NVARCHAR(500) NULL,
+            total_cost AS (ISNULL(flight_cost,0)+ISNULL(hotel_cost,0)+ISNULL(food_cost,0)+
+                           ISNULL(car_park_cost,0)+ISNULL(visa_cost,0)+ISNULL(baggage_cost,0)+
+                           ISNULL(transport_cost,0)+ISNULL(other_cost,0)) PERSISTED,
+            currency NVARCHAR(10) DEFAULT 'GBP',
+            created_by NVARCHAR(320) NULL,
+            created_at DATETIME2 DEFAULT SYSUTCDATETIME(),
+            updated_at DATETIME2 NULL
+          );
+        `);
+
+        // Fetch request info for employee details
+        const reqInfo = await pool.request()
+          .input('id', sql.Int, requestId)
+          .query('SELECT employee_name, employee_email, travel_details, travel_form_data FROM petty_cash_requests WHERE id = @id');
+
+        const row = reqInfo.recordset[0] || {};
+        let travelData = null;
+        try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+        if (!travelData) { try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {} }
+
+        let tripSummary = '';
+        let travelDate = null;
+        if (travelData) {
+          if (travelData.travelType === 'domestic') tripSummary = `Domestic – ${travelData.cityOfTravelDomestic || ''}`;
+          else if (travelData.tripType === 'roundTrip' && travelData.roundTrip) {
+            tripSummary = `${travelData.roundTrip.fromCity} → ${travelData.roundTrip.toCity}, ${travelData.countryOfTravel}`;
+            travelDate = travelData.roundTrip.departureDate || null;
+          } else tripSummary = `International – ${travelData.countryOfTravel || ''}`;
+          if (!travelDate) travelDate = travelData.dateOfTravel || travelData.multiCityLegs?.[0]?.date || null;
+        }
+
+        const cd = costDetails;
+        const existing = await pool.request()
+          .input('rid', sql.Int, requestId)
+          .query('SELECT id FROM petty_travel_costs WHERE request_id = @rid');
+
+        const cr = pool.request()
+          .input('rid',           sql.Int,          requestId)
+          .input('empName',       sql.NVarChar(200), row.employee_name || null)
+          .input('empEmail',      sql.NVarChar(320), row.employee_email || null)
+          .input('tripSummary',   sql.NVarChar(500), tripSummary || null)
+          .input('travelDate',    sql.Date,          travelDate ? new Date(travelDate) : null)
+          .input('flightCost',    sql.Decimal(10,2), cd.flightCost    ? parseFloat(cd.flightCost)    : null)
+          .input('hotelCost',     sql.Decimal(10,2), cd.hotelCost     ? parseFloat(cd.hotelCost)     : null)
+          .input('foodCost',      sql.Decimal(10,2), cd.foodCost      ? parseFloat(cd.foodCost)      : null)
+          .input('carParkCost',   sql.Decimal(10,2), cd.carParkCost   ? parseFloat(cd.carParkCost)   : null)
+          .input('visaCost',      sql.Decimal(10,2), cd.visaCost      ? parseFloat(cd.visaCost)      : null)
+          .input('baggageCost',   sql.Decimal(10,2), cd.baggageCost   ? parseFloat(cd.baggageCost)   : null)
+          .input('transportCost', sql.Decimal(10,2), cd.transportCost ? parseFloat(cd.transportCost) : null)
+          .input('currency',      sql.NVarChar(10),  currency || 'GBP');
+
+        if (existing.recordset.length) {
+          await cr.query(`
+            UPDATE petty_travel_costs SET
+              employee_name=@empName, employee_email=@empEmail, trip_summary=@tripSummary,
+              travel_date=@travelDate, flight_cost=@flightCost, hotel_cost=@hotelCost,
+              food_cost=@foodCost, car_park_cost=@carParkCost, visa_cost=@visaCost,
+              baggage_cost=@baggageCost, transport_cost=@transportCost,
+              currency=@currency, updated_at=SYSUTCDATETIME()
+            WHERE request_id=@rid
+          `);
+        } else {
+          await cr.query(`
+            INSERT INTO petty_travel_costs
+              (request_id,employee_name,employee_email,trip_summary,travel_date,
+               flight_cost,hotel_cost,food_cost,car_park_cost,visa_cost,baggage_cost,transport_cost,currency)
+            VALUES
+              (@rid,@empName,@empEmail,@tripSummary,@travelDate,
+               @flightCost,@hotelCost,@foodCost,@carParkCost,@visaCost,@baggageCost,@transportCost,@currency)
+          `);
+        }
+      } catch (costErr) {
+        console.error('Cost save error (non-fatal):', costErr.message);
+      }
+    }
 
     res.json({ message: 'Details saved' });
   } catch (err) {
@@ -336,7 +428,7 @@ function buildTravelDocumentsEmail({ request, summaryRows, docCount, adminDetail
     <div style="background:#fff;padding:32px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
       <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Hi <strong>${request.employee_name}</strong>,</p>
       <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
-        Your travel has been arranged. Please find your travel details below${docs.length > 0 ? ` and ${docs.length} document${docs.length !== 1 ? 's' : ''} attached` : ''}.
+        Your travel has been arranged. Please find your travel details below${docCount > 0 ? ` and ${docCount} document${docCount !== 1 ? 's' : ''} attached` : ''}.
       </p>
       <div style="background:#f9fafb;border-radius:8px;padding:4px 0;margin-bottom:24px;border:1px solid #e5e7eb;">
         <table style="width:100%;border-collapse:collapse;">${rows}</table>
