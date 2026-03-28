@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { poolPromise } = require('../config/db');
 const { sendEmail } = require('../utils/mailer');
+const { bookTravelCalendarEvent, buildTripSummary, extractTravelDates } = require('../utils/teamsCalendar');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads');
 
@@ -317,6 +318,24 @@ router.post('/:requestId/send', async (req, res) => {
     });
 
     await sendEmail({ to: request.employee_email, subject, html, attachments: emailAttachments });
+
+    // Book Teams/Outlook calendar event for the employee
+    try {
+      const { startDate, endDate } = extractTravelDates(travelData);
+      const tripSummary = buildTripSummary(travelData);
+      if (startDate) {
+        await bookTravelCalendarEvent({
+          employeeEmail: request.employee_email,
+          employeeName: request.employee_name,
+          startDate,
+          endDate: endDate || startDate,
+          tripSummary,
+          requestId,
+        });
+      }
+    } catch (calErr) {
+      console.error('[TeamsCalendar] Non-fatal calendar error:', calErr.message);
+    }
 
     // Mark as documents_sent on the request
     await pool.request()
