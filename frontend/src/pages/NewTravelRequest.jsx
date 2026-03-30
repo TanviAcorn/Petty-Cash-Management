@@ -193,7 +193,7 @@ const NewTravelRequest = () => {
         newErrors.travelForm = 'Car color is required when Car Park is selected';
       }
     }
-    if (attachments.length === 0) newErrors.attachments = 'At least one attachment is required';
+    // Note: attachments are optional
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -388,8 +388,8 @@ const NewTravelRequest = () => {
                   <AttachFile sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />
                   <Typography variant="subtitle1" fontWeight={700}>Supporting Documents</Typography>
                 </Box>
-                <Typography variant="body2" color={errors.attachments ? 'error' : 'text.secondary'} sx={{ mb: 1 }}>
-                  Please upload all relevant documents including travel itinerary, invitation letters, or any other supporting evidence (PDF, JPG, PNG, DOC, DOCX, ZIP — max 10MB each) *
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Please upload any relevant documents including travel itinerary, invitation letters, or other supporting evidence (PDF, JPG, PNG, DOC, DOCX, ZIP — max 10MB each)
                 </Typography>
                 {errors.attachments && (
                   <Typography variant="caption" color="error" sx={{ mb: 2, display: 'block' }}>{errors.attachments}</Typography>
@@ -397,7 +397,7 @@ const NewTravelRequest = () => {
                 <Box
                   onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
                   sx={{
-                    border: `2px dashed ${errors.attachments ? 'red' : dragActive ? 'primary.main' : '#ccc'}`,
+                    border: `2px dashed ${dragActive ? 'primary.main' : '#ccc'}`,
                     borderRadius: 3, p: 4, textAlign: 'center',
                     bgcolor: dragActive ? 'action.hover' : 'background.default',
                     cursor: 'pointer', transition: 'all 0.3s ease',
