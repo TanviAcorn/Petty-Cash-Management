@@ -380,7 +380,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                       <Grid item xs={12} md={3}>
                         <TextField fullWidth label="Arrival Date" name="arrivalDate" type="date"
                           value={roundTrip.arrivalDate} onChange={handleRoundTripChange}
-                          slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                          slotProps={{ inputLabel: { shrink: true } }}
+                          inputProps={{ min: roundTrip.departureDate || today }}
+                          size="small"
+                          error={!!(roundTrip.arrivalDate && roundTrip.departureDate && roundTrip.arrivalDate < roundTrip.departureDate)}
+                          helperText={roundTrip.arrivalDate && roundTrip.departureDate && roundTrip.arrivalDate < roundTrip.departureDate ? 'Arrival date cannot be before departure date' : ''} />
                         <Box sx={{ mt: 0.5 }}>
                           <Typography variant="caption" color="text.secondary">Flexible date?</Typography>
                           <RadioGroup row value={rtArrivalFlex ? 'yes' : 'no'} onChange={(e) => {
@@ -399,12 +403,16 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                               <Grid item xs={6}>
                                 <TextField fullWidth label="From" name="arrivalDateFlexFrom" type="date"
                                   value={roundTrip.arrivalDateFlexFrom || ''} onChange={handleRoundTripChange}
-                                  slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                                  slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: roundTrip.departureDate || today }} size="small" />
                               </Grid>
                               <Grid item xs={6}>
                                 <TextField fullWidth label="To" name="arrivalDateFlexTo" type="date"
                                   value={roundTrip.arrivalDateFlexTo || ''} onChange={handleRoundTripChange}
-                                  slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                                  slotProps={{ inputLabel: { shrink: true } }}
+                                  inputProps={{ min: roundTrip.arrivalDateFlexFrom || roundTrip.departureDate || today }}
+                                  size="small"
+                                  error={!!(roundTrip.arrivalDateFlexTo && roundTrip.arrivalDateFlexFrom && roundTrip.arrivalDateFlexTo < roundTrip.arrivalDateFlexFrom)}
+                                  helperText={roundTrip.arrivalDateFlexTo && roundTrip.arrivalDateFlexFrom && roundTrip.arrivalDateFlexTo < roundTrip.arrivalDateFlexFrom ? 'End date cannot be before start date' : ''} />
                               </Grid>
                             </Grid>
                           )}
@@ -435,7 +443,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                             <TextField fullWidth label="Check-out" type="date" name="hotelTo"
                               value={roundTrip.hotelTo || ''}
                               onChange={handleRoundTripChange}
-                              slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                              slotProps={{ inputLabel: { shrink: true } }}
+                              inputProps={{ min: roundTrip.hotelFrom || today }}
+                              size="small"
+                              error={!!(roundTrip.hotelTo && roundTrip.hotelFrom && roundTrip.hotelTo < roundTrip.hotelFrom)}
+                              helperText={roundTrip.hotelTo && roundTrip.hotelFrom && roundTrip.hotelTo < roundTrip.hotelFrom ? 'Check-out cannot be before check-in' : ''} />
                           </Grid>
                           <Grid item xs={12} md={4}>
                             <TextField fullWidth label="No. of Nights" type="number" name="hotelDays"
@@ -491,7 +503,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                               <Grid item xs={6}>
                                 <TextField fullWidth label="To" name="departureDateFlexTo" type="date"
                                   value={roundTrip.departureDateFlexTo || ''} onChange={handleRoundTripChange}
-                                  slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                                  slotProps={{ inputLabel: { shrink: true } }}
+                                  inputProps={{ min: roundTrip.departureDateFlexFrom || today }}
+                                  size="small"
+                                  error={!!(roundTrip.departureDateFlexTo && roundTrip.departureDateFlexFrom && roundTrip.departureDateFlexTo < roundTrip.departureDateFlexFrom)}
+                                  helperText={roundTrip.departureDateFlexTo && roundTrip.departureDateFlexFrom && roundTrip.departureDateFlexTo < roundTrip.departureDateFlexFrom ? 'End date cannot be before start date' : ''} />
                               </Grid>
                             </Grid>
                           )}
@@ -517,7 +533,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                           <Grid item xs={12} md={4}>
                             <TextField fullWidth label="Check-out" type="date" name="hotelTo"
                               value={roundTrip.hotelTo || ''} onChange={handleRoundTripChange}
-                              slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                              slotProps={{ inputLabel: { shrink: true } }}
+                              inputProps={{ min: roundTrip.hotelFrom || today }}
+                              size="small"
+                              error={!!(roundTrip.hotelTo && roundTrip.hotelFrom && roundTrip.hotelTo < roundTrip.hotelFrom)}
+                              helperText={roundTrip.hotelTo && roundTrip.hotelFrom && roundTrip.hotelTo < roundTrip.hotelFrom ? 'Check-out cannot be before check-in' : ''} />
                           </Grid>
                           <Grid item xs={12} md={4}>
                             <TextField fullWidth label="No. of Nights" type="number" name="hotelDays"
@@ -575,7 +595,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                           <Grid item xs={12} md={4}>
                             <TextField fullWidth label="Date" type="date" value={leg.date}
                               onChange={(e) => handleLegChange(index, 'date', e.target.value)}
-                              slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: index > 0 && multiCityLegs[index-1]?.date ? multiCityLegs[index-1].date : today }} size="small" />
+                              slotProps={{ inputLabel: { shrink: true } }}
+                              inputProps={{ min: index > 0 && multiCityLegs[index-1]?.date ? multiCityLegs[index-1].date : today }}
+                              size="small"
+                              error={!!(index > 0 && leg.date && multiCityLegs[index-1]?.date && leg.date < multiCityLegs[index-1].date)}
+                              helperText={index > 0 && leg.date && multiCityLegs[index-1]?.date && leg.date < multiCityLegs[index-1].date ? `Cannot be before Leg ${index} date` : ''} />
                             <Box sx={{ mt: 0.5 }}>
                               <Typography variant="caption" color="text.secondary">Flexible date?</Typography>
                               <RadioGroup row value={leg.dateFlex ? 'yes' : 'no'} onChange={(e) => {
@@ -602,7 +626,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                                   <Grid item xs={6}>
                                     <TextField fullWidth label="To" type="date" value={leg.dateFlexTo || ''}
                                       onChange={(e) => handleLegChange(index, 'dateFlexTo', e.target.value)}
-                                      slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                                      slotProps={{ inputLabel: { shrink: true } }}
+                                      inputProps={{ min: leg.dateFlexFrom || today }}
+                                      size="small"
+                                      error={!!(leg.dateFlexTo && leg.dateFlexFrom && leg.dateFlexTo < leg.dateFlexFrom)}
+                                      helperText={leg.dateFlexTo && leg.dateFlexFrom && leg.dateFlexTo < leg.dateFlexFrom ? 'End date cannot be before start date' : ''} />
                                   </Grid>
                                 </Grid>
                               )}
@@ -632,7 +660,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                               <Grid item xs={12} md={4}>
                                 <TextField fullWidth label="Check-out" type="date" value={leg.hotelTo || ''}
                                   onChange={(e) => handleLegChange(index, 'hotelTo', e.target.value)}
-                                  slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                                  slotProps={{ inputLabel: { shrink: true } }}
+                                  inputProps={{ min: leg.hotelFrom || today }}
+                                  size="small"
+                                  error={!!(leg.hotelTo && leg.hotelFrom && leg.hotelTo < leg.hotelFrom)}
+                                  helperText={leg.hotelTo && leg.hotelFrom && leg.hotelTo < leg.hotelFrom ? 'Check-out cannot be before check-in' : ''} />
                               </Grid>
                               <Grid item xs={12} md={4}>
                                 <TextField fullWidth label="No. of Nights" type="number" value={calcNights(leg.hotelFrom, leg.hotelTo)}
@@ -943,7 +975,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                         <TextField fullWidth label="To" type="date"
                           value={domesticDateFlexTo}
                           onChange={(e) => { setDomesticDateFlexTo(e.target.value); emit({ domesticDateFlex: true, domesticDateFlexFrom, domesticDateFlexTo: e.target.value }); }}
-                          slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                          slotProps={{ inputLabel: { shrink: true } }}
+                          inputProps={{ min: domesticDateFlexFrom || today }}
+                          size="small"
+                          error={!!(domesticDateFlexTo && domesticDateFlexFrom && domesticDateFlexTo < domesticDateFlexFrom)}
+                          helperText={domesticDateFlexTo && domesticDateFlexFrom && domesticDateFlexTo < domesticDateFlexFrom ? 'End date cannot be before start date' : ''} />
                       </Grid>
                     </Grid>
                   )}
@@ -993,7 +1029,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                           <TextField fullWidth label="Check-out" type="date"
                             value={domesticHotel.hotelTo}
                             onChange={(e) => { const updated = { ...domesticHotel, hotelTo: e.target.value }; setDomesticHotel(updated); emit({ domesticHotel: updated }); }}
-                            slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                            slotProps={{ inputLabel: { shrink: true } }}
+                            inputProps={{ min: domesticHotel.hotelFrom || today }}
+                            size="small"
+                            error={!!(domesticHotel.hotelTo && domesticHotel.hotelFrom && domesticHotel.hotelTo < domesticHotel.hotelFrom)}
+                            helperText={domesticHotel.hotelTo && domesticHotel.hotelFrom && domesticHotel.hotelTo < domesticHotel.hotelFrom ? 'Check-out cannot be before check-in' : ''} />
                         </Grid>
                         <Grid item xs={12} md={4}>
                           <TextField fullWidth label="No. of Nights" type="number"
@@ -1145,7 +1185,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                         </Grid>
                         <Grid item xs={12} md={4}>
                           <TextField fullWidth label="To" name="stayTo" type="date" value={travelData.stayTo}
-                            onChange={handleFieldChange} slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
+                            onChange={handleFieldChange} slotProps={{ inputLabel: { shrink: true } }}
+                            inputProps={{ min: travelData.stayFrom || today }}
+                            size="small"
+                            error={!!(travelData.stayTo && travelData.stayFrom && travelData.stayTo < travelData.stayFrom)}
+                            helperText={travelData.stayTo && travelData.stayFrom && travelData.stayTo < travelData.stayFrom ? 'End date cannot be before start date' : ''} />
                         </Grid>
                       </Grid>
                     </Box>
