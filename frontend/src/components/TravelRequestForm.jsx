@@ -894,11 +894,6 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                               </Select>
                             </FormControl>
                           </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="c. Check-in Bags" name="baggageWeight"
-                              value={travelData.baggageWeight || ''} onChange={handleFieldChange}
-                              size="small" placeholder="e.g. Hand luggage, suitcase" />
-                          </Grid>
                         </Grid>
                       )}
                     </Box>
@@ -1227,11 +1222,6 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                                 ))}
                               </Select>
                             </FormControl>
-                          </Grid>
-                          <Grid item xs={12} md={4}>
-                            <TextField fullWidth label="c. Check-in Bags" name="baggageWeight"
-                              value={travelData.baggageWeight || ''} onChange={handleFieldChange}
-                              size="small" placeholder="e.g. Hand luggage, suitcase" />
                           </Grid>
                         </Grid>
                       )}
