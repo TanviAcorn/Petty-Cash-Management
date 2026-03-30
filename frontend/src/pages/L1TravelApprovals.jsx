@@ -647,7 +647,7 @@ const L1TravelApprovals = () => {
                 </Box>
               ) : (
                 <>
-                  {!actionType && (
+                  {!actionType && currentUser.role === 'Admin' && (
                     <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
                       <Button variant="contained" color="success" startIcon={<CheckCircle />} onClick={handleApprove}>Approve</Button>
                       <Button variant="contained" color="error" startIcon={<Cancel />} onClick={handleReject}>Reject</Button>

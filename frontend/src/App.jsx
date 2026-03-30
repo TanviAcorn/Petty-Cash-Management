@@ -49,6 +49,7 @@ import L1TravelApprovals from "./pages/L1TravelApprovals";
 import NewTravelRequest from "./pages/NewTravelRequest";
 import TravelCalendar from "./pages/TravelCalendar";
 import TravelCostAudit from "./pages/TravelCostAudit";
+import MyTravelRequests from "./pages/MyTravelRequests";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
@@ -404,6 +405,12 @@ const App = () => {
           <Route path="/l1-approvals" element={
             userInfo ? 
             <L1TravelApprovals /> : 
+            <Navigate to="/login" replace />
+          } />
+
+          <Route path="/my-travel-requests" element={
+            userInfo ?
+            <MyTravelRequests /> :
             <Navigate to="/login" replace />
           } />
 

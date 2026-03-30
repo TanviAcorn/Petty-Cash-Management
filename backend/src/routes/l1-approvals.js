@@ -20,7 +20,6 @@ router.get('/', async (req, res) => {
       FROM petty_cash_requests r
       LEFT JOIN petty_Users u ON r.employee_email = u.email
       WHERE (r.category_name = 'Travel Request' OR r.category_name = 'Travel')
-        AND r.status IN ('pending_l1', 'pending')
         AND r.rejected_at IS NULL
     `;
     
@@ -38,6 +37,9 @@ router.get('/', async (req, res) => {
       
       const managerId = managerResult.recordset[0].id;
       query += ` AND r.l1_manager_id = ${managerId} AND r.status = 'pending_l1'`;
+    } else {
+      // Admin view — show pending and approved (not rejected)
+      query += ` AND r.status IN ('pending_l1', 'pending', 'approved')`;
     }
     
     query += ` ORDER BY r.created_at DESC`;
@@ -74,6 +76,37 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('Error fetching L1 approval requests:', err);
     res.status(500).json({ message: 'Failed to fetch L1 approval requests' });
+  }
+});
+
+// GET /api/l1-approvals/my-travel-requests?email=xxx — fetch user's own submitted travel requests
+router.get('/my-travel-requests', async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ message: 'Email required' });
+
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('email', sql.NVarChar(320), email)
+      .query(`
+        SELECT id, employee_name, employee_email, category_name, status,
+               l1_approval_status, created_at, travel_form_data, travel_docs_sent_at
+        FROM petty_cash_requests
+        WHERE employee_email = @email
+          AND (category_name = 'Travel Request' OR category_name = 'Travel')
+        ORDER BY created_at DESC
+      `);
+
+    const rows = result.recordset.map(row => {
+      let travelData = null;
+      try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+      return { ...row, travel_form_data: travelData };
+    });
+
+    res.json({ data: rows });
+  } catch (err) {
+    console.error('my-travel-requests error:', err);
+    res.status(500).json({ message: 'Failed to fetch travel requests' });
   }
 });
 
