@@ -354,6 +354,17 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
               </Grid>
 
               <Grid item xs={12} md={6}>
+                <TextField fullWidth size="small" label="Client Name"
+                  name="clientName" value={travelData.clientName || ''}
+                  onChange={handleFieldChange} placeholder="e.g. Acorn Universal" />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth size="small" label="Client Company"
+                  name="clientCompany" value={travelData.clientCompany || ''}
+                  onChange={handleFieldChange} placeholder="e.g. Acorn Ltd" />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
                 <FormControl fullWidth size="small" required>
                   <InputLabel shrink>Country of Travel *</InputLabel>
                   <Select
@@ -986,6 +997,16 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
               {/* Domestic Travel Info */}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ mt: 2 }}>Travel Information</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth size="small" label="Client Name"
+                  name="clientName" value={travelData.clientName || ''}
+                  onChange={handleFieldChange} placeholder="e.g. Acorn Universal" />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth size="small" label="Client Company"
+                  name="clientCompany" value={travelData.clientCompany || ''}
+                  onChange={handleFieldChange} placeholder="e.g. Acorn Ltd" />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField fullWidth label="Date of Travel" name="dateOfTravel" type="date" value={travelData.dateOfTravel}
