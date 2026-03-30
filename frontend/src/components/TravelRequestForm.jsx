@@ -3,7 +3,8 @@ import {
   Box, Typography, Card, CardContent, TextField, Grid,
   Checkbox, FormControlLabel, FormGroup, Divider, MenuItem,
   ToggleButtonGroup, ToggleButton, Radio, RadioGroup,
-  FormControl, FormLabel, IconButton, Button, Select, InputLabel
+  FormControl, FormLabel, IconButton, Button, Select, InputLabel,
+  Snackbar, Alert
 } from '@mui/material';
 import axiosClient from '../api/axiosClient';
 import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
@@ -51,6 +52,9 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   const [visaTypes, setVisaTypes] = useState([]);
   const [passportInfo, setPassportInfo] = useState({ passport_number: '', nationality: '', passport_expiry: '', passport_name: '', passport_issue_date: '' });
   const [passportLoading, setPassportLoading] = useState(false);
+  const [passportSnackbar, setPassportSnackbar] = useState({ open: false, type: 'success' });
+  const [passportDirty, setPassportDirty] = useState(false);
+  const [passportSaving, setPassportSaving] = useState(false);
 
   const [locations, setLocations] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(true);
@@ -282,6 +286,22 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   };
 
   return (
+    <>
+    <Snackbar
+      open={passportSnackbar.open}
+      autoHideDuration={3000}
+      onClose={() => setPassportSnackbar(s => ({ ...s, open: false }))}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    >
+      <Alert
+        onClose={() => setPassportSnackbar(s => ({ ...s, open: false }))}
+        severity={passportSnackbar.type}
+        variant="filled"
+        sx={{ width: '100%' }}
+      >
+        {passportSnackbar.type === 'success' ? 'Passport details updated successfully.' : 'Failed to update passport details.'}
+      </Alert>
+    </Snackbar>
     <Card variant="outlined" sx={{ mb: 2, borderRadius: 2, borderColor: 'primary.main', borderWidth: 2 }}>
       <CardContent sx={{ p: 3 }}>
         <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'primary.main' }}>
@@ -736,16 +756,20 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                       {visaRequired === 'yes' && (
                         <Grid container spacing={2}>
                           {[
-                            { label: 'a. Name as per Passport', value: passportInfo.passport_name },
-                            { label: 'b. Passport Number',      value: passportInfo.passport_number },
-                            { label: 'c. Nationality',          value: passportInfo.nationality },
-                            { label: 'd. Passport Issue Date',  value: passportInfo.passport_issue_date },
-                            { label: 'e. Passport Expiry',      value: passportInfo.passport_expiry },
-                          ].map(({ label, value }) => (
-                            <Grid item xs={12} md={4} key={label}>
+                            { label: 'a. Name as per Passport', field: 'passport_name',       type: 'text' },
+                            { label: 'b. Passport Number',      field: 'passport_number',     type: 'text' },
+                            { label: 'c. Nationality',          field: 'nationality',          type: 'text' },
+                            { label: 'd. Passport Issue Date',  field: 'passport_issue_date', type: 'date' },
+                            { label: 'e. Passport Expiry',      field: 'passport_expiry',     type: 'date' },
+                          ].map(({ label, field, type }) => (
+                            <Grid item xs={12} md={4} key={field}>
                               <TextField fullWidth label={label}
-                                value={passportLoading ? 'Loading...' : (value || '')}
-                                size="small" disabled
+                                value={passportLoading ? '' : (passportInfo[field] || '')}
+                                type={type}
+                                onChange={(e) => { setPassportInfo(p => ({ ...p, [field]: e.target.value })); setPassportDirty(true); }}
+                                size="small"
+                                disabled={passportLoading}
+                                slotProps={type === 'date' ? { inputLabel: { shrink: true } } : undefined}
                                 helperText="Auto-filled from your profile" />
                             </Grid>
                           ))}
@@ -754,6 +778,24 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                               value={travelData.visaType} onChange={handleFieldChange}
                               size="small" placeholder="e.g. Business, Tourist, Student" />
                           </Grid>
+                          {passportDirty && (
+                            <Grid item xs={12}>
+                              <Button
+                                variant="contained"
+                                size="small"
+                                disabled={passportSaving}
+                                onClick={() => {
+                                  setPassportSaving(true);
+                                  axiosClient.put('/users/passport-info', passportInfo)
+                                    .then(() => { setPassportSnackbar({ open: true, type: 'success' }); setPassportDirty(false); })
+                                    .catch(() => setPassportSnackbar({ open: true, type: 'error' }))
+                                    .finally(() => setPassportSaving(false));
+                                }}
+                              >
+                                {passportSaving ? 'Saving...' : 'Update Passport Details'}
+                              </Button>
+                            </Grid>
+                          )}
                         </Grid>
                       )}
                     </Box>
@@ -1303,6 +1345,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
         </Grid>
       </CardContent>
     </Card>
+    </>
   );
 };
 
