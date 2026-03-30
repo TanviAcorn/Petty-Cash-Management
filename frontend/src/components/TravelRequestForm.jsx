@@ -383,9 +383,25 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                     {locations.map(loc => (
                       <MenuItem key={loc.id} value={loc.name}>{loc.name}</MenuItem>
                     ))}
+                    <MenuItem value="Other">Travel Other</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
+
+              {travelData.countryOfTravel === 'Other' && (
+                <>
+                  <Grid item xs={12} md={6}>
+                    <TextField fullWidth size="small" label="City *"
+                      name="otherCity" value={travelData.otherCity || ''}
+                      onChange={handleFieldChange} placeholder="e.g. Zurich" required />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField fullWidth size="small" label="Country *"
+                      name="otherCountry" value={travelData.otherCountry || ''}
+                      onChange={handleFieldChange} placeholder="e.g. Switzerland" required />
+                  </Grid>
+                </>
+              )}
 
               {/* Trip Type */}
               <Grid item xs={12}>
