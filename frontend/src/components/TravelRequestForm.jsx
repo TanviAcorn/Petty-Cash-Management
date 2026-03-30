@@ -207,13 +207,23 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   const handleRoundTripChange = (e) => {
     const { name, value } = e.target;
     const updated = { ...roundTrip, [name]: value };
+    // If hotel is checked and departure/arrival changes, sync hotel dates if still empty
+    if (updated.needsHotel) {
+      if (name === 'departureDate' && !updated.hotelFrom) updated.hotelFrom = value;
+      if (name === 'arrivalDate'   && !updated.hotelTo)   updated.hotelTo   = value;
+    }
     setRoundTrip(updated);
     emit({ roundTrip: updated });
   };
 
   const handleRoundTripCheckbox = (e) => {
     const { name, checked } = e.target;
-    const updated = { ...roundTrip, [name]: checked };
+    let updated = { ...roundTrip, [name]: checked };
+    // Auto-fill hotel dates from trip dates when hotel is checked
+    if (name === 'needsHotel' && checked) {
+      if (!updated.hotelFrom && roundTrip.departureDate) updated.hotelFrom = roundTrip.departureDate;
+      if (!updated.hotelTo   && roundTrip.arrivalDate)   updated.hotelTo   = roundTrip.arrivalDate;
+    }
     setRoundTrip(updated);
     emit({ roundTrip: updated });
   };
