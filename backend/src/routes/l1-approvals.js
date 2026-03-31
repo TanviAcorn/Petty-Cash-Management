@@ -248,6 +248,32 @@ router.put('/:id/approve', async (req, res) => {
       console.error('Failed to send employee notification:', e);
     }
 
+    // Notify admin that L1 has approved — they need to upload travel details
+    try {
+      const adminTo = process.env.ADMIN_EMAIL;
+      if (adminTo) {
+        await sendEmail({
+          to: adminTo,
+          subject: `✅ Travel Request #${request.id} Approved by L1 — Action Required`,
+          html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f3f4f6;margin:0;padding:0;">
+            <div style="max-width:600px;margin:0 auto;padding:20px;">
+              <div style="background:#2563EB;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
+                <h2 style="margin:0;color:#fff;font-size:18px;">Travel Request L1 Approved</h2>
+              </div>
+              <div style="background:#fff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+                <p style="color:#374151;">Travel request <strong>#${request.id}</strong> for <strong>${request.employee_name}</strong> has been approved by the L1 manager.</p>
+                <p style="color:#374151;">Please log in to upload the travel details and send them to the employee.</p>
+                <p style="color:#9ca3af;font-size:12px;">Employee: ${request.employee_email}</p>
+              </div>
+            </div>
+          </body></html>`,
+          replyTo: managerEmail,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to send admin L1 approval notification:', e);
+    }
+
     // Auto-book Teams/Outlook calendar event for the employee
     try {
       let travelData = null;
