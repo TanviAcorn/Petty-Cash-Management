@@ -175,8 +175,29 @@ const MyTravelRequests = () => {
             <SectionTitle>Visa Details</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
               <Row label="Nationality" value={tf.nationality} />
+              <Row label="Passport Name" value={tf.passportInfo?.passport_name} />
+              <Row label="Passport Number" value={tf.passportInfo?.passport_number} />
+              <Row label="Passport Issue Date" value={tf.passportInfo?.passport_issue_date} />
+              <Row label="Passport Expiry" value={tf.passportInfo?.passport_expiry} />
               <Row label="Visa Type" value={tf.visaType} />
             </TableBody></Table></TableContainer>
+          </>
+        )}
+
+        {/* Rented Vehicle */}
+        {reqs.rentedVehicle && tf.rentedVehicleRequired === 'yes' && (
+          <>
+            <SectionTitle>Rented Vehicle</SectionTitle>
+            {(tf.rentedVehicleLegs || [{ pickupPoint: tf.pickupPoint, dropOffPoint: tf.dropOffPoint, vehicleType: tf.vehicleType }]).map((leg, i) => (
+              <Box key={i} sx={{ mb: 1 }}>
+                {tf.rentedVehicleLegs?.length > 1 && <Typography variant="caption" fontWeight={600} color="text.secondary">Leg {i + 1}</Typography>}
+                <TableContainer component={Box}><Table size="small"><TableBody>
+                  <Row label="Pick-up Point" value={leg.pickupPoint} />
+                  <Row label="Drop-off Point" value={leg.dropOffPoint} />
+                  <Row label="Vehicle Type" value={leg.vehicleType} />
+                </TableBody></Table></TableContainer>
+              </Box>
+            ))}
           </>
         )}
 
@@ -187,6 +208,7 @@ const MyTravelRequests = () => {
             <TableContainer component={Box}><Table size="small"><TableBody>
               <Row label="Vehicle Number" value={tf.carParkVehicleNumber} />
               <Row label="Car Color" value={tf.carParkCarColor} />
+              <Row label="Duration" value={tf.carParkDuration} />
             </TableBody></Table></TableContainer>
           </>
         )}
@@ -211,6 +233,8 @@ const MyTravelRequests = () => {
             <TableContainer component={Box}><Table size="small"><TableBody>
               <Row label="Cabin Bag" value={tf.baggageCabinBag ? 'Yes' : null} />
               <Row label="No. of Check-in Bags" value={tf.baggageCheckIn} />
+              <Row label="Weight" value={tf.baggageWeight} />
+              <Row label="Notes" value={tf.baggageNotes} />
             </TableBody></Table></TableContainer>
           </>
         )}

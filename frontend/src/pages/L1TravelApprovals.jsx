@@ -485,19 +485,28 @@ const L1TravelApprovals = () => {
             <SectionTitle>Visa Details</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
               <InfoRow label="Nationality" value={tf.nationality} />
+              <InfoRow label="Passport Name" value={tf.passportInfo?.passport_name} />
+              <InfoRow label="Passport Number" value={tf.passportInfo?.passport_number} />
+              <InfoRow label="Passport Issue Date" value={tf.passportInfo?.passport_issue_date} />
+              <InfoRow label="Passport Expiry" value={tf.passportInfo?.passport_expiry} />
               <InfoRow label="Visa Type" value={tf.visaType} />
             </TableBody></Table></TableContainer>
           </>
         )}
 
-        {reqs.rentedVehicle && (
+        {reqs.rentedVehicle && tf.rentedVehicleRequired === 'yes' && (
           <>
             <SectionTitle>Rented Vehicle</SectionTitle>
-            <TableContainer component={Box}><Table size="small"><TableBody>
-              <InfoRow label="Pick-up Point" value={tf.pickupPoint} />
-              <InfoRow label="Drop-off Point" value={tf.dropOffPoint} />
-              <InfoRow label="Vehicle Type" value={tf.vehicleType} />
-            </TableBody></Table></TableContainer>
+            {(tf.rentedVehicleLegs || [{ pickupPoint: tf.pickupPoint, dropOffPoint: tf.dropOffPoint, vehicleType: tf.vehicleType }]).map((leg, i) => (
+              <Box key={i} sx={{ mb: 1 }}>
+                {tf.rentedVehicleLegs?.length > 1 && <Typography variant="caption" fontWeight={600} color="text.secondary">Leg {i + 1}</Typography>}
+                <TableContainer component={Box}><Table size="small"><TableBody>
+                  <InfoRow label="Pick-up Point" value={leg.pickupPoint} />
+                  <InfoRow label="Drop-off Point" value={leg.dropOffPoint} />
+                  <InfoRow label="Vehicle Type" value={leg.vehicleType} />
+                </TableBody></Table></TableContainer>
+              </Box>
+            ))}
           </>
         )}
 
@@ -507,13 +516,14 @@ const L1TravelApprovals = () => {
             <TableContainer component={Box}><Table size="small"><TableBody>
               <InfoRow label="Vehicle Number" value={tf.carParkVehicleNumber} />
               <InfoRow label="Car Color" value={tf.carParkCarColor} />
+              <InfoRow label="Duration" value={tf.carParkDuration} />
             </TableBody></Table></TableContainer>
           </>
         )}
 
         {reqs.food && tf.foodOptions && (
           <>
-            <SectionTitle>Food Preferance</SectionTitle>
+            <SectionTitle>Food Preference</SectionTitle>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
               {Object.entries(tf.foodOptions).filter(([, v]) => v).map(([k]) => (
                 <Chip key={k} label={k.replace(/([A-Z])/g, ' $1').trim()} size="small" color="secondary" variant="outlined" />
@@ -529,9 +539,17 @@ const L1TravelApprovals = () => {
             <TableContainer component={Box}><Table size="small"><TableBody>
               <InfoRow label="Cabin Bag" value={tf.baggageCabinBag ? 'Yes' : null} />
               <InfoRow label="No. of Check-in Bags" value={tf.baggageCheckIn || tf.baggageCheckInCount} />
-              <InfoRow label="Check-in Bags Info" value={tf.baggageCheckInDetails} />
               <InfoRow label="Weight" value={tf.baggageWeight} />
               <InfoRow label="Notes" value={tf.baggageNotes} />
+            </TableBody></Table></TableContainer>
+          </>
+        )}
+
+        {reqs.accompanying && tf.accompanying === 'yes' && (
+          <>
+            <SectionTitle>Anyone Accompanying</SectionTitle>
+            <TableContainer component={Box}><Table size="small"><TableBody>
+              <InfoRow label="Name(s)" value={tf.accompanyingNames} />
             </TableBody></Table></TableContainer>
           </>
         )}
