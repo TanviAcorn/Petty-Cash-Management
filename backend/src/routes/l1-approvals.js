@@ -248,27 +248,70 @@ router.put('/:id/approve', async (req, res) => {
       console.error('Failed to send employee notification:', e);
     }
 
-    // Notify admin that L1 has approved — they need to upload travel details
+    // Notify both travel admins that L1 has approved — they need to upload travel details
     try {
-      const adminTo = process.env.ADMIN_EMAIL;
-      if (adminTo) {
-        await sendEmail({
-          to: adminTo,
-          subject: `✅ Travel Request #${request.id} Approved by L1 — Action Required`,
-          html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f3f4f6;margin:0;padding:0;">
-            <div style="max-width:600px;margin:0 auto;padding:20px;">
-              <div style="background:#2563EB;padding:24px;border-radius:12px 12px 0 0;text-align:center;">
-                <h2 style="margin:0;color:#fff;font-size:18px;">Travel Request L1 Approved</h2>
-              </div>
-              <div style="background:#fff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
-                <p style="color:#374151;">Travel request <strong>#${request.id}</strong> for <strong>${request.employee_name}</strong> has been approved by the L1 manager.</p>
-                <p style="color:#374151;">Please log in to upload the travel details and send them to the employee.</p>
-                <p style="color:#9ca3af;font-size:12px;">Employee: ${request.employee_email}</p>
-              </div>
-            </div>
-          </body></html>`,
-          replyTo: managerEmail,
-        });
+      const adminEmails = [
+        process.env.ADMIN_EMAIL,
+        process.env.TRAVEL_ADMIN_EMAIL,
+      ].filter(Boolean);
+
+      // Get L1 manager name for the email
+      const managerResult = await pool.request()
+        .input('email', sql.NVarChar(320), managerEmail || '')
+        .query('SELECT firstName, lastName FROM petty_Users WHERE email = @email');
+      const manager = managerResult.recordset[0];
+      const managerName = manager ? `${manager.firstName} ${manager.lastName}`.trim() : (managerEmail || 'L1 Manager');
+
+      const approvalSubject = `✅ Travel Request #${request.id} Approved — Action Required`;
+      const approvalHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:#2563EB;padding:28px 24px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">✈️</div>
+      <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">Travel Request Approved</h1>
+      <p style="margin:6px 0 0;color:#dbeafe;font-size:13px;">Trip Reference #${request.id}</p>
+    </div>
+    <div style="background:#fff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 20px;">
+        The following travel request has been <strong style="color:#16a34a;">approved by the L1 manager</strong> and is ready for travel details to be uploaded.
+      </p>
+      <div style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;width:40%;">Employee</td>
+            <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:600;">${request.employee_name}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Employee Email</td>
+            <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${request.employee_email}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Approved By</td>
+            <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:600;">${managerName}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Request ID</td>
+            <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">#${request.id}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;color:#6b7280;font-size:13px;">Approved On</td>
+            <td style="padding:10px 16px;color:#111827;font-size:14px;">${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</td>
+          </tr>
+        </table>
+      </div>
+      <div style="background:#EFF6FF;border-left:4px solid #2563EB;padding:14px 18px;border-radius:4px;margin-bottom:24px;">
+        <p style="margin:0;color:#1e40af;font-size:13px;line-height:1.6;">
+          <strong>Action Required:</strong> Please log in to the portal and upload the travel details (flights, hotel, visa, etc.) for this employee.
+        </p>
+      </div>
+      <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">HR Petty Cash Management System — Automated Notification</p>
+    </div>
+  </div>
+</body></html>`;
+
+      for (const adminEmail of adminEmails) {
+        sendEmail({ to: adminEmail, subject: approvalSubject, html: approvalHtml, replyTo: managerEmail })
+          .catch((e) => console.error(`Failed to send admin approval notification to ${adminEmail}:`, e.message));
       }
     } catch (e) {
       console.error('Failed to send admin L1 approval notification:', e);

@@ -480,7 +480,7 @@ const L1TravelApprovals = () => {
           </>
         )}
 
-        {reqs.visa && tf.visaRequired === 'yes' && (
+        {reqs.visa && (
           <>
             <SectionTitle>Visa Details</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
@@ -494,7 +494,7 @@ const L1TravelApprovals = () => {
           </>
         )}
 
-        {reqs.rentedVehicle && tf.rentedVehicleRequired === 'yes' && (
+        {reqs.rentedVehicle && (
           <>
             <SectionTitle>Rented Vehicle</SectionTitle>
             {(tf.rentedVehicleLegs || [{ pickupPoint: tf.pickupPoint, dropOffPoint: tf.dropOffPoint, vehicleType: tf.vehicleType }]).map((leg, i) => (
@@ -510,7 +510,7 @@ const L1TravelApprovals = () => {
           </>
         )}
 
-        {reqs.carPark && tf.carParkRequired === 'yes' && (
+        {reqs.carPark && (
           <>
             <SectionTitle>Airport Car Park</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
@@ -533,7 +533,7 @@ const L1TravelApprovals = () => {
           </>
         )}
 
-        {reqs.baggage && tf.baggageRequired === 'yes' && (
+        {reqs.baggage && (
           <>
             <SectionTitle>Baggage</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
@@ -545,7 +545,7 @@ const L1TravelApprovals = () => {
           </>
         )}
 
-        {reqs.accompanying && tf.accompanying === 'yes' && (
+        {reqs.accompanying && (
           <>
             <SectionTitle>Anyone Accompanying</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>

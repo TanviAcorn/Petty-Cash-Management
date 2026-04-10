@@ -1399,7 +1399,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
     }
     // Send notification emails (non-blocking)
     try {
-      const adminTo = process.env.ADMIN_EMAIL;
+      const replyTo = newRequest?.employee_email || employeeEmail;
 
       // Prepare attachments once for reuse
       const emailAttachments = [];
@@ -1419,29 +1419,33 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
         }
       }
 
-      const replyTo = newRequest?.employee_email || employeeEmail;
+      const isTravelRequest = category === 'Travel Request' || category === 'Travel';
 
-      // Always notify admin
-      if (adminTo) {
-        const { subject, html } = buildAdminNewRequestEmail(newRequest);
-        sendEmail({ to: adminTo, subject, html, replyTo, attachments: emailAttachments })
-          .catch((e) => console.error('Failed sending admin email:', e.message));
+      if (isTravelRequest) {
+        // Travel request — only notify L1 manager, never admin at creation
+        if (l1ManagerId && initialStatus === 'pending_l1') {
+          const l1ManagerResult = await pool.request()
+            .input('managerId', sql.Int, l1ManagerId)
+            .query('SELECT id, firstName, lastName, email FROM petty_Users WHERE id = @managerId');
+
+          if (l1ManagerResult.recordset.length > 0) {
+            const l1Manager = l1ManagerResult.recordset[0];
+            const { subject, html } = buildL1ManagerApprovalEmail(newRequest, l1Manager);
+            console.log(`Sending L1 manager email to ${l1Manager.email}`);
+            sendEmail({ to: l1Manager.email, subject, html, replyTo, attachments: emailAttachments })
+              .catch((e) => console.error('Failed sending L1 manager email:', e.message));
+          }
+        }
+        // No admin notification on travel request creation
       } else {
-        console.warn('ADMIN_EMAIL is not set; skipping admin notification');
-      }
-
-      // Also notify L1 manager if assigned
-      if (l1ManagerId && initialStatus === 'pending_l1') {
-        const l1ManagerResult = await pool.request()
-          .input('managerId', sql.Int, l1ManagerId)
-          .query('SELECT id, firstName, lastName, email FROM petty_Users WHERE id = @managerId');
-
-        if (l1ManagerResult.recordset.length > 0) {
-          const l1Manager = l1ManagerResult.recordset[0];
-          const { subject, html } = buildL1ManagerApprovalEmail(newRequest, l1Manager);
-          console.log(`Sending L1 manager email to ${l1Manager.email}`);
-          sendEmail({ to: l1Manager.email, subject, html, replyTo, attachments: emailAttachments })
-            .catch((e) => console.error('Failed sending L1 manager email:', e.message));
+        // Normal petty cash request — notify admin
+        const adminTo = process.env.ADMIN_EMAIL;
+        if (adminTo) {
+          const { subject, html } = buildAdminNewRequestEmail(newRequest);
+          sendEmail({ to: adminTo, subject, html, replyTo, attachments: emailAttachments })
+            .catch((e) => console.error('Failed sending admin email:', e.message));
+        } else {
+          console.warn('ADMIN_EMAIL is not set; skipping admin notification');
         }
       }
     } catch (e) {
