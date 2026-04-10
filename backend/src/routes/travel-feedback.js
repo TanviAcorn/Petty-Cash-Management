@@ -44,6 +44,41 @@ async function ensureFeedbackTable(pool) {
   `);
 }
 
+// GET /api/travel-feedback/all — admin view of all submitted feedbacks
+router.get('/all', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    await ensureFeedbackTable(pool);
+
+    const result = await pool.request().query(`
+      SELECT
+        f.id, f.request_id, f.employee_email, f.sent_at, f.submitted_at,
+        f.flights_rating, f.hotel_rating, f.food_rating, f.vehicle_rating,
+        f.car_park_rating, f.baggage_rating, f.overall_rating,
+        f.flights_remarks, f.hotel_remarks, f.food_remarks, f.vehicle_remarks,
+        f.car_park_remarks, f.baggage_remarks, f.remarks, f.sub_ratings,
+        r.employee_name, r.travel_form_data
+      FROM petty_travel_feedback f
+      LEFT JOIN petty_cash_requests r ON r.id = f.request_id
+      WHERE f.submitted_at IS NOT NULL
+      ORDER BY f.submitted_at DESC
+    `);
+
+    const rows = result.recordset.map(row => {
+      let travelData = null;
+      try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+      let subRatings = null;
+      try { subRatings = row.sub_ratings ? JSON.parse(row.sub_ratings) : null; } catch {}
+      return { ...row, travel_form_data: travelData, sub_ratings: subRatings };
+    });
+
+    res.json({ data: rows });
+  } catch (err) {
+    console.error('feedback all error:', err);
+    res.status(500).json({ message: 'Failed to fetch feedbacks' });
+  }
+});
+
 // GET /api/travel-feedback/:token — fetch request info for the feedback form
 router.get('/:token', async (req, res) => {
   try {

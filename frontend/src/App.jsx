@@ -49,6 +49,7 @@ import L1TravelApprovals from "./pages/L1TravelApprovals";
 import NewTravelRequest from "./pages/NewTravelRequest";
 import TravelCalendar from "./pages/TravelCalendar";
 import TravelCostAudit from "./pages/TravelCostAudit";
+import TravelFeedbackAdmin from "./pages/TravelFeedbackAdmin";
 import MyTravelRequests from "./pages/MyTravelRequests";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
@@ -423,6 +424,12 @@ const App = () => {
           <Route path="/travel-cost-audit" element={
             hasAdminAccess(userInfo?.role) ?
             <TravelCostAudit /> :
+            <Navigate to="/user-dashboard" replace />
+          } />
+
+          <Route path="/travel-feedback-report" element={
+            hasAdminAccess(userInfo?.role) ?
+            <TravelFeedbackAdmin /> :
             <Navigate to="/user-dashboard" replace />
           } />
           

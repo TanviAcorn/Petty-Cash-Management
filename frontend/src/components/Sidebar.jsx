@@ -31,6 +31,7 @@ import {
   FlightTakeoff,
   CalendarMonth,
   ReceiptLong,
+  RateReview,
 } from "@mui/icons-material";
 
 const drawerWidth = 260;
@@ -46,6 +47,7 @@ const getMenuItemsByRole = (userRole) => {
     { text: "Travel Request Approvals", icon: <AssignmentTurnedIn />, path: "/l1-approvals" },
     { text: "Travel Calendar", icon: <CalendarMonth />, path: "/travel-calendar" },
     { text: "Travel Cost Audit", icon: <ReceiptLong />, path: "/travel-cost-audit" },
+    { text: "Travel Feedback", icon: <RateReview />, path: "/travel-feedback-report" },
     { text: "User Management", icon: <People />, path: "/users" },
     { text: "Companies", icon: <Business />, path: "/companies" },
     { text: "Payments", icon: <AttachMoney />, path: "/payments" },
