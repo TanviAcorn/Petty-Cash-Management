@@ -99,6 +99,12 @@ export default function Login() {
             >
               Sign In
             </button>
+
+            <div className="text-center">
+              <a href="/forgot-password" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+                Forgot Password?
+              </a>
+            </div>
           </form>
         </div>
       </div>

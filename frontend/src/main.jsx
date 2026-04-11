@@ -7,6 +7,8 @@ import { ColorModeProvider } from './theme/ColorMode.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 import TravelFeedback from './pages/TravelFeedback.jsx'
+import ForgotPassword from './pages/ForgotPassword.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
 
 function AuthGate() {
   const { isAuthenticated, loading } = useAuth();
@@ -27,6 +29,8 @@ function AuthGate() {
       <Routes>
         {/* Public route — no auth required */}
         <Route path="/travel-feedback/:token" element={<TravelFeedback />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route 
           path="/*" 
           element={isAuthenticated ? <App /> : <Navigate to="/login" replace />} 

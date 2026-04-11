@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { poolPromise } = require("../config/db");
 const sql = require('mssql');
+const crypto = require('crypto');
+const { sendEmail } = require('../utils/mailer');
 
 // POST /api/users/login (authenticate user)
 router.post("/login", async (req, res) => {
@@ -447,6 +449,114 @@ router.delete("/:id", async (req, res) => {
     res.send("User deleted");
   } catch (err) {
     res.status(500).send(err.message);
+  }
+});
+
+// POST /api/users/forgot-password
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+
+    const pool = await poolPromise;
+
+    // Ensure reset token columns exist
+    await pool.request().query(`
+      IF COL_LENGTH('dbo.petty_Users','reset_token') IS NULL
+        ALTER TABLE dbo.petty_Users ADD reset_token NVARCHAR(64) NULL;
+      IF COL_LENGTH('dbo.petty_Users','reset_token_expiry') IS NULL
+        ALTER TABLE dbo.petty_Users ADD reset_token_expiry DATETIME2 NULL;
+    `);
+
+    const result = await pool.request()
+      .input('email', sql.NVarChar(320), email.toLowerCase().trim())
+      .query('SELECT id, firstName, lastName FROM petty_Users WHERE LOWER(LTRIM(RTRIM(email))) = @email');
+
+    // Always return success to prevent email enumeration
+    if (!result.recordset.length) {
+      return res.json({ message: 'If that email exists, a reset link has been sent.' });
+    }
+
+    const user = result.recordset[0];
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await pool.request()
+      .input('id', sql.Int, user.id)
+      .input('token', sql.NVarChar(64), token)
+      .input('expiry', sql.DateTime2, expiry)
+      .query('UPDATE petty_Users SET reset_token = @token, reset_token_expiry = @expiry WHERE id = @id');
+
+    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5176').split(',')[0].trim();
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || email;
+
+    await sendEmail({
+      to: email,
+      subject: 'Reset Your PocketPro HR Password',
+      html: `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:#2563EB;padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
+      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">Reset Your Password</h1>
+      <p style="margin:8px 0 0;color:#dbeafe;font-size:14px;">PocketPro HR</p>
+    </div>
+    <div style="background:#fff;padding:32px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="color:#374151;font-size:15px;line-height:1.6;">Hi <strong>${name}</strong>,</p>
+      <p style="color:#374151;font-size:15px;line-height:1.6;">
+        We received a request to reset your password. Click the button below to set a new password.
+        This link will expire in <strong>1 hour</strong>.
+      </p>
+      <div style="text-align:center;margin:32px 0;">
+        <a href="${resetUrl}" style="display:inline-block;background:#2563EB;color:#fff;padding:14px 36px;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">
+          Reset Password
+        </a>
+      </div>
+      <p style="color:#6b7280;font-size:13px;line-height:1.6;">
+        If you didn't request a password reset, you can safely ignore this email. Your password will not change.
+      </p>
+      <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:24px;">PocketPro HR — Automated Notification</p>
+    </div>
+  </div>
+</body></html>`
+    });
+
+    res.json({ message: 'If that email exists, a reset link has been sent.' });
+  } catch (err) {
+    console.error('forgot-password error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/users/reset-password
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ message: 'Token and password are required' });
+    if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters' });
+
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .input('token', sql.NVarChar(64), token)
+      .input('now', sql.DateTime2, new Date())
+      .query('SELECT id FROM petty_Users WHERE reset_token = @token AND reset_token_expiry > @now');
+
+    if (!result.recordset.length) {
+      return res.status(400).json({ message: 'Reset link is invalid or has expired.' });
+    }
+
+    const userId = result.recordset[0].id;
+
+    await pool.request()
+      .input('id', sql.Int, userId)
+      .input('password', sql.NVarChar(200), password)
+      .query('UPDATE petty_Users SET password = @password, reset_token = NULL, reset_token_expiry = NULL WHERE id = @id');
+
+    res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (err) {
+    console.error('reset-password error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
