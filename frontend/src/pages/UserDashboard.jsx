@@ -164,157 +164,78 @@ const UserDashboard = () => {
               Quick Actions
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={4}>
                 <Button
                   variant="contained"
                   fullWidth
                   startIcon={<ReceiptIcon />}
                   component={Link}
                   to="/new-request"
-                  sx={{ 
-                    py: 1.25,
-                    textTransform: 'none',
-                    fontWeight: 600
-                  }}
+                  sx={{ py: 1.25, textTransform: 'none', fontWeight: 600 }}
                 >
-                  Submit New Request
+                  New Request
                 </Button>
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={4}>
                 <Button
                   variant="outlined"
                   fullWidth
-                  startIcon={<ReceiptIcon />}
+                  startIcon={<AddIcon />}
                   component={Link}
-                  to="/my-requests"
-                  sx={{ 
-                    py: 1.25,
-                    textTransform: 'none',
-                    fontWeight: 600
-                  }}
+                  to="/new-travel-request"
+                  sx={{ py: 1.25, textTransform: 'none', fontWeight: 600 }}
                 >
-                  View My Requests
+                  New Travel Request
                 </Button>
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={4}>
                 <Button
                   variant="outlined"
                   fullWidth
                   startIcon={<PersonIcon />}
                   component={Link}
                   to="/profile"
-                  sx={{ 
-                    py: 1.25,
-                    textTransform: 'none',
-                    fontWeight: 600
-                  }}
+                  sx={{ py: 1.25, textTransform: 'none', fontWeight: 600 }}
                 >
-                  Update Profile
+                  My Profile
                 </Button>
               </Grid>
             </Grid>
           </Card>
         </Grid>
 
-        {/* My Requests */}
+        {/* Recent Activity */}
         <Grid item xs={12} md={4}>
-          <Card variant="outlined" sx={{ p: 3, height: 'fit-content', textAlign: 'center' }}>
-            <ReceiptIcon sx={{ fontSize: 60, color: '#1976d2', mb: 2 }} />
-            <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-              My Requests
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              View and track your submitted requests
-            </Typography>
-            <Button
-              variant="contained"
-              component={Link}
-              to="/my-requests"
-              sx={{ 
-                textTransform: 'none',
-                fontWeight: 600
-              }}
-            >
-              View Requests
-            </Button>
+          <Card variant="outlined" sx={{ p: 3, height: 'fit-content' }}>
+            <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>Recent Activity</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Your latest requests</Typography>
+            {loading ? (
+              <Typography variant="body2" color="text.secondary">Loading...</Typography>
+            ) : recentRequests.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No recent requests</Typography>
+            ) : (
+              <List disablePadding>
+                {recentRequests.map((request, index) => (
+                  <ListItem key={request.id || index} disablePadding sx={{ mb: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 36 }}>{getStatusIcon(request.status)}</ListItemIcon>
+                    <ListItemText
+                      primary={<Typography variant="body2" fontWeight={500} noWrap>{request.category || '—'}</Typography>}
+                      secondary={
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {request.dateOfPurchase ? new Date(request.dateOfPurchase).toLocaleDateString() : '—'}
+                          </Typography>
+                          <Chip label={request.status} size="small" sx={{ height: 16, fontSize: '0.65rem', bgcolor: getStatusColor(request.status), color: '#fff' }} />
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </Card>
         </Grid>
       </Grid>
-
-      {/* Recent Activity */}
-      <Card variant="outlined" sx={{ mt: 4, p: 3 }}>
-        <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-          Recent Activity
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Your latest petty cash requests
-        </Typography>
-
-        {loading ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="body2" color="text.secondary">
-              Loading recent activity...
-            </Typography>
-          </Box>
-        ) : recentRequests.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="body2" color="text.secondary">
-              No recent requests found
-            </Typography>
-          </Box>
-        ) : (
-          <List>
-            {recentRequests.map((request, index) => (
-              <ListItem
-                key={request.id || index}
-                sx={{
-                  border: '1px solid #e0e0e0',
-                  borderRadius: 1,
-                  mb: 1,
-                  '&:last-child': { mb: 0 }
-                }}
-              >
-                <ListItemIcon>
-                  {getStatusIcon(request.status)}
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body1" fontWeight="medium">
-                        {request.category || 'Office supplies request'}
-                      </Typography>
-                      <Typography variant="body1" fontWeight="bold">
-                        {formatCurrency(request.amount, request.currency)}
-                      </Typography>
-                    </Box>
-                  }
-                  secondary={
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {request.dateOfPurchase ? 
-                          new Date(request.dateOfPurchase).toLocaleDateString() :
-                          request.date ? 
-                          new Date(request.date).toLocaleDateString() :
-                          'January 19, 2024'
-                        }
-                      </Typography>
-                      <Chip
-                        label={request.status || 'approved'}
-                        size="small"
-                        sx={{
-                          bgcolor: getStatusColor(request.status),
-                          color: 'white',
-                          fontWeight: 'medium'
-                        }}
-                      />
-                    </Box>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
-        )}
-      </Card>
     </Box>
   );
 };

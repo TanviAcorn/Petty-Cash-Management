@@ -312,11 +312,14 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
         {passportSnackbar.type === 'success' ? 'Passport details updated successfully.' : 'Failed to update passport details.'}
       </Alert>
     </Snackbar>
-    <Card variant="outlined" sx={{ mb: 2, borderRadius: 2, borderColor: 'primary.main', borderWidth: 2 }}>
+    <Card variant="outlined" sx={{ mb: 2, borderRadius: 2, borderColor: 'divider' }}>
       <CardContent sx={{ p: 3 }}>
-        <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: 'primary.main' }}>
-          TRAVEL POLICY – {travelType === 'international' ? 'INTERNATIONAL TRAVEL – AST07' : 'DOMESTIC TRAVEL – AST06'}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <FlightTakeoffIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+          <Typography variant="subtitle1" fontWeight={700}>
+            Travel Details — {travelType === 'international' ? 'International Travel' : 'Domestic Travel'}
+          </Typography>
+        </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
           <ToggleButtonGroup value={travelType} exclusive onChange={handleTravelTypeChange} aria-label="travel type"
@@ -331,7 +334,8 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
         <Grid container spacing={3}>
           {/* Employee Info */}
           <Grid item xs={12}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Employee Information</Typography>
+            <Typography variant="subtitle2" fontWeight={600} color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.5 }}>Employee Information</Typography>
+            <Divider sx={{ mt: 0.5 }} />
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField fullWidth label="Name of the Employee" name="employeeName" value={travelData.employeeName}
@@ -350,7 +354,8 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
             <>
               {/* Travel Info */}
               <Grid item xs={12}>
-                <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ mt: 2 }}>Travel Information</Typography>
+                <Typography variant="subtitle2" fontWeight={600} color="text.secondary" sx={{ mt: 2, textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.5 }}>Travel Information</Typography>
+                <Divider sx={{ mt: 0.5 }} />
               </Grid>
 
               <Grid item xs={12} md={6}>
@@ -1012,7 +1017,8 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
             <>
               {/* Domestic Travel Info */}
               <Grid item xs={12}>
-                <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ mt: 2 }}>Travel Information</Typography>
+                <Typography variant="subtitle2" fontWeight={600} color="text.secondary" sx={{ mt: 2, textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.5 }}>Travel Information</Typography>
+                <Divider sx={{ mt: 0.5 }} />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField fullWidth size="small" label="Client Name"

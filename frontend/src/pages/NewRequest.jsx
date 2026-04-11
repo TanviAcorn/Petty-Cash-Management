@@ -413,26 +413,8 @@ const NewRequest = () => {
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      minHeight: '100vh', 
-      p: 3, 
-      m: 0, 
-      maxWidth: '100%', 
-      overflowX: 'hidden',
-      backgroundColor: 'background.default'
-    }}>
-      <Box sx={{ 
-        mb: 3,
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-        backgroundColor: 'background.paper',
-        p: 2,
-        borderRadius: 2,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-      }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', p: 3, backgroundColor: 'background.default' }}>
+      <Box sx={{ mb: 3, p: 2, borderRadius: 2, bgcolor: 'background.paper', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <Typography variant="h5" fontWeight={800}>New Petty Cash Request</Typography>
         <Typography variant="body2" color="text.secondary">Submit a new reimbursement request for your business expenses</Typography>
       </Box>
@@ -739,10 +721,11 @@ const NewRequest = () => {
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                     Specify the amount and currency for your expense
                   </Typography>
-                  <Grid container spacing={3}>
+                  <Grid container spacing={2} alignItems="center">
                     <Grid size={{ xs: 12, md: 6 }}>
                     <TextField
                       fullWidth
+                      size="small"
                       label="Amount *"
                       name="amount"
                       value={formData.amount}
@@ -772,14 +755,13 @@ const NewRequest = () => {
                             : undefined
                         }
                       }}
-                      margin="normal"
                       FormHelperTextProps={{
                         style: {
                           color: formData.location && 
                                 restrictedLocations.includes(formData.location) && 
                                 formData.category === restrictedCategory 
-                            ? '#1976d2' // Blue color for informational message
-                            : '#d32f2f' // Red color for error message
+                            ? '#1976d2'
+                            : '#d32f2f'
                         }
                       }}
                     />

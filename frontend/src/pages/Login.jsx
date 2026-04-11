@@ -27,7 +27,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[linear-gradient(180deg,#eef4ff_0%,#e9f0ff_100%)] dark:bg-[linear-gradient(180deg,#0b1220_0%,#0a0f1a_100%)] flex flex-col items-center">
+    <div className="min-h-screen w-full bg-[linear-gradient(180deg,#eef4ff_0%,#e9f0ff_100%)] dark:bg-[linear-gradient(180deg,#0b1220_0%,#0a0f1a_100%)] flex flex-col items-center justify-between">
+      {/* Top section: header + card */}
+      <div className="w-full flex flex-col items-center">
       {/* Brand header */}
       <div className="pt-16 px-6 text-center">
         <div className="mx-auto w-12 h-12 rounded-xl bg-blue-900 dark:bg-blue-600 flex items-center justify-center shadow-md">
@@ -38,7 +40,7 @@ export default function Login() {
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-md mt-8 px-4 pb-16">
+      <div className="w-full max-w-md mt-8 px-4">
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 p-8">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Sign In</h2>
@@ -108,9 +110,10 @@ export default function Login() {
           </form>
         </div>
       </div>
+      </div>
 
       {/* Company footer */}
-      <div className="w-full max-w-md px-6 pb-10 -mt-2 text-center">
+      <div className="w-full max-w-md px-6 py-6 text-center">
         <p className="text-sm text-slate-500 dark:text-slate-400">© Acorn Universal Consultancy LLP, {new Date().getFullYear()}.</p>
       </div>
     </div>

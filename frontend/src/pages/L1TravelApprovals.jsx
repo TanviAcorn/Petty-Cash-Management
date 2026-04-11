@@ -699,7 +699,7 @@ const L1TravelApprovals = () => {
       </Dialog>
 
       {/* ── Upload Travel Details Dialog ───────────────────────────────────── */}
-      <Dialog open={uploadOpen} onClose={() => !uploadSending && setUploadOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={uploadOpen} onClose={() => !uploadSending && setUploadOpen(false)} maxWidth="xl" fullWidth>
         <DialogTitle sx={{ pb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CloudUpload color="primary" />
@@ -782,7 +782,7 @@ const L1TravelApprovals = () => {
 
                       <Grid container spacing={2}>
                         {config.fields.map((field) => (
-                          <Grid item xs={12} sm={6} key={field.key}>
+                          <Grid item xs={12} sm={4} key={field.key}>
                             {field.type === 'select' ? (
                               <TextField
                                 fullWidth select size="small" label={field.label}
@@ -812,7 +812,7 @@ const L1TravelApprovals = () => {
 
                         {/* Cost field for this section */}
                         {config.costField && (
-                          <Grid item xs={12} sm={6}>
+                          <Grid item xs={12} sm={4}>
                             <TextField
                               fullWidth
                               size="small"

@@ -1,20 +1,17 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import {
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  Button, TextField, Grid, MenuItem, IconButton, Typography, Box
+} from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 
 export default function AddUserModal({ onClose, onSave }) {
   const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    role: "user",
-    company: "",
-    department: "",
+    firstName: "", lastName: "", email: "", password: "",
+    role: "User", company: "", department: "",
   });
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -29,98 +26,66 @@ export default function AddUserModal({ onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-      <div className="bg-white rounded-xl w-[500px] p-6 relative">
-        <button
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-          onClick={onClose}
-        >
-          <X size={20} />
-        </button>
+    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box>
+          <Typography variant="h6" fontWeight={700}>Create New User</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Add a new user with their role and company information.
+          </Typography>
+        </Box>
+        <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
+      </DialogTitle>
 
-        <h2 className="text-xl font-semibold mb-2">Create New User</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Add a new user to the system with their role and company information.
-        </p>
-
-        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            name="firstName"
-            placeholder="First Name"
-            className="border rounded-lg px-3 py-2 col-span-1"
-            onChange={handleChange}
-            required
-          />
-          <input
-            type="text"
-            name="lastName"
-            placeholder="Last Name"
-            className="border rounded-lg px-3 py-2 col-span-1"
-            onChange={handleChange}
-            required
-          />
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            className="border rounded-lg px-3 py-2 col-span-2"
-            onChange={handleChange}
-            required
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            className="border rounded-lg px-3 py-2 col-span-2"
-            onChange={handleChange}
-            required
-          />
-          <select
-            name="role"
-            className="border rounded-lg px-3 py-2 col-span-1"
-            onChange={handleChange}
-          >
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-          </select>
-          <input
-            type="text"
-            name="company"
-            placeholder="Company"
-            className="border rounded-lg px-3 py-2 col-span-1"
-            onChange={handleChange}
-            required
-          />
-          <select
-            name="department"
-            className="border rounded-lg px-3 py-2 col-span-2"
-            onChange={handleChange}
-            required
-          >
-            <option value="">Select department</option>
-            <option value="IT">IT</option>
-            <option value="Finance">Finance</option>
-            <option value="Admin">Admin</option>
-          </select>
-
-          <div className="col-span-2 flex justify-end gap-2 mt-4">
-            <button
-              type="button"
-              className="px-4 py-2 rounded-lg border"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
-            >
-              Create User
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      <form onSubmit={handleSubmit}>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            <Grid item xs={6}>
+              <TextField fullWidth size="small" label="First Name" name="firstName"
+                value={form.firstName} onChange={handleChange} required />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField fullWidth size="small" label="Last Name" name="lastName"
+                value={form.lastName} onChange={handleChange} required />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth size="small" label="Email" name="email" type="email"
+                value={form.email} onChange={handleChange} required />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth size="small" label="Password" name="password" type="password"
+                value={form.password} onChange={handleChange} required />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField fullWidth size="small" select label="Role" name="role"
+                value={form.role} onChange={handleChange}>
+                <MenuItem value="User">User</MenuItem>
+                <MenuItem value="Admin">Admin</MenuItem>
+                <MenuItem value="Payment">Payment</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={6}>
+              <TextField fullWidth size="small" label="Company" name="company"
+                value={form.company} onChange={handleChange} required />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth size="small" select label="Department" name="department"
+                value={form.department} onChange={handleChange} required>
+                <MenuItem value=""><em>Select department</em></MenuItem>
+                <MenuItem value="IT">IT</MenuItem>
+                <MenuItem value="Finance">Finance</MenuItem>
+                <MenuItem value="Admin">Admin</MenuItem>
+                <MenuItem value="HR">HR</MenuItem>
+                <MenuItem value="Operations">Operations</MenuItem>
+              </TextField>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={onClose} variant="outlined">Cancel</Button>
+          <Button type="submit" variant="contained" color="success">Create User</Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   );
 }

@@ -11,6 +11,8 @@ import {
   IconButton,
   InputAdornment,
   Paper,
+  Card,
+  CardContent,
   Divider,
   Stack,
   FormControl,
@@ -499,7 +501,7 @@ const Profile = () => {
       </Box>
 
       {/* Personal Information Module */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+      <Card variant="outlined" sx={{ p: 3, mb: 4, borderRadius: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <PersonIcon />
@@ -566,10 +568,10 @@ const Profile = () => {
         
         {/* Edit Form */}
         {editMode && renderEditForm()}
-      </Paper>
+      </Card>
 
       {/* Account Security Module */}
-      <Paper elevation={0} sx={{ p: 3, mb: 4, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+      <Card variant="outlined" sx={{ p: 3, mb: 4, borderRadius: 2 }}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
           <ShieldIcon />
           <Box>
@@ -653,10 +655,10 @@ const Profile = () => {
             </Button>
           </Box>
         </Box>
-      </Paper>
+      </Card>
       
       {/* Account Information Module */}
-      <Paper elevation={0} sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+      <Card variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
           <InfoIcon />
           <Box>
@@ -685,7 +687,7 @@ const Profile = () => {
             </Typography>
           </Grid>
         </Grid>
-      </Paper>
+      </Card>
 
       <Snackbar
         open={snackbar.open}
@@ -708,3 +710,4 @@ const Profile = () => {
 };
 
 export default Profile;
+
