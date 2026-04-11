@@ -33,7 +33,7 @@ export default function Login() {
         <div className="mx-auto w-12 h-12 rounded-xl bg-blue-900 dark:bg-blue-600 flex items-center justify-center shadow-md">
           <Lock className="text-white w-6 h-6" />
         </div>
-        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">HR PettyCash</h1>
+        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">PocketPro HR</h1>
         <p className="mt-1 text-slate-500 dark:text-slate-400">Sign in to your account</p>
       </div>
 

@@ -311,7 +311,7 @@ const Dashboard = () => {
       {/* Welcome */}
       <Box>
         <Typography variant="h4" fontWeight={800}>Welcome back, Admin!</Typography>
-        <Typography variant="body2" color="text.secondary">Here's your petty cash management overview for today.</Typography>
+        <Typography variant="body2" color="text.secondary">Here's your PocketPro HR overview for today.</Typography>
       </Box>
 
       {/* Stats */}

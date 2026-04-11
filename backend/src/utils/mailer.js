@@ -184,7 +184,7 @@ function buildAdminNewRequestEmail(newRequest) {
         
         <!-- Footer -->
         <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
-          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+          <p style="margin: 0;">This is an automated notification from PocketPro HR.</p>
         </div>
         
       </div>
@@ -273,7 +273,7 @@ function buildUserStatusEmail(requestRow) {
         
         <!-- Footer -->
         <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
-          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+          <p style="margin: 0;">This is an automated notification from PocketPro HR.</p>
         </div>
         
       </div>
@@ -409,7 +409,7 @@ function buildPaymentInitiatedEmail({ request, payment }) {
         
         <!-- Footer -->
         <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
-          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+          <p style="margin: 0;">This is an automated notification from PocketPro HR.</p>
         </div>
         
       </div>
@@ -534,7 +534,7 @@ function buildBulkPaymentEmail({ requests, groupedByCompany }) {
         
         <!-- Footer -->
         <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
-          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+          <p style="margin: 0;">This is an automated notification from PocketPro HR.</p>
         </div>
         
       </div>
@@ -632,7 +632,7 @@ function buildL1ManagerApprovalEmail(request, l1Manager) {
         
         <!-- Footer -->
         <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
-          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+          <p style="margin: 0;">This is an automated notification from PocketPro HR.</p>
         </div>
         
       </div>
@@ -715,7 +715,7 @@ function buildL1ApprovalNotificationEmail(request, isApproved) {
         
         <!-- Footer -->
         <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
-          <p style="margin: 0;">This is an automated notification from Petty Cash Management System.</p>
+          <p style="margin: 0;">This is an automated notification from PocketPro HR.</p>
         </div>
         
       </div>
@@ -736,3 +736,4 @@ module.exports = {
   buildL1ManagerApprovalEmail,
   buildL1ApprovalNotificationEmail,
 };
+

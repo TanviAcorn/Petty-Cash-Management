@@ -155,7 +155,7 @@ export default function Sidebar() {
           HR
         </Box>
         <Box>
-          <Typography fontWeight="bold">HR PettyCash</Typography>
+          <Typography fontWeight="bold">PocketPro HR</Typography>
           <Typography
             sx={{
               fontSize: "11px",

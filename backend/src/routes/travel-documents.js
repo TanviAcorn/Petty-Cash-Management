@@ -465,7 +465,7 @@ function buildTravelDocumentsEmail({ request, summaryRows, docCount, adminDetail
           📎 <strong>${docCount} document${docCount !== 1 ? 's' : ''} attached</strong> — Please save these for your records and present them as required during your trip.
         </p>
       </div>
-      <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">Have a safe trip! — Petty Cash Management System</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">Have a safe trip! — PocketPro HR</p>
     </div>
   </div>
   </body></html>`;
@@ -474,3 +474,5 @@ function buildTravelDocumentsEmail({ request, summaryRows, docCount, adminDetail
 }
 
 module.exports = router;
+
+

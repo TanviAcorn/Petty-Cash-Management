@@ -230,3 +230,4 @@ router.post('/:token', async (req, res) => {
 
 module.exports = router;
 module.exports.ensureFeedbackTable = ensureFeedbackTable;
+

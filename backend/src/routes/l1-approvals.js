@@ -304,7 +304,7 @@ router.put('/:id/approve', async (req, res) => {
           <strong>Action Required:</strong> Please log in to the portal and upload the travel details (flights, hotel, visa, etc.) for this employee.
         </p>
       </div>
-      <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">HR Petty Cash Management System — Automated Notification</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">HR PocketPro HR — Automated Notification</p>
     </div>
   </div>
 </body></html>`;
@@ -401,3 +401,4 @@ router.put('/:id/reject', async (req, res) => {
 });
 
 module.exports = router;
+

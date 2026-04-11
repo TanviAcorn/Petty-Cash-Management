@@ -85,7 +85,7 @@ function buildFeedbackEmail({ employeeName, requestId, token, travelData }) {
     </div>
 
     <div style="margin-top:16px;text-align:center;">
-      <p style="margin:0;color:#9ca3af;font-size:12px;">Automated notification from Petty Cash Management System.</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;">Automated notification from PocketPro HR.</p>
     </div>
   </div>
 </body>
@@ -146,7 +146,7 @@ async function sendPreTravelReminders() {
                   Trip #${row.id} | Employee: ${row.employee_name} (${row.employee_email})
                 </p>
               </div>
-              <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:20px;">Petty Cash Management System – Automated Reminder</p>
+              <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:20px;">PocketPro HR – Automated Reminder</p>
             </div>
           </div>
         </body></html>`;
@@ -240,3 +240,4 @@ function startFeedbackScheduler() {
 }
 
 module.exports = { startFeedbackScheduler };
+

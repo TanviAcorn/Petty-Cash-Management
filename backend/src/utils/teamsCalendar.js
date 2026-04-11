@@ -45,7 +45,7 @@ async function bookTravelCalendarEvent({ employeeEmail, employeeName, startDate,
       body: {
         contentType: 'HTML',
         content: `
-          <p>This calendar event was automatically created by the HR Petty Cash Management System.</p>
+          <p>This calendar event was automatically created by the PocketPro HR.</p>
           <p><strong>Trip Reference:</strong> #${requestId}</p>
           <p><strong>Summary:</strong> ${tripSummary}</p>
           <p>You are marked as <strong>Out of Office</strong> during this period.</p>
@@ -137,3 +137,4 @@ function extractTravelDates(travelData) {
 }
 
 module.exports = { bookTravelCalendarEvent, buildTripSummary, extractTravelDates };
+
