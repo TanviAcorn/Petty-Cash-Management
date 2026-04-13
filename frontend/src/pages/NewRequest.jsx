@@ -31,6 +31,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import TravelRequestForm from '../components/TravelRequestForm';
+import useSortedItems from '../hooks/useSortedItems';
 import {
   AttachMoney,
   Info,
@@ -132,6 +133,10 @@ const NewRequest = () => {
   const [categories, setCategories] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [locations, setLocations] = useState([]);
+
+  const { sorted: sortedCategories, asc: catAsc, toggle: toggleCat } = useSortedItems(categories);
+  const { sorted: sortedCompanies, asc: compAsc, toggle: toggleComp } = useSortedItems(companies);
+  const { sorted: sortedLocations, asc: locAsc, toggle: toggleLoc } = useSortedItems(locations);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState('');
   
@@ -492,39 +497,17 @@ const NewRequest = () => {
                         value={formData.category}
                         onChange={handleChange}
                         label="Category *"
-                        sx={{
-                          '& .MuiSelect-select': {
-                            minWidth: '200px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            paddingRight: '32px !important'
-                          },
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'divider'
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'primary.main'
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderWidth: '1px',
-                            borderColor: 'primary.main'
-                          }
-                        }}
                         disabled={loading}
                       >
-                        <MenuItem value="">
-                          <em style={{ color: '#aaa' }}>Select category</em>
+                        <MenuItem value=""><em style={{ color: '#aaa' }}>Select category</em></MenuItem>
+                        <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleCat(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                          {catAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
                         </MenuItem>
                         {loading ? (
-                          <MenuItem disabled>
-                            <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
-                          </MenuItem>
+                          <MenuItem disabled><CircularProgress size={20} sx={{ mr: 1 }} /> Loading...</MenuItem>
                         ) : (
-                          categories.map((category) => (
-                            <MenuItem key={category.id} value={category.name}>
-                              {category.name}
-                            </MenuItem>
+                          sortedCategories.map((category) => (
+                            <MenuItem key={category.id} value={category.name}>{category.name}</MenuItem>
                           ))
                         )}
                       </Select>
@@ -540,38 +523,18 @@ const NewRequest = () => {
                         value={formData.company}
                         onChange={handleChange}
                         label="Company *"
-                        sx={{
-                          '& .MuiSelect-select': {
-                            minWidth: '200px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            paddingRight: '32px !important'
-                          },
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'divider'
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'primary.main'
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderWidth: '1px',
-                            borderColor: 'primary.main'
-                          }
-                        }}
                         renderValue={(value) => value || 'Select company'}
                         disabled={loading}
                       >
-                        <MenuItem value="">
-                          <em style={{ color: '#aaa' }}>Select company</em>
+                        <MenuItem value=""><em style={{ color: '#aaa' }}>Select company</em></MenuItem>
+                        <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleComp(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                          {compAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
                         </MenuItem>
                         {loading ? (
                           <MenuItem disabled><CircularProgress size={20} sx={{ mr: 1 }} /> Loading...</MenuItem>
                         ) : (
-                          companies.map((company) => (
-                            <MenuItem key={company.id} value={company.name}>
-                              {company.name}
-                            </MenuItem>
+                          sortedCompanies.map((company) => (
+                            <MenuItem key={company.id} value={company.name}>{company.name}</MenuItem>
                           ))
                         )}
                       </Select>
@@ -587,33 +550,13 @@ const NewRequest = () => {
                         value={formData.location}
                         onChange={handleChange}
                         label="Location"
-                        sx={{
-                          '& .MuiSelect-select': {
-                            minWidth: '200px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            paddingRight: '32px !important'
-                          },
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'divider'
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'primary.main'
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderWidth: '1px',
-                            borderColor: 'primary.main'
-                          }
-                        }}
                       >
-                        <MenuItem value="">
-                          <em style={{ color: '#aaa' }}>Select location</em>
+                        <MenuItem value=""><em style={{ color: '#aaa' }}>Select location</em></MenuItem>
+                        <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleLoc(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                          {locAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
                         </MenuItem>
-                        {locations.map((location) => (
-                          <MenuItem key={location.id} value={location.name}>
-                            {location.name}
-                          </MenuItem>
+                        {sortedLocations.map((location) => (
+                          <MenuItem key={location.id} value={location.name}>{location.name}</MenuItem>
                         ))}
                       </Select>
                       {formData.selectedLocation &&

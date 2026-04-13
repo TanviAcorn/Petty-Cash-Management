@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import axiosClient from "../api/axiosClient";
 import Pagination from '../components/Pagination';
+import useSortedItems from '../hooks/useSortedItems';
 
 // MUI components
 import {
@@ -50,6 +51,7 @@ const UserManagement = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
+  const { sorted: sortedCompanies, asc: compAsc, toggle: toggleComp } = useSortedItems(companies);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     itemsPerPage: 10,
@@ -494,7 +496,10 @@ const UserManagement = () => {
                 <MenuItem value="">
                   <em>Select Company</em>
                 </MenuItem>
-                {Array.isArray(companies) && companies.map((company) => (
+                <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleComp(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                  {compAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
+                </MenuItem>
+                {Array.isArray(sortedCompanies) && sortedCompanies.map((company) => (
                   <MenuItem key={company.id} value={company.name}>
                     {company.name}
                   </MenuItem>

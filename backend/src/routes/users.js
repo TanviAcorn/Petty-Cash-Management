@@ -279,7 +279,7 @@ router.get("/", async (req, res) => {
       FROM petty_Users u
       LEFT JOIN petty_Users m ON u.l1_manager_id = m.id
       ${whereClauseAliased}
-      ORDER BY u.id
+      ORDER BY u.firstName, u.lastName
       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
     `;
     

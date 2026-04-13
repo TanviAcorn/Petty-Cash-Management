@@ -35,6 +35,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import TravelRequestForm from '../components/TravelRequestForm';
+import useSortedItems from '../hooks/useSortedItems';
 import {
   Info,
   AttachFile,
@@ -89,6 +90,8 @@ const NewTravelRequest = () => {
 
   const [companies, setCompanies] = useState([]);
   const [locations, setLocations] = useState([]);
+  const { sorted: sortedCompanies, asc: compAsc, toggle: toggleComp } = useSortedItems(companies);
+  const { sorted: sortedLocations, asc: locAsc, toggle: toggleLoc } = useSortedItems(locations);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState('');
 
@@ -249,7 +252,7 @@ const NewTravelRequest = () => {
     if (!td) return [];
     const items = [];
     items.push({ label: 'Travel Type', value: td.travelType === 'domestic' ? 'Domestic' : 'International' });
-    if (td.countryOfTravel) items.push({ label: 'Country', value: td.countryOfTravel });
+    if (td.countryOfTravel) items.push({ label: 'Country', value: td.countryOfTravel === 'Other' ? `Travel Other — ${td.otherCity || ''}${td.otherCity && td.otherCountry ? ', ' : ''}${td.otherCountry || ''}`.trim().replace(/— $/, '— Other') : td.countryOfTravel });
     if (td.cityOfTravelDomestic) items.push({ label: 'City', value: td.cityOfTravelDomestic });
     if (td.tripType) items.push({ label: 'Trip Type', value: td.tripType === 'roundTrip' ? 'Round Trip' : td.tripType === 'multiCity' ? 'Multi-City' : 'One Way' });
     if (td.roundTrip?.fromCity) items.push({ label: 'Route', value: `${td.roundTrip.fromCity} → ${td.roundTrip.toCity}` });
@@ -353,10 +356,13 @@ const NewTravelRequest = () => {
                       <InputLabel>Company *</InputLabel>
                       <Select name="company" value={formData.company} onChange={handleChange} label="Company *" disabled={loading}>
                         <MenuItem value=""><em style={{ color: '#aaa' }}>Select company</em></MenuItem>
+                        <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleComp(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                          {compAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
+                        </MenuItem>
                         {loading ? (
                           <MenuItem disabled><CircularProgress size={20} sx={{ mr: 1 }} /> Loading...</MenuItem>
                         ) : (
-                          companies.map(c => <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>)
+                          sortedCompanies.map(c => <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>)
                         )}
                       </Select>
                       <FormHelperText>{errors.company || dataError}</FormHelperText>
@@ -367,7 +373,10 @@ const NewTravelRequest = () => {
                       <InputLabel>Location</InputLabel>
                       <Select name="location" value={formData.location} onChange={handleChange} label="Location">
                         <MenuItem value=""><em style={{ color: '#aaa' }}>Select location</em></MenuItem>
-                        {locations.map(l => <MenuItem key={l.id} value={l.name}>{l.name}</MenuItem>)}
+                        <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleLoc(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                          {locAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
+                        </MenuItem>
+                        {sortedLocations.map(l => <MenuItem key={l.id} value={l.name}>{l.name}</MenuItem>)}
                       </Select>
                     </FormControl>
                   </Grid>
@@ -380,6 +389,50 @@ const NewTravelRequest = () => {
               <Typography variant="caption" color="error" sx={{ mb: 1, px: 1 }}>{errors.travelForm}</Typography>
             )}
             <TravelRequestForm formData={formData} onChange={handleTravelFormChange} initialData={travelFormData} />
+
+            {/* Reason of Travel + Remarks — fixed position, always visible */}
+            <Card variant="outlined" sx={{ mb: 2, borderRadius: 2, borderColor: 'divider' }}>
+              <CardContent sx={{ p: 3 }}>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 7 }}>
+                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>Reason of Travel *</Typography>
+                    <TextField
+                      fullWidth size="small" multiline rows={4}
+                      name="reasonOfTravel"
+                      value={travelFormData?.reasonOfTravel || ''}
+                      onChange={(e) => setTravelFormData(prev => ({ ...prev, reasonOfTravel: e.target.value }))}
+                      placeholder="Please provide a detailed reason for your travel request (minimum 20 words)..."
+                      error={travelFormData?.reasonOfTravel?.trim().length > 0 && travelFormData.reasonOfTravel.trim().split(/\s+/).filter(Boolean).length < 20}
+                      helperText={(() => {
+                        const words = (travelFormData?.reasonOfTravel || '').trim().split(/\s+/).filter(Boolean).length;
+                        if (!travelFormData?.reasonOfTravel?.trim()) return 'Minimum 20 words required';
+                        if (words < 20) return `${words}/20 words — please add ${20 - words} more`;
+                        return `✓ ${words} words`;
+                      })()}
+                      FormHelperTextProps={{
+                        sx: {
+                          color: (() => {
+                            const words = (travelFormData?.reasonOfTravel || '').trim().split(/\s+/).filter(Boolean).length;
+                            if (!travelFormData?.reasonOfTravel?.trim()) return 'text.secondary';
+                            return words >= 20 ? 'success.main' : 'error.main';
+                          })()
+                        }
+                      }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 5 }}>
+                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>Remarks</Typography>
+                    <TextField
+                      fullWidth size="small" multiline rows={4}
+                      name="remarks"
+                      value={travelFormData?.remarks || ''}
+                      onChange={(e) => setTravelFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                      placeholder="Any additional remarks or special requirements..."
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
 
             {/* Attachments */}
             <Card variant="outlined" sx={{ mb: 2, borderRadius: 2, borderColor: 'divider' }}>
@@ -462,7 +515,7 @@ const NewTravelRequest = () => {
                           rows.push({ label: 'Travel Type', value: tf.travelType === 'domestic' ? 'Domestic' : 'International' });
 
                           if (tf.travelType === 'international') {
-                            rows.push({ label: 'Country', value: tf.countryOfTravel || '—' });
+                            rows.push({ label: 'Country', value: tf.countryOfTravel === 'Other' ? `Travel Other — ${tf.otherCity || ''}${tf.otherCity && tf.otherCountry ? ', ' : ''}${tf.otherCountry || ''}`.trim().replace(/— $/, '— Other') : (tf.countryOfTravel || '—') });
                             // Trip type
                             const tripLabel = tf.tripType === 'roundTrip' ? 'Round Trip' : tf.tripType === 'multiCity' ? 'Multi-City' : 'One Way';
                             rows.push({ label: 'Trip Type', value: tripLabel });

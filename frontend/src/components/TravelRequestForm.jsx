@@ -7,6 +7,7 @@ import {
   Snackbar, Alert
 } from '@mui/material';
 import axiosClient from '../api/axiosClient';
+import useSortedItems from '../hooks/useSortedItems';
 import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import AddIcon from '@mui/icons-material/Add';
@@ -17,6 +18,11 @@ const defaultLeg = () => ({ fromCity: '', toCity: '', date: '', dateFlex: false,
 const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format for min date
 
 const TravelRequestForm = ({ formData, onChange, initialData }) => {
+  // Always show the user's own profile company, not the top-level dropdown selection
+  const profileCompany = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}').company || ''; } catch { return ''; }
+  })();
+
   const [travelType, setTravelType] = useState(initialData?.travelType || 'international');
   const [tripType, setTripType] = useState(initialData?.tripType || 'roundTrip');
 
@@ -58,6 +64,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
 
   const [locations, setLocations] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(true);
+  const { sorted: sortedLocations, asc: locAsc, toggle: toggleLoc } = useSortedItems(locations);
 
   useEffect(() => {
     axiosClient.get('/locations')
@@ -111,7 +118,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     travelType: initialData?.travelType || 'international',
     employeeName: formData.employeeName || '',
     department: formData.department || '',
-    company: formData.company || '',
+    company: profileCompany,
     countryOfTravel: initialData?.countryOfTravel || '',
     preferredDepartureAirport: initialData?.preferredDepartureAirport || '',
     destinationAirport: initialData?.destinationAirport || '',
@@ -148,9 +155,9 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
       ...prev,
       employeeName: formData.employeeName || '',
       department: formData.department || '',
-      company: formData.company || ''
+      company: profileCompany
     }));
-  }, [formData.employeeName, formData.department, formData.company]);
+  }, [formData.employeeName, formData.department]);
 
   const emit = (overrides = {}) => {
     const reqs = travelType === 'international' ? internationalRequirements : domesticRequirements;
@@ -385,7 +392,10 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                     }
                   >
                     <MenuItem value=""><em style={{ color: '#aaa' }}>Select location</em></MenuItem>
-                    {locations.map(loc => (
+                    <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleLoc(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                      {locAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
+                    </MenuItem>
+                    {sortedLocations.map(loc => (
                       <MenuItem key={loc.id} value={loc.name}>{loc.name}</MenuItem>
                     ))}
                     <MenuItem value="Other">Travel Other</MenuItem>
@@ -1355,46 +1365,8 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
             </>
           )}
 
-          {/* Reason of Travel */}
-          <Grid item xs={12}>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Reason of Travel *</Typography>
-            <TextField
-              fullWidth
-              name="reasonOfTravel"
-              value={travelData.reasonOfTravel}
-              onChange={handleFieldChange}
-              multiline
-              rows={4}
-              size="small"
-              required
-              placeholder="Please provide a detailed reason for your travel request (minimum 20 words)..."
-              error={travelData.reasonOfTravel.trim().length > 0 && travelData.reasonOfTravel.trim().split(/\s+/).filter(Boolean).length < 20}
-              helperText={(() => {
-                const words = travelData.reasonOfTravel.trim().split(/\s+/).filter(Boolean).length;
-                if (!travelData.reasonOfTravel.trim()) return 'Minimum 20 words required';
-                if (words < 20) return `${words}/20 words — please add ${20 - words} more word${20 - words === 1 ? '' : 's'}`;
-                return `✓ ${words} words`;
-              })()}
-              FormHelperTextProps={{
-                sx: {
-                  color: (() => {
-                    const words = travelData.reasonOfTravel.trim().split(/\s+/).filter(Boolean).length;
-                    if (!travelData.reasonOfTravel.trim()) return 'text.secondary';
-                    return words >= 20 ? 'success.main' : 'error.main';
-                  })()
-                }
-              }}
-            />
-          </Grid>
-
-          {/* Remarks */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Remarks</Typography>
-            <TextField fullWidth name="remarks" value={travelData.remarks} onChange={handleFieldChange}
-              multiline rows={3} size="small"
-              placeholder="Any additional remarks or special requirements..." />
-          </Grid>
+          {/* Reason of Travel and Remarks are rendered outside this component in NewTravelRequest.jsx */}
+          <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
         </Grid>
       </CardContent>
     </Card>

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { formatCurrency } from '../utils/currency';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../contexts/AuthContext';
+import useSortedItems from '../hooks/useSortedItems';
 import {
   Box,
   Typography,
@@ -71,6 +72,9 @@ const MyRequests = () => {
   const [companies, setCompanies] = useState([]);
   const [categories, setCategories] = useState([]);
   const [locations, setLocations] = useState([]);
+  const { sorted: sortedCompanies, asc: compAsc, toggle: toggleComp } = useSortedItems(companies);
+  const { sorted: sortedCategories, asc: catAsc, toggle: toggleCat } = useSortedItems(categories);
+  const { sorted: sortedLocations, asc: locAsc, toggle: toggleLoc } = useSortedItems(locations);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
@@ -486,7 +490,10 @@ const MyRequests = () => {
                   onChange={(e) => setEditReq(prev => ({ ...prev, company: e.target.value }))}
                   input={<OutlinedInput label="Company" />}
                 >
-                  {companies.map(c => (
+                  <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleComp(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                    {compAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
+                  </MenuItem>
+                  {sortedCompanies.map(c => (
                     <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>
                   ))}
                 </Select>
@@ -502,7 +509,10 @@ const MyRequests = () => {
                   onChange={(e) => setEditReq(prev => ({ ...prev, category: e.target.value }))}
                   input={<OutlinedInput label="Category" />}
                 >
-                  {categories.map(c => (
+                  <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleCat(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                    {catAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
+                  </MenuItem>
+                  {sortedCategories.map(c => (
                     <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>
                   ))}
                 </Select>
@@ -518,7 +528,10 @@ const MyRequests = () => {
                   onChange={(e) => setEditReq(prev => ({ ...prev, location: e.target.value }))}
                   input={<OutlinedInput label="Location" />}
                 >
-                  {locations.map(loc => (
+                  <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleLoc(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
+                    {locAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
+                  </MenuItem>
+                  {sortedLocations.map(loc => (
                     <MenuItem key={loc.id} value={loc.name}>{loc.name}</MenuItem>
                   ))}
                 </Select>
