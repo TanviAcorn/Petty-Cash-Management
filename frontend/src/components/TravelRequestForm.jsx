@@ -44,7 +44,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   const [carParkCarColor, setCarParkCarColor] = useState(initialData?.carParkCarColor || '');
   const [rentedVehicleRequired, setRentedVehicleRequired] = useState(initialData?.rentedVehicleRequired || 'no');
   const [rentedVehicleLegs, setRentedVehicleLegs] = useState(
-    initialData?.rentedVehicleLegs?.length ? initialData.rentedVehicleLegs : [{ pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' }, { pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' }]
+    initialData?.rentedVehicleLegs?.length ? initialData.rentedVehicleLegs : [{ pickupPoint: '', dropOffPoint: '', vehicleType: 'Automatic' }, { pickupPoint: '', dropOffPoint: '', vehicleType: 'Automatic' }]
   );
   const [visaRequired, setVisaRequired] = useState(initialData?.visaRequired || 'no');
   const [baggageRequired, setBaggageRequired] = useState(initialData?.baggageRequired || 'no');
@@ -134,7 +134,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     stayTo: initialData?.stayTo || '',
     pickupPoint: initialData?.pickupPoint || '',
     dropOffPoint: initialData?.dropOffPoint || '',
-    vehicleType: initialData?.vehicleType || 'Manual',
+    vehicleType: initialData?.vehicleType || 'Automatic',
     hotelFrom: initialData?.hotelFrom || '',
     hotelTo: initialData?.hotelTo || '',
     hotelNumberOfDays: initialData?.hotelNumberOfDays || '',
@@ -269,7 +269,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     const updated = [...multiCityLegs, { ...defaultLeg(), fromCity: newFromCity }];
     setMultiCityLegs(updated);
     // Sync rented vehicle legs
-    const updatedVehicleLegs = [...rentedVehicleLegs, { pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' }];
+    const updatedVehicleLegs = [...rentedVehicleLegs, { pickupPoint: '', dropOffPoint: '', vehicleType: 'Automatic' }];
     setRentedVehicleLegs(updatedVehicleLegs);
     if (newFromCity) setAutoFilledLegs(prev => new Set([...prev, updated.length - 1]));
     emit({ multiCityLegs: updated, rentedVehicleLegs: updatedVehicleLegs });
@@ -280,7 +280,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     const updated = multiCityLegs.filter((_, i) => i !== index);
     setMultiCityLegs(updated);
     const updatedVehicleLegs = rentedVehicleLegs.filter((_, i) => i !== index);
-    setRentedVehicleLegs(updatedVehicleLegs.length ? updatedVehicleLegs : [{ pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' }]);
+    setRentedVehicleLegs(updatedVehicleLegs.length ? updatedVehicleLegs : [{ pickupPoint: '', dropOffPoint: '', vehicleType: 'Automatic' }]);
     setAutoFilledLegs(prev => {
       const s = new Set();
       prev.forEach(i => { if (i < index) s.add(i); else if (i > index) s.add(i - 1); });
@@ -444,50 +444,105 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                         <TextField fullWidth label="To City *" name="toCity" value={roundTrip.toCity}
                           onChange={handleRoundTripChange} size="small" required />
                       </Grid>
-                      <Grid item xs={12} md={3}>
-                        <TextField fullWidth label="Departure Date" name="departureDate" type="date"
-                          value={roundTrip.departureDate} onChange={handleRoundTripChange}
-                          slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
-                      </Grid>
-                      <Grid item xs={12} md={3}>
-                        <TextField fullWidth label="Arrival Date" name="arrivalDate" type="date"
-                          value={roundTrip.arrivalDate} onChange={handleRoundTripChange}
-                          slotProps={{ inputLabel: { shrink: true } }}
-                          inputProps={{ min: roundTrip.departureDate || today }}
-                          size="small"
-                          error={!!(roundTrip.arrivalDate && roundTrip.departureDate && roundTrip.arrivalDate < roundTrip.departureDate)}
-                          helperText={roundTrip.arrivalDate && roundTrip.departureDate && roundTrip.arrivalDate < roundTrip.departureDate ? 'Arrival date cannot be before departure date' : ''} />
-                        <Box sx={{ mt: 0.5 }}>
-                          <Typography variant="caption" color="text.secondary">Flexible date?</Typography>
-                          <RadioGroup row value={rtArrivalFlex ? 'yes' : 'no'} onChange={(e) => {
-                            const isFlex = e.target.value === 'yes';
-                            setRtArrivalFlex(isFlex);
-                            const u = isFlex
-                              ? { ...roundTrip, arrivalDate: '' }
-                              : { ...roundTrip, arrivalDateFlexFrom: '', arrivalDateFlexTo: '' };
-                            setRoundTrip(u); emit({ roundTrip: u });
-                          }} sx={{ ml: 0.5 }}>
-                            <FormControlLabel value="yes" control={<Radio size="small" />} label={<Typography variant="caption">Yes</Typography>} />
-                            <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption">No</Typography>} />
-                          </RadioGroup>
-                          {rtArrivalFlex && (
-                            <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                              <Grid item xs={6}>
-                                <TextField fullWidth label="From" name="arrivalDateFlexFrom" type="date"
-                                  value={roundTrip.arrivalDateFlexFrom || ''} onChange={handleRoundTripChange}
-                                  slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: roundTrip.departureDate || today }} size="small" />
-                              </Grid>
-                              <Grid item xs={6}>
-                                <TextField fullWidth label="To" name="arrivalDateFlexTo" type="date"
-                                  value={roundTrip.arrivalDateFlexTo || ''} onChange={handleRoundTripChange}
-                                  slotProps={{ inputLabel: { shrink: true } }}
-                                  inputProps={{ min: roundTrip.arrivalDateFlexFrom || roundTrip.departureDate || today }}
-                                  size="small"
-                                  error={!!(roundTrip.arrivalDateFlexTo && roundTrip.arrivalDateFlexFrom && roundTrip.arrivalDateFlexTo < roundTrip.arrivalDateFlexFrom)}
-                                  helperText={roundTrip.arrivalDateFlexTo && roundTrip.arrivalDateFlexFrom && roundTrip.arrivalDateFlexTo < roundTrip.arrivalDateFlexFrom ? 'End date cannot be before start date' : ''} />
-                              </Grid>
-                            </Grid>
-                          )}
+                      <Grid item xs={12} md={6}>
+                        {/* Departure → Arrival date range grouped together */}
+                        <Box sx={{
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                        }}>
+                          {/* Header bar */}
+                          <Box sx={{
+                            px: 1.5, py: 0.75,
+                            bgcolor: 'primary.main',
+                            display: 'flex', alignItems: 'center', gap: 1,
+                          }}>
+                            <FlightTakeoffIcon sx={{ color: '#fff', fontSize: 14 }} />
+                            <Typography variant="caption" fontWeight={700} sx={{ color: '#fff', letterSpacing: 0.4 }}>
+                              Travel Dates
+                            </Typography>
+                          </Box>
+
+                          <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+                            {/* Departure */}
+                            <Box sx={{ flex: 1, p: 1.5, borderRight: '1px solid', borderColor: 'divider' }}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                Departure
+                              </Typography>
+                              <TextField
+                                fullWidth
+                                name="departureDate"
+                                type="date"
+                                value={roundTrip.departureDate}
+                                onChange={handleRoundTripChange}
+                                slotProps={{ inputLabel: { shrink: true } }}
+                                inputProps={{ min: today }}
+                                size="small"
+                                variant="standard"
+                                sx={{ '& .MuiInput-underline:before': { borderBottom: 'none' }, '& .MuiInput-underline:hover:before': { borderBottom: '1px solid rgba(0,0,0,0.2)' } }}
+                              />
+                            </Box>
+
+                            {/* Arrow divider */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', px: 1, bgcolor: 'grey.50' }}>
+                              <Typography sx={{ color: 'text.disabled', fontSize: 18, lineHeight: 1 }}>→</Typography>
+                            </Box>
+
+                            {/* Arrival */}
+                            <Box sx={{ flex: 1, p: 1.5 }}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                                Arrival
+                              </Typography>
+                              <TextField
+                                fullWidth
+                                name="arrivalDate"
+                                type="date"
+                                value={roundTrip.arrivalDate}
+                                onChange={handleRoundTripChange}
+                                slotProps={{ inputLabel: { shrink: true } }}
+                                inputProps={{ min: roundTrip.departureDate || today }}
+                                size="small"
+                                variant="standard"
+                                error={!!(roundTrip.arrivalDate && roundTrip.departureDate && roundTrip.arrivalDate < roundTrip.departureDate)}
+                                helperText={roundTrip.arrivalDate && roundTrip.departureDate && roundTrip.arrivalDate < roundTrip.departureDate ? 'Cannot be before departure' : ''}
+                                sx={{ '& .MuiInput-underline:before': { borderBottom: 'none' }, '& .MuiInput-underline:hover:before': { borderBottom: '1px solid rgba(0,0,0,0.2)' } }}
+                              />
+                              {/* Flexible arrival */}
+                              <Box sx={{ mt: 0.5 }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem' }}>Flexible?</Typography>
+                                <RadioGroup row value={rtArrivalFlex ? 'yes' : 'no'} onChange={(e) => {
+                                  const isFlex = e.target.value === 'yes';
+                                  setRtArrivalFlex(isFlex);
+                                  const u = isFlex
+                                    ? { ...roundTrip, arrivalDate: '' }
+                                    : { ...roundTrip, arrivalDateFlexFrom: '', arrivalDateFlexTo: '' };
+                                  setRoundTrip(u); emit({ roundTrip: u });
+                                }} sx={{ ml: 0.5 }}>
+                                  <FormControlLabel value="yes" control={<Radio size="small" />} label={<Typography variant="caption">Yes</Typography>} />
+                                  <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption">No</Typography>} />
+                                </RadioGroup>
+                                {rtArrivalFlex && (
+                                  <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                                    <Grid item xs={6}>
+                                      <TextField fullWidth label="From" name="arrivalDateFlexFrom" type="date"
+                                        value={roundTrip.arrivalDateFlexFrom || ''} onChange={handleRoundTripChange}
+                                        slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: roundTrip.departureDate || today }} size="small" />
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                      <TextField fullWidth label="To" name="arrivalDateFlexTo" type="date"
+                                        value={roundTrip.arrivalDateFlexTo || ''} onChange={handleRoundTripChange}
+                                        slotProps={{ inputLabel: { shrink: true } }}
+                                        inputProps={{ min: roundTrip.arrivalDateFlexFrom || roundTrip.departureDate || today }}
+                                        size="small"
+                                        error={!!(roundTrip.arrivalDateFlexTo && roundTrip.arrivalDateFlexFrom && roundTrip.arrivalDateFlexTo < roundTrip.arrivalDateFlexFrom)}
+                                        helperText={roundTrip.arrivalDateFlexTo && roundTrip.arrivalDateFlexFrom && roundTrip.arrivalDateFlexTo < roundTrip.arrivalDateFlexFrom ? 'End date cannot be before start date' : ''} />
+                                    </Grid>
+                                  </Grid>
+                                )}
+                              </Box>
+                            </Box>
+                          </Box>
                         </Box>
                       </Grid>
                     </Grid>
@@ -549,40 +604,28 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                           onChange={handleRoundTripChange} size="small" required />
                       </Grid>
                       <Grid item xs={12} md={4}>
-                        <TextField fullWidth label="Departure Date" name="departureDate" type="date"
-                          value={roundTrip.departureDate} onChange={handleRoundTripChange}
-                          slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
-                        <Box sx={{ mt: 0.5 }}>
-                          <Typography variant="caption" color="text.secondary">Flexible date?</Typography>
-                          <RadioGroup row value={rtDepartureFlex ? 'yes' : 'no'} onChange={(e) => {
-                            const isFlex = e.target.value === 'yes';
-                            setRtDepartureFlex(isFlex);
-                            const u = isFlex
-                              ? { ...roundTrip, departureDate: '' }
-                              : { ...roundTrip, departureDateFlexFrom: '', departureDateFlexTo: '' };
-                            setRoundTrip(u); emit({ roundTrip: u });
-                          }} sx={{ ml: 0.5 }}>
-                            <FormControlLabel value="yes" control={<Radio size="small" />} label={<Typography variant="caption">Yes</Typography>} />
-                            <FormControlLabel value="no" control={<Radio size="small" />} label={<Typography variant="caption">No</Typography>} />
-                          </RadioGroup>
-                          {rtDepartureFlex && (
-                            <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                              <Grid item xs={6}>
-                                <TextField fullWidth label="From" name="departureDateFlexFrom" type="date"
-                                  value={roundTrip.departureDateFlexFrom || ''} onChange={handleRoundTripChange}
-                                  slotProps={{ inputLabel: { shrink: true } }} inputProps={{ min: today }} size="small" />
-                              </Grid>
-                              <Grid item xs={6}>
-                                <TextField fullWidth label="To" name="departureDateFlexTo" type="date"
-                                  value={roundTrip.departureDateFlexTo || ''} onChange={handleRoundTripChange}
-                                  slotProps={{ inputLabel: { shrink: true } }}
-                                  inputProps={{ min: roundTrip.departureDateFlexFrom || today }}
-                                  size="small"
-                                  error={!!(roundTrip.departureDateFlexTo && roundTrip.departureDateFlexFrom && roundTrip.departureDateFlexTo < roundTrip.departureDateFlexFrom)}
-                                  helperText={roundTrip.departureDateFlexTo && roundTrip.departureDateFlexFrom && roundTrip.departureDateFlexTo < roundTrip.departureDateFlexFrom ? 'End date cannot be before start date' : ''} />
-                              </Grid>
-                            </Grid>
-                          )}
+                        {/* One-Way departure date styled box */}
+                        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+                          <Box sx={{ px: 1.5, py: 0.75, bgcolor: 'primary.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <FlightTakeoffIcon sx={{ color: '#fff', fontSize: 14 }} />
+                            <Typography variant="caption" fontWeight={700} sx={{ color: '#fff', letterSpacing: 0.4 }}>
+                              Departure Date
+                            </Typography>
+                          </Box>
+                          <Box sx={{ p: 1.5 }}>
+                            <TextField
+                              fullWidth
+                              name="departureDate"
+                              type="date"
+                              value={roundTrip.departureDate}
+                              onChange={handleRoundTripChange}
+                              slotProps={{ inputLabel: { shrink: true } }}
+                              inputProps={{ min: today }}
+                              size="small"
+                              variant="standard"
+                              sx={{ '& .MuiInput-underline:before': { borderBottom: 'none' }, '& .MuiInput-underline:hover:before': { borderBottom: '1px solid rgba(0,0,0,0.2)' } }}
+                            />
+                          </Box>
                         </Box>
                       </Grid>
                     </Grid>
@@ -866,30 +909,30 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                       {rentedVehicleRequired === 'yes' && (
                         <>
                           {(tripType === 'multiCity' ? multiCityLegs : multiCityLegs.slice(0, 1)).map((cityLeg, idx) => {
-                            const vLeg = rentedVehicleLegs[idx] || { pickupPoint: '', dropOffPoint: '', vehicleType: 'Manual' };
+                            const vLeg = rentedVehicleLegs[idx] || { pickupPoint: '', dropOffPoint: '', vehicleType: 'Automatic' };
                             return (
-                              <Box key={idx} sx={{ mb: 1.5, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                              <Box key={idx} sx={{ mb: 1.5, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                                 {tripType === 'multiCity' && (
                                   <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                                     Leg {idx + 1}: {cityLeg.fromCity || '?'} → {cityLeg.toCity || '?'}
                                   </Typography>
                                 )}
                                 <Grid container spacing={2}>
-                                  <Grid item xs={12} md={4}>
+                                  <Grid item xs={12} md={5}>
                                     <TextField fullWidth label="Pick-up Point" size="small" value={vLeg.pickupPoint}
-                                      onChange={(e) => { const u = rentedVehicleLegs.map((l,i) => i===idx ? {...l, pickupPoint: e.target.value} : l); while(u.length <= idx) u.push({ pickupPoint:'', dropOffPoint:'', vehicleType:'Manual' }); setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
+                                      onChange={(e) => { const u = rentedVehicleLegs.map((l,i) => i===idx ? {...l, pickupPoint: e.target.value} : l); while(u.length <= idx) u.push({ pickupPoint:'', dropOffPoint:'', vehicleType:'Automatic' }); setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
                                       placeholder="e.g., Airport, City Centre" />
                                   </Grid>
-                                  <Grid item xs={12} md={4}>
+                                  <Grid item xs={12} md={5}>
                                     <TextField fullWidth label="Drop-off Point" size="small" value={vLeg.dropOffPoint}
-                                      onChange={(e) => { const u = rentedVehicleLegs.map((l,i) => i===idx ? {...l, dropOffPoint: e.target.value} : l); while(u.length <= idx) u.push({ pickupPoint:'', dropOffPoint:'', vehicleType:'Manual' }); setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
+                                      onChange={(e) => { const u = rentedVehicleLegs.map((l,i) => i===idx ? {...l, dropOffPoint: e.target.value} : l); while(u.length <= idx) u.push({ pickupPoint:'', dropOffPoint:'', vehicleType:'Automatic' }); setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
                                       placeholder="e.g., Hotel, Airport" />
                                   </Grid>
-                                  <Grid item xs={12} md={4}>
-                                    <TextField fullWidth select label="Manual/Automatic" size="small" value={vLeg.vehicleType || 'Manual'}
-                                      onChange={(e) => { const u = rentedVehicleLegs.map((l,i) => i===idx ? {...l, vehicleType: e.target.value} : l); while(u.length <= idx) u.push({ pickupPoint:'', dropOffPoint:'', vehicleType:'Manual' }); setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}>
-                                      <MenuItem value="Manual">Manual</MenuItem>
+                                  <Grid item xs={12} md={2}>
+                                    <TextField fullWidth select label="Transmission" size="small" value={vLeg.vehicleType || 'Automatic'}
+                                      onChange={(e) => { const u = rentedVehicleLegs.map((l,i) => i===idx ? {...l, vehicleType: e.target.value} : l); while(u.length <= idx) u.push({ pickupPoint:'', dropOffPoint:'', vehicleType:'Automatic' }); setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}>
                                       <MenuItem value="Automatic">Automatic</MenuItem>
+                                      <MenuItem value="Manual">Manual</MenuItem>
                                     </TextField>
                                   </Grid>
                                 </Grid>
@@ -943,7 +986,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                             <FormControlLabel control={<Checkbox checked={foodOptions.breakfastIncl} onChange={handleFoodChange} name="breakfastIncl" size="small" />} label="Breakfast Incl." />
                             <FormControlLabel control={<Checkbox checked={foodOptions.veg} onChange={handleFoodChange} name="veg" size="small" />} label="Veg" />
                             <FormControlLabel control={<Checkbox checked={foodOptions.vegan} onChange={handleFoodChange} name="vegan" size="small" />} label="Vegan" />
-                            <FormControlLabel control={<Checkbox checked={foodOptions.nonVegan} onChange={handleFoodChange} name="nonVegan" size="small" />} label="Non-Vegan" />
+                            <FormControlLabel control={<Checkbox checked={foodOptions.nonVegan} onChange={handleFoodChange} name="nonVegan" size="small" />} label="Non-Veg" />
                           </FormGroup>
                         </Grid>
                         <Grid item xs={12} md={4}>
@@ -968,27 +1011,29 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                         </FormControl>
                       </Box>
                       {baggageRequired === 'yes' && (
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid item xs={12} md={4}>
-                            <FormControlLabel
-                              control={<Checkbox size="small" checked={travelData.baggageCabinBag || false}
-                                onChange={(e) => handleFieldChange({ target: { name: 'baggageCabinBag', value: e.target.checked } })} />}
-                              label="a. Cabin Bag" />
+                        <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                          <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={12} md={3}>
+                              <FormControlLabel
+                                control={<Checkbox size="small" checked={travelData.baggageCabinBag || false}
+                                  onChange={(e) => handleFieldChange({ target: { name: 'baggageCabinBag', value: e.target.checked } })} />}
+                                label="a. Cabin Bag" />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <FormControl fullWidth size="small">
+                                <InputLabel shrink>b. No. of Check-in Bags</InputLabel>
+                                <Select label="b. No. of Check-in Bags" name="baggageCheckIn"
+                                  displayEmpty
+                                  value={travelData.baggageCheckIn || ''} onChange={handleFieldChange}>
+                                  <MenuItem value=""><em style={{ color: '#aaa' }}>Select no.</em></MenuItem>
+                                  {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                                    <MenuItem key={n} value={n}>{n}</MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Grid>
                           </Grid>
-                          <Grid item xs={12} md={4}>
-                            <FormControl fullWidth size="small">
-                              <InputLabel shrink>b. No. of Check-in Bags</InputLabel>
-                              <Select label="b. No. of Check-in Bags" name="baggageCheckIn"
-                                displayEmpty
-                                value={travelData.baggageCheckIn || ''} onChange={handleFieldChange}>
-                                <MenuItem value=""><em style={{ color: '#aaa' }}>Select no.</em></MenuItem>
-                                {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                                  <MenuItem key={n} value={n}>{n}</MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                          </Grid>
-                        </Grid>
+                        </Box>
                       )}
                     </Box>
                   )}
@@ -1189,26 +1234,26 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                         </RadioGroup>
                       </FormControl>
                       {rentedVehicleRequired === 'yes' && (
-                        <Box sx={{ p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                        <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                           <Grid container spacing={2}>
-                            <Grid item xs={12} md={4}>
+                            <Grid item xs={12} md={5}>
                               <TextField fullWidth label="Pick-up Point" size="small"
                                 value={rentedVehicleLegs[0]?.pickupPoint || ''}
                                 onChange={(e) => { const u = [{ ...rentedVehicleLegs[0], pickupPoint: e.target.value }]; setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
                                 placeholder="e.g., Airport, City Centre" />
                             </Grid>
-                            <Grid item xs={12} md={4}>
+                            <Grid item xs={12} md={5}>
                               <TextField fullWidth label="Drop-off Point" size="small"
                                 value={rentedVehicleLegs[0]?.dropOffPoint || ''}
                                 onChange={(e) => { const u = [{ ...rentedVehicleLegs[0], dropOffPoint: e.target.value }]; setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}
                                 placeholder="e.g., Hotel, Station" />
                             </Grid>
-                            <Grid item xs={12} md={4}>
-                              <TextField fullWidth select label="Manual/Automatic" size="small"
-                                value={rentedVehicleLegs[0]?.vehicleType || 'Manual'}
+                            <Grid item xs={12} md={2}>
+                              <TextField fullWidth select label="Transmission" size="small"
+                                value={rentedVehicleLegs[0]?.vehicleType || 'Automatic'}
                                 onChange={(e) => { const u = [{ ...rentedVehicleLegs[0], vehicleType: e.target.value }]; setRentedVehicleLegs(u); emit({ rentedVehicleLegs: u }); }}>
-                                <MenuItem value="Manual">Manual</MenuItem>
                                 <MenuItem value="Automatic">Automatic</MenuItem>
+                                <MenuItem value="Manual">Manual</MenuItem>
                               </TextField>
                             </Grid>
                           </Grid>
@@ -1259,7 +1304,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                             <FormControlLabel control={<Checkbox checked={foodOptions.breakfastIncl} onChange={handleFoodChange} name="breakfastIncl" size="small" />} label="Breakfast Incl." />
                             <FormControlLabel control={<Checkbox checked={foodOptions.veg} onChange={handleFoodChange} name="veg" size="small" />} label="Veg" />
                             <FormControlLabel control={<Checkbox checked={foodOptions.vegan} onChange={handleFoodChange} name="vegan" size="small" />} label="Vegan" />
-                            <FormControlLabel control={<Checkbox checked={foodOptions.nonVegan} onChange={handleFoodChange} name="nonVegan" size="small" />} label="Non-Vegan" />
+                            <FormControlLabel control={<Checkbox checked={foodOptions.nonVegan} onChange={handleFoodChange} name="nonVegan" size="small" />} label="Non-Veg" />
                           </FormGroup>
                         </Grid>
                         <Grid item xs={12} md={4}>
@@ -1308,27 +1353,29 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                         </FormControl>
                       </Box>
                       {baggageRequired === 'yes' && (
-                        <Grid container spacing={2} alignItems="center">
-                          <Grid item xs={12} md={4}>
-                            <FormControlLabel
-                              control={<Checkbox size="small" checked={travelData.baggageCabinBag || false}
-                                onChange={(e) => handleFieldChange({ target: { name: 'baggageCabinBag', value: e.target.checked } })} />}
-                              label="a. Cabin Bag" />
+                        <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                          <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={12} md={3}>
+                              <FormControlLabel
+                                control={<Checkbox size="small" checked={travelData.baggageCabinBag || false}
+                                  onChange={(e) => handleFieldChange({ target: { name: 'baggageCabinBag', value: e.target.checked } })} />}
+                                label="a. Cabin Bag" />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <FormControl fullWidth size="small">
+                                <InputLabel shrink>b. No. of Check-in Bags</InputLabel>
+                                <Select label="b. No. of Check-in Bags" name="baggageCheckIn"
+                                  displayEmpty
+                                  value={travelData.baggageCheckIn || ''} onChange={handleFieldChange}>
+                                  <MenuItem value=""><em style={{ color: '#aaa' }}>Select no.</em></MenuItem>
+                                  {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                                    <MenuItem key={n} value={n}>{n}</MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Grid>
                           </Grid>
-                          <Grid item xs={12} md={4}>
-                            <FormControl fullWidth size="small">
-                              <InputLabel shrink>b. No. of Check-in Bags</InputLabel>
-                              <Select label="b. No. of Check-in Bags" name="baggageCheckIn"
-                                displayEmpty
-                                value={travelData.baggageCheckIn || ''} onChange={handleFieldChange}>
-                                <MenuItem value=""><em style={{ color: '#aaa' }}>Select no.</em></MenuItem>
-                                {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                                  <MenuItem key={n} value={n}>{n}</MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                          </Grid>
-                        </Grid>
+                        </Box>
                       )}
                     </Box>
                   )}
