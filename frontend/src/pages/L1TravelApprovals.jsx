@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axiosClient from '../api/axiosClient';
+import axiosClient, { getFileUrl } from '../api/axiosClient';
 import {
   Box, Card, CardContent, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Button, Dialog, DialogTitle,
@@ -8,7 +8,7 @@ import {
   IconButton, LinearProgress, MenuItem,
 } from '@mui/material';
 import {
-  CheckCircle, Cancel, Visibility, CloudUpload, Delete, AttachFile,
+  CheckCircle, Cancel, Visibility, CloudUpload, Delete, AttachFile, InsertDriveFile,
 } from '@mui/icons-material';
 
 const L1TravelApprovals = () => {
@@ -649,6 +649,52 @@ const L1TravelApprovals = () => {
           {selectedRequest && (
             <>
               {renderTravelDetails(selectedRequest.travel_form_data)}
+
+              {/* ── Attachments ── */}
+              {(() => {
+                const attachments = Array.isArray(selectedRequest.attachments)
+                  ? selectedRequest.attachments
+                  : [];
+                if (attachments.length === 0) return null;
+                return (
+                  <Box sx={{ mt: 2.5 }}>
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: 'primary.main', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.5 }}>
+                      Attachments ({attachments.length})
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                      {attachments.map((item, i) => {
+                        // attachments can be objects {filename, originalName} or plain strings
+                        const filename = typeof item === 'string' ? item : (item?.filename || item?.originalName || String(item));
+                        const displayName = typeof item === 'string'
+                          ? filename.replace(/^\d+-\d+-/, '')
+                          : (item?.originalName || filename.replace(/^\d+-\d+-/, ''));
+                        const fileUrl = getFileUrl(`/uploads/${filename}`);
+                        const isImage = /\.(jpg|jpeg|png|gif|webp|PNG|JPG|JPEG)$/i.test(filename);
+                        const isPdf = /\.pdf$/i.test(filename);
+                        return (
+                          <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, bgcolor: 'action.hover', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                            <InsertDriveFile sx={{ color: isPdf ? 'error.main' : isImage ? 'primary.main' : 'text.secondary', fontSize: 20, flexShrink: 0 }} />
+                            <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all', fontSize: '0.8125rem' }}>
+                              {displayName}
+                            </Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              sx={{ flexShrink: 0, textTransform: 'none', fontSize: '0.75rem' }}
+                            >
+                              {isImage ? 'View' : 'Open'}
+                            </Button>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                );
+              })()}
+
               <Box sx={{ mt: 1, mb: 1 }}>
                 <Typography variant="caption" color="text.secondary">
                   Submitted: {formatDate(selectedRequest.created_at)} &nbsp;|&nbsp; Email: {selectedRequest.employee_email}
