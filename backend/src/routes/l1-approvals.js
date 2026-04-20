@@ -242,6 +242,7 @@ router.put('/:id/approve', async (req, res) => {
         to: request.employee_email, 
         subject, 
         html,
+        from: process.env.TRAVEL_ADMIN_EMAIL,
         replyTo: managerEmail
       });
     } catch (e) {
@@ -310,7 +311,7 @@ router.put('/:id/approve', async (req, res) => {
 </body></html>`;
 
       for (const adminEmail of adminEmails) {
-        sendEmail({ to: adminEmail, subject: approvalSubject, html: approvalHtml, replyTo: managerEmail })
+        sendEmail({ to: adminEmail, subject: approvalSubject, html: approvalHtml, from: process.env.TRAVEL_ADMIN_EMAIL, replyTo: managerEmail })
           .catch((e) => console.error(`Failed to send admin approval notification to ${adminEmail}:`, e.message));
       }
     } catch (e) {
@@ -387,6 +388,7 @@ router.put('/:id/reject', async (req, res) => {
         to: request.employee_email, 
         subject, 
         html,
+        from: process.env.TRAVEL_ADMIN_EMAIL,
         replyTo: managerEmail
       });
     } catch (e) {

@@ -317,7 +317,7 @@ router.post('/:requestId/send', async (req, res) => {
       adminRemarks,
     });
 
-    await sendEmail({ to: request.employee_email, subject, html, attachments: emailAttachments });
+    await sendEmail({ to: request.employee_email, subject, html, from: process.env.TRAVEL_ADMIN_EMAIL, attachments: emailAttachments });
 
     // Book Teams/Outlook calendar event for the employee
     try {
