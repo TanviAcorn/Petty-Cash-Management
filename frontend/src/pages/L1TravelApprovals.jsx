@@ -33,6 +33,14 @@ const L1TravelApprovals = () => {
   const [uploadAlert, setUploadAlert] = useState(null);
   const globalFileRef = useRef();
 
+  // View Sent Details dialog state
+  const [viewSentOpen, setViewSentOpen] = useState(false);
+  const [viewSentRequest, setViewSentRequest] = useState(null);
+  const [viewSentDocs, setViewSentDocs] = useState([]);
+  const [viewSentDetails, setViewSentDetails] = useState({});
+  const [viewSentRemarks, setViewSentRemarks] = useState('');
+  const [viewSentLoading, setViewSentLoading] = useState(false);
+
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -239,6 +247,31 @@ const L1TravelApprovals = () => {
     }
 
     setUploadOpen(true);
+  };
+
+  const openViewSentDialog = async (request) => {
+    setViewSentRequest(request);
+    setViewSentDocs([]);
+    setViewSentDetails({});
+    setViewSentRemarks('');
+    setViewSentOpen(true);
+    setViewSentLoading(true);
+    try {
+      const [docsRes, draftRes] = await Promise.all([
+        axiosClient.get(`/travel-documents/${request.id}`),
+        axiosClient.get(`/travel-documents/${request.id}/draft`),
+      ]);
+      setViewSentDocs(docsRes.data?.data || []);
+      const draft = draftRes.data?.data;
+      if (draft) {
+        setViewSentDetails(draft.details || {});
+        setViewSentRemarks(draft.globalRemarks || '');
+      }
+    } catch (err) {
+      console.error('Failed to load sent details:', err);
+    } finally {
+      setViewSentLoading(false);
+    }
   };
 
   const saveDraft = async () => {
@@ -628,7 +661,18 @@ const L1TravelApprovals = () => {
                               </Button>
                             )}
                             {isApproved && request.travel_docs_sent_at && (
-                              <Chip label="Details Sent" color="success" size="small" icon={<CheckCircle />} />
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                <Chip label="Details Sent" color="success" size="small" icon={<CheckCircle />} />
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="info"
+                                  startIcon={<Visibility />}
+                                  onClick={() => openViewSentDialog(request)}
+                                >
+                                  View Sent Details
+                                </Button>
+                              </Box>
                             )}
                           </Box>
                         </TableCell>
@@ -975,6 +1019,122 @@ const L1TravelApprovals = () => {
           >
             {uploadSending ? 'Sending...' : `Save & Send to ${uploadRequest?.employeeFirstName || 'Employee'}`}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── View Sent Details Dialog ───────────────────────────────────────── */}
+      <Dialog open={viewSentOpen} onClose={() => setViewSentOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Visibility color="info" />
+            <Box>
+              <Typography variant="h6" fontWeight={700}>Sent Travel Details</Typography>
+              {viewSentRequest && (
+                <Typography variant="caption" color="text.secondary">
+                  {viewSentRequest.employeeFirstName} {viewSentRequest.employeeLastName} — Request #{viewSentRequest.id}
+                  {viewSentRequest.travel_docs_sent_at && (
+                    <> &nbsp;·&nbsp; Sent on {new Date(viewSentRequest.travel_docs_sent_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</>
+                  )}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ p: 3 }}>
+          {viewSentLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <LinearProgress sx={{ width: '60%' }} />
+            </Box>
+          ) : (
+            <>
+              {/* Section details */}
+              {Object.keys(viewSentDetails).length > 0 ? (
+                Object.entries(viewSentDetails).map(([sectionKey, fields]) => {
+                  const hasValues = Object.values(fields || {}).some(v => v?.trim());
+                  if (!hasValues) return null;
+                  const baseKey = sectionKey.replace(/_leg_\d+$/, '');
+                  const sectionLabel = SECTION_CONFIG[baseKey]?.label || sectionKey;
+                  return (
+                    <Box key={sectionKey} sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" fontWeight={700} color="primary.main" sx={{ mb: 1, textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.5 }}>
+                        {sectionLabel}
+                      </Typography>
+                      <Box sx={{ bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200', overflow: 'hidden' }}>
+                        {Object.entries(fields).filter(([, v]) => v?.trim()).map(([fieldKey, value]) => {
+                          const fieldLabel = SECTION_CONFIG[baseKey]?.fields?.find(f => f.key === fieldKey)?.label || fieldKey;
+                          return (
+                            <Box key={fieldKey} sx={{ display: 'flex', borderBottom: '1px solid', borderColor: 'grey.200', '&:last-child': { borderBottom: 0 } }}>
+                              <Box sx={{ width: 180, minWidth: 180, px: 2, py: 1, bgcolor: 'grey.100' }}>
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>{fieldLabel}</Typography>
+                              </Box>
+                              <Box sx={{ px: 2, py: 1, flex: 1 }}>
+                                <Typography variant="body2">{value}</Typography>
+                              </Box>
+                            </Box>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+                  );
+                })
+              ) : (
+                <Alert severity="info" sx={{ mb: 2 }}>No text details were saved for this request.</Alert>
+              )}
+
+              {/* Remarks */}
+              {viewSentRemarks && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" fontWeight={700} color="primary.main" sx={{ mb: 1, textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.5 }}>
+                    Additional Remarks
+                  </Typography>
+                  <Box sx={{ bgcolor: '#fffbeb', border: '1px solid', borderColor: 'warning.light', borderRadius: 1, px: 2, py: 1.5 }}>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{viewSentRemarks}</Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {/* Uploaded documents */}
+              <Box>
+                <Typography variant="subtitle2" fontWeight={700} color="primary.main" sx={{ mb: 1, textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.5 }}>
+                  Uploaded Documents ({viewSentDocs.length})
+                </Typography>
+                {viewSentDocs.length === 0 ? (
+                  <Alert severity="info">No documents were uploaded for this request.</Alert>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {viewSentDocs.map((doc) => (
+                      <Box key={doc.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200' }}>
+                        <InsertDriveFile color="primary" fontSize="small" />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" fontWeight={600} noWrap>{doc.original_name}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {doc.doc_type && <>{doc.doc_type} · </>}
+                            Uploaded {new Date(doc.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {doc.uploaded_by && <> by {doc.uploaded_by}</>}
+                          </Typography>
+                        </Box>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          href={getFileUrl(`/uploads/${doc.filename}`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          startIcon={<Visibility />}
+                        >
+                          View
+                        </Button>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            </>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setViewSentOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>
