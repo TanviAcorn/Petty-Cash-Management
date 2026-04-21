@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import axiosClient from '../api/axiosClient';
+import axiosClient, { getFileUrl } from '../api/axiosClient';
 import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Button, Chip,
-  InputAdornment, TextField, CircularProgress,
+  InputAdornment, TextField, CircularProgress, Dialog, DialogTitle,
+  DialogContent, DialogActions, Divider, Tooltip, LinearProgress,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
   Search, FileDownload, TrendingUp,
   FlightTakeoff, Hotel, Restaurant, LocalParking,
-  Luggage, DirectionsCar, ReceiptLong,
+  Luggage, DirectionsCar, ReceiptLong, OpenInNew, InsertDriveFile, Close,
 } from '@mui/icons-material';
 
 const COST_COLS = [
@@ -30,6 +31,17 @@ const fmt = (val, currency = 'GBP') => {
   catch { return `${currency} ${n.toFixed(2)}`; }
 };
 
+// Maps cost column key → doc_type tag used when uploading
+const COST_TO_DOC_TYPE = {
+  flight_cost:    'flights',
+  hotel_cost:     'hotel',
+  food_cost:      'food',
+  car_park_cost:  'carPark',
+  visa_cost:      'visa',
+  baggage_cost:   'baggage',
+  transport_cost: 'rentedVehicle',
+};
+
 export default function TravelCostAudit() {
   const [rows, setSummaryRows] = useState([]);
   const [summary, setSummary]  = useState(null);
@@ -37,6 +49,16 @@ export default function TravelCostAudit() {
   const [search, setSearch]    = useState('');
   const [fromDate, setFromDate]= useState('');
   const [toDate, setToDate]    = useState('');
+
+  // Request detail modal
+  const [reqModal, setReqModal]       = useState(null);   // full request object
+  const [reqModalOpen, setReqModalOpen] = useState(false);
+  const [reqLoading, setReqLoading]   = useState(false);
+
+  // Doc viewer modal
+  const [docModal, setDocModal]       = useState(null);   // { costKey, label, docs[] }
+  const [docModalOpen, setDocModalOpen] = useState(false);
+  const [docLoading, setDocLoading]   = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -58,6 +80,47 @@ export default function TravelCostAudit() {
   }, [fromDate, toDate]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const openRequestModal = async (requestId) => {
+    setReqLoading(true);
+    setReqModalOpen(true);
+    setReqModal(null);
+    try {
+      const res = await axiosClient.get(`/l1-approvals/${requestId}`);
+      setReqModal(res.data?.data || null);
+    } catch (err) {
+      console.error('Failed to fetch request:', err);
+    } finally {
+      setReqLoading(false);
+    }
+  };
+
+  const openDocModal = async (row, costKey, label) => {
+    setDocLoading(true);
+    setDocModalOpen(true);
+    setDocModal({ costKey, label, docs: [] });
+    try {
+      const [docsRes, draftRes] = await Promise.all([
+        axiosClient.get(`/travel-documents/${row.request_id}`),
+        axiosClient.get(`/travel-documents/${row.request_id}/draft`),
+      ]);
+      const allDocs = docsRes.data?.data || [];
+      const docType = COST_TO_DOC_TYPE[costKey];
+      // Filter docs matching this section; if none tagged, show all
+      const filtered = allDocs.filter(d => d.doc_type === docType);
+      const docs = filtered.length ? filtered : allDocs;
+
+      // Also pull the text details for this section from draft
+      const draft = draftRes.data?.data;
+      const sectionDetails = draft?.details?.[docType] || {};
+
+      setDocModal({ costKey, label, docs, sectionDetails, requestId: row.request_id });
+    } catch (err) {
+      console.error('Failed to fetch docs:', err);
+    } finally {
+      setDocLoading(false);
+    }
+  };
 
   const filtered = rows.filter(r =>
     !search || [r.employee_name, r.employee_email, r.trip_summary]
@@ -175,7 +238,15 @@ export default function TravelCostAudit() {
                   {filtered.map(row => (
                     <TableRow key={row.id} hover>
                       <TableCell>
-                        <Chip label={`#${row.request_id}`} size="small" color="primary" variant="outlined" />
+                        <Chip
+                          label={`#${row.request_id}`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          onClick={() => openRequestModal(row.request_id)}
+                          icon={<OpenInNew sx={{ fontSize: '13px !important' }} />}
+                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'primary.50' } }}
+                        />
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight={600}>{row.employee_name}</Typography>
@@ -192,7 +263,19 @@ export default function TravelCostAudit() {
                       </TableCell>
                       {COST_COLS.map(c => (
                         <TableCell key={c.key} align="right">
-                          <Typography variant="body2">{fmt(row[c.key], row.currency)}</Typography>
+                          {parseFloat(row[c.key]) ? (
+                            <Tooltip title={`View ${c.label} documents`} arrow>
+                              <Typography
+                                variant="body2"
+                                onClick={() => openDocModal(row, c.key, c.label)}
+                                sx={{ cursor: 'pointer', color: c.color, fontWeight: 600, textDecoration: 'underline dotted', '&:hover': { opacity: 0.75 } }}
+                              >
+                                {fmt(row[c.key], row.currency)}
+                              </Typography>
+                            </Tooltip>
+                          ) : (
+                            <Typography variant="body2">{fmt(row[c.key], row.currency)}</Typography>
+                          )}
                         </TableCell>
                       ))}
                       <TableCell align="right">
@@ -208,6 +291,170 @@ export default function TravelCostAudit() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Request Detail Modal ─────────────────────────────────────────── */}
+      <Dialog open={reqModalOpen} onClose={() => setReqModalOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ReceiptLong color="primary" />
+            <Typography variant="h6" fontWeight={700}>
+              Request #{reqModal?.id} — {reqModal?.employee_name}
+            </Typography>
+          </Box>
+          <Button size="small" onClick={() => setReqModalOpen(false)} startIcon={<Close />}>Close</Button>
+        </DialogTitle>
+        <DialogContent dividers>
+          {reqLoading ? (
+            <Box sx={{ py: 4 }}><LinearProgress /></Box>
+          ) : reqModal ? (
+            <Box>
+              {/* Employee info */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
+                {[
+                  ['Employee', reqModal.employee_name],
+                  ['Email', reqModal.employee_email],
+                  ['Company', reqModal.company_name],
+                  ['Status', reqModal.status],
+                  ['L1 Status', reqModal.l1_approval_status],
+                  ['Submitted', reqModal.created_at ? new Date(reqModal.created_at).toLocaleDateString('en-GB') : '—'],
+                ].map(([label, value]) => (
+                  <Box key={label} sx={{ bgcolor: 'grey.50', borderRadius: 1, px: 2, py: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{value || '—'}</Typography>
+                  </Box>
+                ))}
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              {/* Travel form data */}
+              {(() => {
+                // Backend already parses travel_form_data — no need to JSON.parse again
+                const td = reqModal.travel_form_data || null;
+                if (!td) return null;
+                const fields = [
+                  ['Travel Type',        td.travelType],
+                  ['Trip Type',          td.tripType],
+                  ['Country',            td.countryOfTravel],
+                  ['Departure Airport',  td.preferredDepartureAirport],
+                  ['Destination Airport',td.destinationAirport],
+                  ['Nationality',        td.nationality],
+                  ['Visa Type',          td.visaType],
+                  ['From City',          td.roundTrip?.fromCity],
+                  ['To City',            td.roundTrip?.toCity],
+                  ['Departure Date',     td.roundTrip?.departureDate],
+                  ['Return Date',        td.roundTrip?.arrivalDate],
+                  ['City (Domestic)',    td.cityOfTravelDomestic],
+                  ['Date of Travel',     td.dateOfTravel],
+                  ['Place of Stay',      td.placeOfStay],
+                  ['Client Name',        td.clientName],
+                  ['Client Company',     td.clientCompany],
+                ].filter(([, v]) => v);
+
+                const reason = td.reasonOfTravel;
+
+                return (
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>Travel Details</Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: reason ? 2 : 0 }}>
+                      {fields.map(([label, value]) => (
+                        <Box key={label} sx={{ bgcolor: 'grey.50', borderRadius: 1, px: 2, py: 1 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
+                          <Typography variant="body2">{value}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                    {reason && (
+                      <Box sx={{ bgcolor: '#EFF6FF', border: '1px solid', borderColor: 'primary.100', borderRadius: 1, px: 2, py: 1.5 }}>
+                        <Typography variant="caption" color="text.secondary" fontWeight={600}>Reason of Travel</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.6 }}>{reason}</Typography>
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })()}
+            </Box>
+          ) : (
+            <Typography color="text.secondary">Could not load request details.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReqModalOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Doc Viewer Modal ─────────────────────────────────────────────── */}
+      <Dialog open={docModalOpen} onClose={() => setDocModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <InsertDriveFile color="primary" />
+            <Typography variant="h6" fontWeight={700}>
+              {docModal?.label} — Documents
+            </Typography>
+          </Box>
+          <Button size="small" onClick={() => setDocModalOpen(false)} startIcon={<Close />}>Close</Button>
+        </DialogTitle>
+        <DialogContent dividers>
+          {docLoading ? (
+            <Box sx={{ py: 4 }}><LinearProgress /></Box>
+          ) : (
+            <>
+              {/* Section text details */}
+              {docModal?.sectionDetails && Object.keys(docModal.sectionDetails).length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Saved Details</Typography>
+                  <Box sx={{ bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200', overflow: 'hidden' }}>
+                    {Object.entries(docModal.sectionDetails).filter(([, v]) => v?.trim()).map(([k, v]) => (
+                      <Box key={k} sx={{ display: 'flex', borderBottom: '1px solid', borderColor: 'grey.200', '&:last-child': { borderBottom: 0 } }}>
+                        <Box sx={{ width: 160, minWidth: 160, px: 2, py: 1, bgcolor: 'grey.100' }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'capitalize' }}>{k.replace(/([A-Z])/g, ' $1')}</Typography>
+                        </Box>
+                        <Box sx={{ px: 2, py: 1, flex: 1 }}>
+                          <Typography variant="body2">{v}</Typography>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Documents */}
+              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                Uploaded Files ({docModal?.docs?.length || 0})
+              </Typography>
+              {!docModal?.docs?.length ? (
+                <Typography variant="body2" color="text.secondary">No documents uploaded for this section.</Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {docModal.docs.map(doc => (
+                    <Box key={doc.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200' }}>
+                      <InsertDriveFile color="primary" fontSize="small" />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={600} noWrap>{doc.original_name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(doc.uploaded_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          {doc.uploaded_by && <> · {doc.uploaded_by}</>}
+                        </Typography>
+                      </Box>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        href={getFileUrl(`/uploads/${doc.filename}`)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        startIcon={<OpenInNew />}
+                      >
+                        Open
+                      </Button>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDocModalOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
