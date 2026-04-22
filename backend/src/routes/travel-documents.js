@@ -370,9 +370,15 @@ router.post('/:requestId/send', async (req, res) => {
     try { travelData = request.travel_form_data ? JSON.parse(request.travel_form_data) : null; } catch {}
 
     // Parse admin-entered details
+    // On resend, use NEW details from request body (original stays untouched in DB)
+    // On first send, read from DB (just saved by save-details)
     let adminDetails = {};
-    try { adminDetails = request.travel_admin_details ? JSON.parse(request.travel_admin_details) : {}; } catch {}
-    const adminRemarks = request.travel_admin_remarks || null;
+    if (isResend && req.body?.details && Object.keys(req.body.details).length > 0) {
+      adminDetails = req.body.details;
+    } else {
+      try { adminDetails = request.travel_admin_details ? JSON.parse(request.travel_admin_details) : {}; } catch {}
+    }
+    const adminRemarks = isResend ? (req.body?.globalRemarks || null) : (request.travel_admin_remarks || null);
 
     if (!skipEmail) {
       // Build attachments for email
