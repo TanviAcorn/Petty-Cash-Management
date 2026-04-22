@@ -162,6 +162,144 @@ async function sendPreTravelReminders() {
   }
 }
 
+async function sendJourneyStartsTomorrow() {
+  try {
+    const pool = await poolPromise;
+
+    // Find approved travel requests where departure is exactly tomorrow
+    const result = await pool.request().query(`
+      SELECT r.id, r.employee_name, r.employee_email, r.travel_form_data, r.travel_details
+      FROM petty_cash_requests r
+      WHERE r.category_name = 'Travel Request'
+        AND r.l1_approval_status = 'approved'
+        AND r.status NOT IN ('rejected')
+        AND (
+          TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.roundTrip.departureDate') AS DATE) = CAST(DATEADD(day, 1, GETUTCDATE()) AS DATE)
+          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.dateOfTravel') AS DATE) = CAST(DATEADD(day, 1, GETUTCDATE()) AS DATE)
+          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[0].date') AS DATE) = CAST(DATEADD(day, 1, GETUTCDATE()) AS DATE)
+        )
+    `);
+
+    console.log(`[FeedbackScheduler] Found ${result.recordset.length} trips departing tomorrow`);
+
+    for (const row of result.recordset) {
+      try {
+        let travelData = null;
+        try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+        if (!travelData) { try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {} }
+
+        const isIntl = travelData?.travelType === 'international';
+        const destination =
+          travelData?.roundTrip?.toCity ||
+          travelData?.multiCityLegs?.[0]?.toCity ||
+          travelData?.cityOfTravelDomestic ||
+          travelData?.countryOfTravel ||
+          'your destination';
+
+        const departureDate =
+          travelData?.roundTrip?.departureDate ||
+          travelData?.dateOfTravel ||
+          travelData?.multiCityLegs?.[0]?.date || '';
+
+        const formattedDate = departureDate
+          ? new Date(departureDate).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+          : 'tomorrow';
+
+        const firstName = row.employee_name?.split(' ')[0] || row.employee_name;
+
+        const subject = `🌍 Your journey to ${destination} starts tomorrow!`;
+
+        const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+
+    <!-- Header -->
+    <div style="background:#1d4ed8;padding:40px 28px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:52px;margin-bottom:12px;">✈️</div>
+      <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;font-family:Arial,sans-serif;">
+        Your Adventure Begins Tomorrow!
+      </h1>
+      <p style="margin:10px 0 0;color:#bfdbfe;font-size:15px;font-family:Arial,sans-serif;">
+        Get ready for an amazing journey 🌟
+      </p>
+    </div>
+
+    <!-- Body -->
+    <div style="background:#ffffff;padding:36px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+
+      <p style="margin:0 0 20px;color:#111827;font-size:16px;line-height:1.7;">
+        Hi <strong>${firstName}</strong>! 👋
+      </p>
+
+      <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.7;">
+        Your trip to <strong style="color:#1d4ed8;">${destination}</strong> is just <strong>one day away</strong>!
+        We hope you're all packed and excited for the journey ahead. 🎒
+      </p>
+
+      <!-- Trip highlight box -->
+      <div style="background:#eff6ff;border-radius:10px;padding:20px 24px;margin:24px 0;border-left:4px solid #1d4ed8;">
+        <p style="margin:0 0 8px;color:#1e40af;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Your Trip Details</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;width:130px;">Destination</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">${destination}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Departure</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">${formattedDate}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Trip Type</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">${isIntl ? '🌍 International' : '🏠 Domestic'}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Reference</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">Trip #${row.id}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Checklist -->
+      <div style="background:#f0fdf4;border-radius:10px;padding:18px 22px;margin:20px 0;border-left:4px solid #16a34a;">
+        <p style="margin:0 0 10px;color:#15803d;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">✅ Last-Minute Checklist</p>
+        <ul style="margin:0;padding-left:18px;color:#374151;font-size:14px;line-height:1.8;">
+          <li>Passport / ID documents ready</li>
+          <li>Travel documents & booking confirmations saved</li>
+          <li>Hotel check-in details confirmed</li>
+          <li>Local currency / cards ready</li>
+          <li>Emergency contacts noted</li>
+        </ul>
+      </div>
+
+      <p style="margin:24px 0 0;color:#374151;font-size:15px;line-height:1.7;text-align:center;">
+        Have a safe, smooth and wonderful trip! 🌟<br>
+        <span style="color:#6b7280;font-size:13px;">The PocketPro HR Team is wishing you Happy Journey.</span>
+      </p>
+
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top:16px;text-align:center;">
+      <p style="margin:0;color:#9ca3af;font-size:12px;">Automated notification from PocketPro HR · Trip #${row.id}</p>
+    </div>
+
+  </div>
+</body>
+</html>`;
+
+        await sendEmail({ to: row.employee_email, subject, html });
+        console.log(`[FeedbackScheduler] Sent journey-starts-tomorrow email for request #${row.id} to ${row.employee_email}`);
+      } catch (err) {
+        console.error(`[FeedbackScheduler] Journey email failed for #${row.id}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[FeedbackScheduler] Journey-starts-tomorrow error:', err);
+  }
+}
+
 async function sendPendingFeedbackEmails() {
   try {
     const pool = await poolPromise;
@@ -234,6 +372,7 @@ function startFeedbackScheduler() {
     console.log('[FeedbackScheduler] Running daily feedback check...');
     sendPendingFeedbackEmails();
     sendPreTravelReminders();
+    sendJourneyStartsTomorrow();
   });
 
   console.log('[FeedbackScheduler] Scheduled daily jobs at 09:00 UTC');
