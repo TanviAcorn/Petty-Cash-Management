@@ -5,10 +5,11 @@ import {
   Box, Card, CardContent, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Grid, Alert, Divider,
-  IconButton, LinearProgress, MenuItem,
+  IconButton, LinearProgress, MenuItem, Tooltip, FormControlLabel, Checkbox,
 } from '@mui/material';
 import {
   CheckCircle, Cancel, Visibility, CloudUpload, Delete, AttachFile, InsertDriveFile,
+  LockOutlined, Edit,
 } from '@mui/icons-material';
 
 const L1TravelApprovals = () => {
@@ -33,6 +34,9 @@ const L1TravelApprovals = () => {
   const [uploadAlert, setUploadAlert] = useState(null);
   const globalFileRef = useRef();
 
+  // Notify user checkbox in upload dialog
+  const [notifyUser, setNotifyUser] = useState(true);
+
   // View Sent Details dialog state
   const [viewSentOpen, setViewSentOpen] = useState(false);
   const [viewSentRequest, setViewSentRequest] = useState(null);
@@ -40,9 +44,35 @@ const L1TravelApprovals = () => {
   const [viewSentDetails, setViewSentDetails] = useState({});
   const [viewSentRemarks, setViewSentRemarks] = useState('');
   const [viewSentLoading, setViewSentLoading] = useState(false);
+  const [viewSentUpdates, setViewSentUpdates] = useState([]);
+  const [expandedVersion, setExpandedVersion] = useState(null); // Track which version is expanded
+
+  // Edit reason modal state
+  const [reasonModalOpen, setReasonModalOpen] = useState(false);
+  const [selectedReason, setSelectedReason] = useState('');
+  const [otherReasonText, setOtherReasonText] = useState('');
+
+  // L1 Edit Request state
+  const [editRequestOpen, setEditRequestOpen] = useState(false);
+  const [editRequestData, setEditRequestData] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [editSaving, setEditSaving] = useState(false);
+  const [editNotifyUser, setEditNotifyUser] = useState(true);
 
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+  // Reason options for Edit & Resend
+  const EDIT_REASON_OPTIONS = [
+    'Meeting / event rescheduled',
+    'Flight changed or cancelled',
+    'Hotel booking updated',
+    'Visa details changed',
+    'Travel dates modified',
+    'Destination changed',
+    'Additional documents required',
+    'Other',
+  ];
 
   useEffect(() => { fetchPendingRequests(); }, []);
 
@@ -101,6 +131,29 @@ const L1TravelApprovals = () => {
   };
 
   // ── Upload Travel Details helpers ──────────────────────────────────────────
+
+  // Returns the trip end date from travel_form_data (YYYY-MM-DD string or null)
+  const getTripEndDate = (td) => {
+    if (!td) return null;
+    if (td.travelType === 'domestic') {
+      return td.domesticDateFlexTo || td.dateOfTravel || null;
+    }
+    if (td.tripType === 'multiCity' && td.multiCityLegs?.length) {
+      const last = td.multiCityLegs[td.multiCityLegs.length - 1];
+      return last?.dateFlexTo || last?.date || null;
+    }
+    // Round trip or one-way
+    return td.roundTrip?.arrivalDateFlexTo || td.roundTrip?.arrivalDate || null;
+  };
+
+  // Returns true if today is strictly after the trip end date (trip is over → locked)
+  const isTripLocked = (td) => {
+    const endDate = getTripEndDate(td);
+    if (!endDate) return false; // no end date = never lock
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999); // lock after end of that day
+    return new Date() > end;
+  };
 
   const SECTION_CONFIG = {
     flights: {
@@ -228,6 +281,7 @@ const L1TravelApprovals = () => {
     setGlobalFiles([]);
     setCostDetails({});
     setCurrency('GBP');
+    setNotifyUser(true);
     setUploadAlert(null);
 
     // Load existing draft if any
@@ -254,12 +308,14 @@ const L1TravelApprovals = () => {
     setViewSentDocs([]);
     setViewSentDetails({});
     setViewSentRemarks('');
+    setExpandedVersion(null);
     setViewSentOpen(true);
     setViewSentLoading(true);
     try {
-      const [docsRes, draftRes] = await Promise.all([
+      const [docsRes, draftRes, updatesRes] = await Promise.all([
         axiosClient.get(`/travel-documents/${request.id}`),
         axiosClient.get(`/travel-documents/${request.id}/draft`),
+        axiosClient.get(`/travel-documents/${request.id}/updates`),
       ]);
       setViewSentDocs(docsRes.data?.data || []);
       const draft = draftRes.data?.data;
@@ -267,11 +323,139 @@ const L1TravelApprovals = () => {
         setViewSentDetails(draft.details || {});
         setViewSentRemarks(draft.globalRemarks || '');
       }
+      // Store updates in a new state
+      setViewSentUpdates(updatesRes.data?.data || []);
     } catch (err) {
       console.error('Failed to load sent details:', err);
     } finally {
       setViewSentLoading(false);
     }
+  };
+
+  // Open reason modal before allowing edit
+  const openEditReasonModal = (request) => {
+    setUploadRequest(request);
+    setSelectedReason('');
+    setOtherReasonText('');
+    setReasonModalOpen(true);
+  };
+
+  // Open L1 Edit Request dialog
+  const openEditRequestDialog = (request) => {
+    const td = request.travel_form_data || {};
+    setEditRequestData(request);
+    setEditNotifyUser(true);
+    setEditFormData({
+      reasonOfTravel: td.reasonOfTravel || '',
+      remarks: td.remarks || '',
+      // International round trip dates
+      departureDate: td.roundTrip?.departureDate || '',
+      arrivalDate: td.roundTrip?.arrivalDate || '',
+      fromCity: td.roundTrip?.fromCity || '',
+      toCity: td.roundTrip?.toCity || '',
+      countryOfTravel: td.countryOfTravel || '',
+      // Domestic dates
+      dateOfTravel: td.dateOfTravel || '',
+      domesticDateFlexFrom: td.domesticDateFlexFrom || '',
+      domesticDateFlexTo: td.domesticDateFlexTo || '',
+      cityOfTravelDomestic: td.cityOfTravelDomestic || '',
+    });
+    setEditRequestOpen(true);
+  };
+
+  // Save L1 edited request
+  const handleSaveEditRequest = async () => {
+    if (!editRequestData) return;
+    setEditSaving(true);
+    try {
+      const td = editRequestData.travel_form_data || {};
+      const isIntl = td.travelType === 'international';
+
+      // Merge edited fields back into the full travel_form_data
+      let updatedFormData = { ...td };
+
+      updatedFormData.reasonOfTravel = editFormData.reasonOfTravel;
+      updatedFormData.remarks = editFormData.remarks;
+
+      if (isIntl && td.tripType !== 'multiCity') {
+        updatedFormData.roundTrip = {
+          ...(td.roundTrip || {}),
+          departureDate: editFormData.departureDate,
+          arrivalDate: editFormData.arrivalDate,
+          fromCity: editFormData.fromCity,
+          toCity: editFormData.toCity,
+        };
+        updatedFormData.countryOfTravel = editFormData.countryOfTravel;
+      } else if (!isIntl) {
+        updatedFormData.dateOfTravel = editFormData.dateOfTravel;
+        updatedFormData.domesticDateFlexFrom = editFormData.domesticDateFlexFrom;
+        updatedFormData.domesticDateFlexTo = editFormData.domesticDateFlexTo;
+        updatedFormData.cityOfTravelDomestic = editFormData.cityOfTravelDomestic;
+      }
+
+      await axiosClient.put(`/l1-approvals/${editRequestData.id}/edit-request`, {
+        travelFormData: updatedFormData,
+        editedBy: currentUser.email,
+        skipEmail: false,
+      });
+
+      alert('Travel request updated successfully');
+      setEditRequestOpen(false);
+      fetchPendingRequests();
+    } catch (err) {
+      alert('Failed to update: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  // Confirm reason and open upload dialog
+  const handleReasonConfirm = async () => {
+    if (!selectedReason) {
+      alert('Please select a reason for editing');
+      return;
+    }
+    if (selectedReason === 'Other' && otherReasonText.trim().split(/\s+/).filter(w => w).length < 10) {
+      alert('Please provide at least 10 words for "Other" reason');
+      return;
+    }
+    const finalReason = selectedReason === 'Other' ? otherReasonText.trim() : selectedReason;
+
+    // Build the request object with editReason attached
+    const requestWithReason = { ...uploadRequest, editReason: finalReason };
+
+    setReasonModalOpen(false);
+    await openUploadDialogForEdit(requestWithReason);
+  };
+
+  // Open upload dialog with existing data for editing
+  const openUploadDialogForEdit = async (request) => {
+    // Keep editReason intact — do NOT overwrite uploadRequest here with a plain object
+    setUploadRequest(request);
+    setSectionFiles({});
+    setGlobalFiles([]);
+    setCostDetails({});
+    setCurrency('GBP');
+    setNotifyUser(true);
+    setUploadAlert(null);
+
+    // Load existing draft (which contains the current sent data)
+    try {
+      const res = await axiosClient.get(`/travel-documents/${request.id}/draft`);
+      const draft = res.data?.data;
+      if (draft) {
+        setSectionDetails(draft.details || {});
+        setGlobalRemarks(draft.globalRemarks || '');
+      } else {
+        setSectionDetails({});
+        setGlobalRemarks('');
+      }
+    } catch {
+      setSectionDetails({});
+      setGlobalRemarks('');
+    }
+
+    setUploadOpen(true);
   };
 
   const saveDraft = async () => {
@@ -361,11 +545,19 @@ const L1TravelApprovals = () => {
         });
       }
 
-      // 4. Send email to user
-      await axiosClient.post(`/travel-documents/${requestId}/send`);
+      // Always notify employee by email
+      const sendPayload = { 
+        sentBy: currentUser.email,
+        skipEmail: false,
+        editReason: uploadRequest?.editReason || null,
+        details: sectionDetails,
+        globalRemarks: globalRemarks.trim() || null,
+      };
+      
+      await axiosClient.post(`/travel-documents/${requestId}/send`, sendPayload);
 
       setUploadAlert({ type: 'success', msg: 'Travel details saved and emailed to the employee.' });
-      setTimeout(() => setUploadOpen(false), 2000);
+      setTimeout(() => { setUploadOpen(false); fetchPendingRequests(); }, 2000);
     } catch (err) {
       setUploadAlert({ type: 'error', msg: err.response?.data?.message || 'Failed to send travel details.' });
     } finally {
@@ -628,6 +820,9 @@ const L1TravelApprovals = () => {
                   {requests.map((request) => {
                     const travelData = request.travel_form_data;
                     const isApproved = request.l1_approval_status === 'approved';
+                    const locked = isTripLocked(travelData);
+                    const endDate = getTripEndDate(travelData);
+                    const lockMsg = endDate ? `Trip ended on ${new Date(endDate).toLocaleDateString('en-GB')} — editing locked` : 'Trip completed — editing locked';
                     return (
                       <TableRow key={request.id} hover>
                         <TableCell>{request.id}</TableCell>
@@ -649,7 +844,28 @@ const L1TravelApprovals = () => {
                             <Button size="small" startIcon={<Visibility />} onClick={() => handleViewDetails(request.id)}>
                               Review
                             </Button>
+                            {/* L1 Manager: Edit Request button — only when approved AND trip not yet ended */}
+                            {currentUser.role !== 'Admin' && isApproved && !locked && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="secondary"
+                                startIcon={<Edit />}
+                                onClick={() => openEditRequestDialog(request)}
+                              >
+                                Edit Request
+                              </Button>
+                            )}
                         {isApproved && !request.travel_docs_sent_at && (
+                          locked ? (
+                            <Tooltip title={lockMsg} arrow>
+                              <span>
+                                <Button size="small" variant="contained" color="inherit" startIcon={<LockOutlined />} disabled>
+                                  Locked
+                                </Button>
+                              </span>
+                            </Tooltip>
+                          ) : (
                               <Button
                                 size="small"
                                 variant="contained"
@@ -659,6 +875,7 @@ const L1TravelApprovals = () => {
                               >
                                 Upload Travel Details
                               </Button>
+                          )
                             )}
                             {isApproved && request.travel_docs_sent_at && (
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -672,6 +889,25 @@ const L1TravelApprovals = () => {
                                 >
                                   View Sent Details
                                 </Button>
+                                {locked ? (
+                                  <Tooltip title={lockMsg} arrow>
+                                    <span>
+                                      <Button size="small" variant="outlined" color="inherit" startIcon={<LockOutlined />} disabled>
+                                        Locked
+                                      </Button>
+                                    </span>
+                                  </Tooltip>
+                                ) : (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="warning"
+                                    startIcon={<Edit />}
+                                    onClick={() => openEditReasonModal(request)}
+                                  >
+                                    Edit & Resend
+                                  </Button>
+                                )}
                               </Box>
                             )}
                           </Box>
@@ -792,12 +1028,17 @@ const L1TravelApprovals = () => {
       <Dialog open={uploadOpen} onClose={() => !uploadSending && setUploadOpen(false)} maxWidth="xl" fullWidth>
         <DialogTitle sx={{ pb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CloudUpload color="primary" />
+            <CloudUpload color={uploadRequest?.editReason ? 'warning' : 'primary'} />
             <Box>
-              <Typography variant="h6" fontWeight={700}>Upload Travel Details</Typography>
+              <Typography variant="h6" fontWeight={700}>
+                {uploadRequest?.editReason ? 'Edit & Resend Travel Details' : 'Upload Travel Details'}
+              </Typography>
               {uploadRequest && (
                 <Typography variant="caption" color="text.secondary">
                   {uploadRequest.employeeFirstName} {uploadRequest.employeeLastName} — Request #{uploadRequest.id}
+                  {uploadRequest.editReason && (
+                    <> &nbsp;·&nbsp; <span style={{ color: '#ed6c02', fontWeight: 600 }}>Reason: {uploadRequest.editReason}</span></>
+                  )}
                 </Typography>
               )}
             </Box>
@@ -1048,7 +1289,177 @@ const L1TravelApprovals = () => {
             </Box>
           ) : (
             <>
-              {/* Section details */}
+              {/* Update History Timeline */}
+              {viewSentUpdates.length > 0 && (
+                <Box sx={{ mb: 4, p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid', borderColor: 'grey.300' }}>
+                  <Typography variant="subtitle2" fontWeight={700} color="primary.main" sx={{ mb: 2, textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 0.5 }}>
+                    Update History ({viewSentUpdates.length + 1} Version{viewSentUpdates.length > 0 ? 's' : ''})
+                  </Typography>
+                  
+                  {/* Original Version */}
+                  <Box sx={{ mb: 1 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1.5,
+                        bgcolor: expandedVersion === 'original' ? 'primary.50' : 'white',
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: expandedVersion === 'original' ? 'primary.main' : 'grey.300',
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'primary.50' },
+                      }}
+                      onClick={() => setExpandedVersion(expandedVersion === 'original' ? null : 'original')}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="Original" size="small" color="success" sx={{ fontWeight: 600 }} />
+                        <Typography variant="body2" fontWeight={600}>
+                          Version 1
+                        </Typography>
+                        {viewSentRequest?.travel_docs_sent_at && (
+                          <Typography variant="caption" color="text.secondary">
+                            · Sent on {new Date(viewSentRequest.travel_docs_sent_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Typography variant="caption" color="primary.main" fontWeight={600}>
+                        {expandedVersion === 'original' ? '▲ Hide' : '▼ View'}
+                      </Typography>
+                    </Box>
+                    
+                    {expandedVersion === 'original' && (
+                      <Box sx={{ mt: 1, p: 2, bgcolor: 'white', borderRadius: 1, border: '1px solid', borderColor: 'grey.200' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontStyle: 'italic' }}>
+                          This is the current active version shown below
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+
+                  {/* Update Versions */}
+                  {viewSentUpdates.map((update, idx) => {
+                    let updateDetails = {};
+                    try {
+                      updateDetails = update.details_json ? JSON.parse(update.details_json) : {};
+                    } catch {}
+                    
+                    return (
+                      <Box key={update.id} sx={{ mb: 1 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            p: 1.5,
+                            bgcolor: expandedVersion === update.id ? 'warning.50' : 'white',
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: expandedVersion === update.id ? 'warning.main' : 'grey.300',
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: 'warning.50' },
+                          }}
+                          onClick={() => setExpandedVersion(expandedVersion === update.id ? null : update.id)}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip label={`Update ${update.update_number}`} size="small" color="warning" sx={{ fontWeight: 600 }} />
+                            <Typography variant="body2" fontWeight={600}>
+                              Version {update.update_number + 1}
+                            </Typography>
+                            {update.sent_at && (
+                              <Typography variant="caption" color="text.secondary">
+                                · Sent on {new Date(update.sent_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </Typography>
+                            )}
+                            {update.sent_by && (
+                              <Typography variant="caption" color="text.secondary">
+                                · by {update.sent_by}
+                              </Typography>
+                            )}
+                            {!update.notified_user && (
+                              <Chip label="Not Notified" size="small" variant="outlined" sx={{ fontSize: '0.65rem' }} />
+                            )}
+                          </Box>
+                          <Typography variant="caption" color="warning.main" fontWeight={600}>
+                            {expandedVersion === update.id ? '▲ Hide' : '▼ View'}
+                          </Typography>
+                        </Box>
+                        
+                        {expandedVersion === update.id && (
+                          <Box sx={{ mt: 1, p: 2, bgcolor: 'white', borderRadius: 1, border: '1px solid', borderColor: 'grey.200' }}>
+                            {/* Show edit reason if available */}
+                            {update.edit_reason && (
+                              <Box sx={{ mb: 2, p: 1.5, bgcolor: 'warning.50', borderRadius: 1, border: '1px solid', borderColor: 'warning.light' }}>
+                                <Typography variant="caption" fontWeight={700} color="warning.dark" sx={{ display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                                  Reason for Edit:
+                                </Typography>
+                                <Typography variant="body2" color="warning.dark" fontWeight={600}>
+                                  {update.edit_reason}
+                                </Typography>
+                              </Box>
+                            )}
+                            
+                            {/* Show details from this update */}
+                            {Object.keys(updateDetails).length > 0 ? (
+                              Object.entries(updateDetails).map(([sectionKey, fields]) => {
+                                const hasValues = Object.values(fields || {}).some(v => v?.trim());
+                                if (!hasValues) return null;
+                                const baseKey = sectionKey.replace(/_leg_\d+$/, '');
+                                const sectionLabel = SECTION_CONFIG[baseKey]?.label || sectionKey;
+                                return (
+                                  <Box key={sectionKey} sx={{ mb: 2 }}>
+                                    <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                                      {sectionLabel}
+                                    </Typography>
+                                    <Box sx={{ bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200', overflow: 'hidden' }}>
+                                      {Object.entries(fields).filter(([, v]) => v?.trim()).map(([fieldKey, value]) => {
+                                        const fieldLabel = SECTION_CONFIG[baseKey]?.fields?.find(f => f.key === fieldKey)?.label || fieldKey;
+                                        return (
+                                          <Box key={fieldKey} sx={{ display: 'flex', borderBottom: '1px solid', borderColor: 'grey.200', '&:last-child': { borderBottom: 0 } }}>
+                                            <Box sx={{ width: 140, minWidth: 140, px: 1.5, py: 0.75, bgcolor: 'grey.100' }}>
+                                              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ fontSize: '0.7rem' }}>{fieldLabel}</Typography>
+                                            </Box>
+                                            <Box sx={{ px: 1.5, py: 0.75, flex: 1 }}>
+                                              <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>{value}</Typography>
+                                            </Box>
+                                          </Box>
+                                        );
+                                      })}
+                                    </Box>
+                                  </Box>
+                                );
+                              })
+                            ) : (
+                              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                No text details in this version
+                              </Typography>
+                            )}
+                            
+                            {/* Show remarks from this update */}
+                            {update.remarks && (
+                              <Box sx={{ mt: 2 }}>
+                                <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ mb: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                                  Remarks
+                                </Typography>
+                                <Box sx={{ bgcolor: '#fffbeb', border: '1px solid', borderColor: 'warning.light', borderRadius: 1, px: 1.5, py: 1 }}>
+                                  <Typography variant="caption" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.7rem' }}>{update.remarks}</Typography>
+                                </Box>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+
+              {/* Current Active Version - Section details */}
+              <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: 'primary.main' }}>
+                Current Active Version
+              </Typography>
+              
               {Object.keys(viewSentDetails).length > 0 ? (
                 Object.entries(viewSentDetails).map(([sectionKey, fields]) => {
                   const hasValues = Object.values(fields || {}).some(v => v?.trim());
@@ -1135,6 +1546,281 @@ const L1TravelApprovals = () => {
 
         <DialogActions>
           <Button onClick={() => setViewSentOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Reason Modal */}
+      <Dialog open={reasonModalOpen} onClose={() => setReasonModalOpen(false)} maxWidth="sm" fullWidth>
+
+      {/* ── L1 Edit Request Dialog ─────────────────────────────────────────── */}
+      <Dialog open={editRequestOpen} onClose={() => !editSaving && setEditRequestOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Edit color="secondary" />
+            <Box>
+              <Typography variant="h6" fontWeight={700}>Edit Travel Request</Typography>
+              {editRequestData && (
+                <Typography variant="caption" color="text.secondary">
+                  {editRequestData.employeeFirstName} {editRequestData.employeeLastName} — Request #{editRequestData.id}
+                  {(() => {
+                    const endDate = getTripEndDate(editRequestData.travel_form_data);
+                    return endDate ? <> &nbsp;·&nbsp; Trip ends {new Date(endDate).toLocaleDateString('en-GB')}</> : null;
+                  })()}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ p: 3 }}>
+          <Alert severity="info" sx={{ mb: 3 }}>
+            You can edit key travel details below. Changes will be saved to the request immediately.
+          </Alert>
+
+          {editRequestData && (() => {
+            const td = editRequestData.travel_form_data || {};
+            const isIntl = td.travelType === 'international';
+            const isMultiCity = td.tripType === 'multiCity';
+
+            return (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Reason for Travel */}
+                <TextField
+                  fullWidth
+                  label="Reason for Travel"
+                  value={editFormData.reasonOfTravel || ''}
+                  onChange={(e) => setEditFormData(p => ({ ...p, reasonOfTravel: e.target.value }))}
+                  disabled={editSaving}
+                  multiline
+                  rows={2}
+                />
+
+                {/* International Round Trip / One-Way fields */}
+                {isIntl && !isMultiCity && (
+                  <>
+                    <TextField
+                      fullWidth
+                      label="Country of Travel"
+                      value={editFormData.countryOfTravel || ''}
+                      onChange={(e) => setEditFormData(p => ({ ...p, countryOfTravel: e.target.value }))}
+                      disabled={editSaving}
+                    />
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <TextField
+                          fullWidth
+                          label="From City"
+                          value={editFormData.fromCity || ''}
+                          onChange={(e) => setEditFormData(p => ({ ...p, fromCity: e.target.value }))}
+                          disabled={editSaving}
+                        />
+                      </Grid>
+                      <Grid item xs={6}>
+                        <TextField
+                          fullWidth
+                          label="To City"
+                          value={editFormData.toCity || ''}
+                          onChange={(e) => setEditFormData(p => ({ ...p, toCity: e.target.value }))}
+                          disabled={editSaving}
+                        />
+                      </Grid>
+                      <Grid item xs={6}>
+                        <TextField
+                          fullWidth
+                          label="Departure Date"
+                          type="date"
+                          value={editFormData.departureDate || ''}
+                          onChange={(e) => setEditFormData(p => ({ ...p, departureDate: e.target.value }))}
+                          disabled={editSaving}
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      </Grid>
+                      {td.tripType === 'roundTrip' && (
+                        <Grid item xs={6}>
+                          <TextField
+                            fullWidth
+                            label="Return Date"
+                            type="date"
+                            value={editFormData.arrivalDate || ''}
+                            onChange={(e) => setEditFormData(p => ({ ...p, arrivalDate: e.target.value }))}
+                            disabled={editSaving}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                      )}
+                    </Grid>
+                  </>
+                )}
+
+                {/* Domestic fields */}
+                {!isIntl && (
+                  <>
+                    <TextField
+                      fullWidth
+                      label="City of Travel"
+                      value={editFormData.cityOfTravelDomestic || ''}
+                      onChange={(e) => setEditFormData(p => ({ ...p, cityOfTravelDomestic: e.target.value }))}
+                      disabled={editSaving}
+                    />
+                    {td.domesticDateFlex ? (
+                      <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                          <TextField
+                            fullWidth
+                            label="Travel Date From"
+                            type="date"
+                            value={editFormData.domesticDateFlexFrom || ''}
+                            onChange={(e) => setEditFormData(p => ({ ...p, domesticDateFlexFrom: e.target.value }))}
+                            disabled={editSaving}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                        <Grid item xs={6}>
+                          <TextField
+                            fullWidth
+                            label="Travel Date To"
+                            type="date"
+                            value={editFormData.domesticDateFlexTo || ''}
+                            onChange={(e) => setEditFormData(p => ({ ...p, domesticDateFlexTo: e.target.value }))}
+                            disabled={editSaving}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                      </Grid>
+                    ) : (
+                      <TextField
+                        fullWidth
+                        label="Date of Travel"
+                        type="date"
+                        value={editFormData.dateOfTravel || ''}
+                        onChange={(e) => setEditFormData(p => ({ ...p, dateOfTravel: e.target.value }))}
+                        disabled={editSaving}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Multi-city note */}
+                {isMultiCity && (
+                  <Alert severity="warning">
+                    Multi-city legs cannot be edited here. Please contact the employee to submit a new request if dates need to change.
+                  </Alert>
+                )}
+
+                {/* Remarks */}
+                <TextField
+                  fullWidth
+                  label="Remarks / Notes"
+                  value={editFormData.remarks || ''}
+                  onChange={(e) => setEditFormData(p => ({ ...p, remarks: e.target.value }))}
+                  disabled={editSaving}
+                  multiline
+                  rows={2}
+                />
+              </Box>
+            );
+          })()}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setEditRequestOpen(false)} disabled={editSaving}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={handleSaveEditRequest}
+            disabled={editSaving}
+          >
+            {editSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Edit color="warning" />
+            <Typography variant="h6" fontWeight={700}>Reason for Editing Travel Details</Typography>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ p: 3 }}>
+          <Alert severity="info" sx={{ mb: 3 }}>
+            Please select a reason for editing and resending the travel details. This helps maintain an audit trail.
+          </Alert>
+
+          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
+            Select Reason:
+          </Typography>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {EDIT_REASON_OPTIONS.map((option) => (
+              <Box
+                key={option}
+                sx={{
+                  p: 1.5,
+                  border: '2px solid',
+                  borderColor: selectedReason === option ? 'warning.main' : 'grey.300',
+                  borderRadius: 1,
+                  bgcolor: selectedReason === option ? 'warning.50' : 'white',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    borderColor: 'warning.main',
+                    bgcolor: 'warning.50',
+                  },
+                }}
+                onClick={() => setSelectedReason(option)}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      border: '2px solid',
+                      borderColor: selectedReason === option ? 'warning.main' : 'grey.400',
+                      bgcolor: selectedReason === option ? 'warning.main' : 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {selectedReason === option && (
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'white' }} />
+                    )}
+                  </Box>
+                  <Typography variant="body2" fontWeight={selectedReason === option ? 600 : 400}>
+                    {option}
+                  </Typography>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+
+          {selectedReason === 'Other' && (
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Please specify the reason"
+                placeholder="Minimum 10 words required..."
+                value={otherReasonText}
+                onChange={(e) => setOtherReasonText(e.target.value)}
+                helperText={`Word count: ${otherReasonText.trim().split(/\s+/).filter(w => w).length} / 10 minimum`}
+              />
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setReasonModalOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleReasonConfirm}
+            disabled={!selectedReason || (selectedReason === 'Other' && otherReasonText.trim().split(/\s+/).filter(w => w).length < 10)}
+          >
+            Continue to Edit
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

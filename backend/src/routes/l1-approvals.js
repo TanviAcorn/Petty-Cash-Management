@@ -242,7 +242,6 @@ router.put('/:id/approve', async (req, res) => {
         to: request.employee_email, 
         subject, 
         html,
-        from: process.env.TRAVEL_ADMIN_EMAIL,
         replyTo: managerEmail
       });
     } catch (e) {
@@ -311,7 +310,7 @@ router.put('/:id/approve', async (req, res) => {
 </body></html>`;
 
       for (const adminEmail of adminEmails) {
-        sendEmail({ to: adminEmail, subject: approvalSubject, html: approvalHtml, from: process.env.TRAVEL_ADMIN_EMAIL, replyTo: managerEmail })
+        sendEmail({ to: adminEmail, subject: approvalSubject, html: approvalHtml, replyTo: managerEmail })
           .catch((e) => console.error(`Failed to send admin approval notification to ${adminEmail}:`, e.message));
       }
     } catch (e) {
@@ -388,7 +387,6 @@ router.put('/:id/reject', async (req, res) => {
         to: request.employee_email, 
         subject, 
         html,
-        from: process.env.TRAVEL_ADMIN_EMAIL,
         replyTo: managerEmail
       });
     } catch (e) {
@@ -399,6 +397,170 @@ router.put('/:id/reject', async (req, res) => {
   } catch (err) {
     console.error('Error rejecting L1 request:', err);
     res.status(500).json({ message: 'Failed to reject request' });
+  }
+});
+
+// PUT /api/l1-approvals/:id/edit-request — L1 Manager edits travel form data (only while trip is active)
+router.put('/:id/edit-request', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { travelFormData, editedBy, skipEmail } = req.body;
+
+    if (!travelFormData) return res.status(400).json({ message: 'Travel form data is required' });
+
+    const pool = await poolPromise;
+
+    // Fetch current request
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT * FROM petty_cash_requests WHERE id = @id');
+
+    if (!result.recordset.length) return res.status(404).json({ message: 'Request not found' });
+    const request = result.recordset[0];
+
+    // Only allow editing approved requests
+    if (request.l1_approval_status !== 'approved') {
+      return res.status(403).json({ message: 'Only approved requests can be edited' });
+    }
+
+    // Check trip lock on backend too (safety check)
+    let td = null;
+    try { td = request.travel_form_data ? JSON.parse(request.travel_form_data) : null; } catch {}
+
+    const getTripEndDate = (data) => {
+      if (!data) return null;
+      if (data.travelType === 'domestic') return data.domesticDateFlexTo || data.dateOfTravel || null;
+      if (data.tripType === 'multiCity' && data.multiCityLegs?.length) {
+        const last = data.multiCityLegs[data.multiCityLegs.length - 1];
+        return last?.dateFlexTo || last?.date || null;
+      }
+      return data.roundTrip?.arrivalDateFlexTo || data.roundTrip?.arrivalDate || null;
+    };
+
+    const endDate = getTripEndDate(td);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      if (new Date() > end) {
+        return res.status(403).json({ message: 'Trip has ended — request is locked and cannot be edited' });
+      }
+    }
+
+    // Count existing updates to get next update_number
+    const countResult = await pool.request()
+      .input('rid', sql.Int, id)
+      .query('SELECT COUNT(*) AS cnt FROM petty_travel_request_updates WHERE request_id = @rid');
+    const updateNumber = (countResult.recordset[0]?.cnt || 0) + 1;
+
+    // Store NEW updated form data into petty_travel_request_updates
+    // Original travel_form_data in petty_cash_requests stays UNTOUCHED
+    await pool.request()
+      .input('rid', sql.Int, id)
+      .input('updateNum', sql.Int, updateNumber)
+      .input('formDataJson', sql.NVarChar(sql.MAX), JSON.stringify(travelFormData))
+      .input('editedBy', sql.NVarChar(320), editedBy || null)
+      .input('notified', sql.Bit, skipEmail ? 0 : 1)
+      .query(`
+        INSERT INTO petty_travel_request_updates (request_id, update_number, form_data_json, edited_by, notified_user)
+        VALUES (@rid, @updateNum, @formDataJson, @editedBy, @notified)
+      `);
+
+    // Send notification email to employee (unless skipEmail)
+    if (!skipEmail) {
+      try {
+      const tf = travelFormData;
+      const isIntl = tf.travelType === 'international';
+
+      // Build a simple summary of what the trip looks like now
+      let tripSummary = '';
+      if (isIntl && tf.tripType === 'roundTrip' && tf.roundTrip) {
+        tripSummary = `${tf.roundTrip.fromCity || ''} → ${tf.roundTrip.toCity || ''}, ${tf.countryOfTravel || ''}`;
+      } else if (isIntl && tf.tripType === 'multiCity') {
+        tripSummary = `Multi-City, ${tf.countryOfTravel || ''}`;
+      } else if (!isIntl) {
+        tripSummary = `Domestic — ${tf.cityOfTravelDomestic || ''}`;
+      }
+
+      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5174').split(',')[0].trim();
+
+      const subject = `Travel Request #${id} — Details Updated by Your Manager`;
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+          <div style="max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:#7C3AED;padding:30px 20px;border-radius:8px 8px 0 0;">
+              <h1 style="margin:0;color:#fff;font-size:22px;font-weight:600;">Travel Request Updated</h1>
+            </div>
+            <div style="background:#fff;padding:30px 20px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+              <p style="margin:0 0 20px 0;color:#374151;font-size:15px;line-height:1.5;">
+                Your L1 Manager has updated the details of your travel request. Please review the changes below.
+              </p>
+              <table style="width:100%;border-collapse:collapse;margin-bottom:25px;background:#f9fafb;border-radius:6px;overflow:hidden;">
+                <tr>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;width:140px;">Request ID</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:500;">#${id}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Trip</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${tripSummary || 'Travel Request'}</td>
+                </tr>
+                ${tf.roundTrip?.departureDate ? `
+                <tr>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Departure Date</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${tf.roundTrip.departureDate}</td>
+                </tr>` : ''}
+                ${tf.roundTrip?.arrivalDate ? `
+                <tr>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Return Date</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${tf.roundTrip.arrivalDate}</td>
+                </tr>` : ''}
+                ${tf.dateOfTravel ? `
+                <tr>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Date of Travel</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${tf.dateOfTravel}</td>
+                </tr>` : ''}
+                ${tf.reasonOfTravel ? `
+                <tr>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Reason</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${tf.reasonOfTravel}</td>
+                </tr>` : ''}
+                ${editedBy ? `
+                <tr>
+                  <td style="padding:12px 16px;color:#6b7280;font-size:13px;">Updated By</td>
+                  <td style="padding:12px 16px;color:#111827;font-size:14px;">${editedBy}</td>
+                </tr>` : ''}
+              </table>
+              <div style="text-align:center;margin:25px 0;">
+                <a href="${frontendUrl}/my-travel-requests" style="display:inline-block;background:#7C3AED;color:#fff;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:500;font-size:14px;">View My Travel Requests</a>
+              </div>
+              <p style="margin:20px 0 0 0;color:#6b7280;font-size:13px;text-align:center;">
+                If you have any questions, please contact your manager directly.
+              </p>
+            </div>
+            <div style="margin-top:20px;padding:15px;text-align:center;color:#9ca3af;font-size:12px;">
+              <p style="margin:0;">This is an automated notification from PocketPro HR.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      await sendEmail({
+        to: request.employee_email,
+        subject,
+        html,
+      });
+      } catch (emailErr) {
+        console.error('[L1 Edit] Email notification failed (non-fatal):', emailErr.message);
+      }
+    }
+
+    res.json({ message: 'Travel request updated successfully' });
+  } catch (err) {
+    console.error('Error editing travel request:', err);
+    res.status(500).json({ message: 'Failed to update travel request' });
   }
 });
 

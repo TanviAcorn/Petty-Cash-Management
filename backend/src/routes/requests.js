@@ -1432,7 +1432,7 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
             const l1Manager = l1ManagerResult.recordset[0];
             const { subject, html } = buildL1ManagerApprovalEmail(newRequest, l1Manager);
             console.log(`Sending L1 manager email to ${l1Manager.email}`);
-            sendEmail({ to: l1Manager.email, subject, html, replyTo, from: process.env.TRAVEL_ADMIN_EMAIL, attachments: emailAttachments })
+            sendEmail({ to: l1Manager.email, subject, html, replyTo, attachments: emailAttachments })
               .catch((e) => console.error('Failed sending L1 manager email:', e.message));
           }
         }

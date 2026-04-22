@@ -74,7 +74,7 @@ async function sendEmail({
   user,
   cc,
   bcc,
-  attachments = [], // Add attachments parameter with default empty array
+  attachments = [],
 }) {
   const tx = getTransporter();
 

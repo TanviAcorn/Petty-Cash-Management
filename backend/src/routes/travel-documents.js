@@ -38,6 +38,23 @@ async function ensureTable(pool) {
   `);
 }
 
+async function ensureUpdatesTable(pool) {
+  await pool.request().query(`
+    IF OBJECT_ID('dbo.petty_travel_updates', 'U') IS NULL
+    CREATE TABLE dbo.petty_travel_updates (
+      id             INT IDENTITY(1,1) PRIMARY KEY,
+      request_id     INT NOT NULL,
+      update_number  INT NOT NULL,
+      edit_reason    NVARCHAR(500) NULL,
+      details_json   NVARCHAR(MAX) NULL,
+      remarks        NVARCHAR(MAX) NULL,
+      notified_user  BIT DEFAULT 1,
+      sent_at        DATETIME2 DEFAULT SYSUTCDATETIME(),
+      sent_by        NVARCHAR(320) NULL
+    );
+  `);
+}
+
 // GET /api/travel-documents/:requestId — list docs for a request
 router.get('/:requestId', async (req, res) => {
   try {
@@ -139,6 +156,24 @@ router.get('/:requestId/draft', async (req, res) => {
   }
 });
 
+// GET /api/travel-documents/:requestId/updates — list all updates for a request
+router.get('/:requestId/updates', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    await ensureUpdatesTable(pool);
+    const requestId = parseInt(req.params.requestId);
+
+    const result = await pool.request()
+      .input('rid', sql.Int, requestId)
+      .query('SELECT * FROM petty_travel_updates WHERE request_id = @rid ORDER BY update_number ASC');
+
+    res.json({ data: result.recordset });
+  } catch (err) {
+    console.error('updates GET error:', err);
+    res.status(500).json({ message: 'Failed to fetch updates' });
+  }
+});
+
 // POST /api/travel-documents/:requestId/save-details — store text details per section
 router.post('/:requestId/save-details', async (req, res) => {
   try {
@@ -154,11 +189,21 @@ router.post('/:requestId/save-details', async (req, res) => {
         ALTER TABLE dbo.petty_cash_requests ADD travel_admin_remarks NVARCHAR(MAX) NULL;
     `);
 
-    await pool.request()
+    // Check if this is a resend (travel_docs_sent_at already set = original already saved)
+    const checkResult = await pool.request()
       .input('id', sql.Int, requestId)
-      .input('details', sql.NVarChar(sql.MAX), JSON.stringify(details || {}))
-      .input('remarks', sql.NVarChar(sql.MAX), globalRemarks || null)
-      .query(`UPDATE petty_cash_requests SET travel_admin_details = @details, travel_admin_remarks = @remarks WHERE id = @id`);
+      .query('SELECT travel_docs_sent_at FROM petty_cash_requests WHERE id = @id');
+    const alreadySent = !!checkResult.recordset[0]?.travel_docs_sent_at;
+
+    // Only write to petty_cash_requests if this is the FIRST send (original must never be overwritten)
+    if (!alreadySent) {
+      await pool.request()
+        .input('id', sql.Int, requestId)
+        .input('details', sql.NVarChar(sql.MAX), JSON.stringify(details || {}))
+        .input('remarks', sql.NVarChar(sql.MAX), globalRemarks || null)
+        .query(`UPDATE petty_cash_requests SET travel_admin_details = @details, travel_admin_remarks = @remarks WHERE id = @id`);
+    }
+    // If already sent (resend), the new details will be saved to petty_travel_updates in the /send endpoint
 
     // Save costs to petty_travel_costs if costDetails provided and not just a draft
     if (costDetails && Object.keys(costDetails).length > 0) {
@@ -264,7 +309,10 @@ router.post('/:requestId/send', async (req, res) => {
   try {
     const pool = await poolPromise;
     await ensureTable(pool);
+    await ensureUpdatesTable(pool);
     const requestId = parseInt(req.params.requestId);
+    const skipEmail = req.body?.skipEmail === true;
+    const currentUser = req.body?.sentBy || null;
 
     // Fetch request
     const reqResult = await pool.request()
@@ -273,6 +321,37 @@ router.post('/:requestId/send', async (req, res) => {
 
     if (!reqResult.recordset.length) return res.status(404).json({ message: 'Request not found' });
     const request = reqResult.recordset[0];
+
+    // Check if this is a resend (travel_docs_sent_at already set)
+    const isResend = !!request.travel_docs_sent_at;
+
+    // If resend, save NEW details into petty_travel_updates (original stays untouched in petty_cash_requests)
+    if (isResend) {
+      // NEW details come from the request body (passed from frontend after save-details)
+      const newDetails = req.body?.details || {};
+      const newRemarks = req.body?.globalRemarks || null;
+
+      // Count existing updates to get next update_number
+      const countResult = await pool.request()
+        .input('rid', sql.Int, requestId)
+        .query('SELECT COUNT(*) AS cnt FROM petty_travel_updates WHERE request_id = @rid');
+      const updateNumber = (countResult.recordset[0]?.cnt || 0) + 1;
+
+      const editReason = req.body?.editReason || null;
+
+      await pool.request()
+        .input('rid', sql.Int, requestId)
+        .input('updateNum', sql.Int, updateNumber)
+        .input('editReason', sql.NVarChar(500), editReason)
+        .input('detailsJson', sql.NVarChar(sql.MAX), JSON.stringify(newDetails))
+        .input('remarks', sql.NVarChar(sql.MAX), newRemarks)
+        .input('notified', sql.Bit, skipEmail ? 0 : 1)
+        .input('sentBy', sql.NVarChar(320), currentUser)
+        .query(`
+          INSERT INTO petty_travel_updates (request_id, update_number, edit_reason, details_json, remarks, notified_user, sent_by)
+          VALUES (@rid, @updateNum, @editReason, @detailsJson, @remarks, @notified, @sentBy)
+        `);
+    }
 
     // Fetch uploaded docs
     const docsResult = await pool.request()
@@ -291,33 +370,36 @@ router.post('/:requestId/send', async (req, res) => {
     try { adminDetails = request.travel_admin_details ? JSON.parse(request.travel_admin_details) : {}; } catch {}
     const adminRemarks = request.travel_admin_remarks || null;
 
-    // Build attachments for email
-    const emailAttachments = [];
-    for (const doc of docs) {
-      const filePath = path.join(UPLOADS_DIR, doc.filename);
-      if (fs.existsSync(filePath)) {
-        emailAttachments.push({
-          filename: doc.original_name,
-          content: fs.readFileSync(filePath),
-          contentType: doc.mimetype || 'application/octet-stream'
-        });
+    if (!skipEmail) {
+      // Build attachments for email
+      const emailAttachments = [];
+      for (const doc of docs) {
+        const filePath = path.join(UPLOADS_DIR, doc.filename);
+        if (fs.existsSync(filePath)) {
+          emailAttachments.push({
+            filename: doc.original_name,
+            content: fs.readFileSync(filePath),
+            contentType: doc.mimetype || 'application/octet-stream'
+          });
+        }
       }
+
+      // Build travel summary rows
+      const tf = travelData || {};
+      const summaryRows = buildTravelSummaryRows(tf);
+
+      const { subject, html } = buildTravelDocumentsEmail({
+        request,
+        travelData: tf,
+        summaryRows,
+        docCount: docs.length,
+        adminDetails,
+        adminRemarks,
+        isUpdate: isResend,
+      });
+
+      await sendEmail({ to: request.employee_email, subject, html, attachments: emailAttachments });
     }
-
-    // Build travel summary rows
-    const tf = travelData || {};
-    const summaryRows = buildTravelSummaryRows(tf);
-
-    const { subject, html } = buildTravelDocumentsEmail({
-      request,
-      travelData: tf,
-      summaryRows,
-      docCount: docs.length,
-      adminDetails,
-      adminRemarks,
-    });
-
-    await sendEmail({ to: request.employee_email, subject, html, from: process.env.TRAVEL_ADMIN_EMAIL, attachments: emailAttachments });
 
     // Book Teams/Outlook calendar event for the employee
     try {
@@ -429,8 +511,10 @@ function buildAdminDetailsSections(adminDetails) {
   return html;
 }
 
-function buildTravelDocumentsEmail({ request, summaryRows, docCount, adminDetails, adminRemarks }) {
-  const subject = `Your Travel Documents – Trip #${request.id}`;
+function buildTravelDocumentsEmail({ request, summaryRows, docCount, adminDetails, adminRemarks, isUpdate }) {
+  const subject = isUpdate 
+    ? `Updated Travel Documents – Trip #${request.id}` 
+    : `Your Travel Documents – Trip #${request.id}`;
   const rows = summaryRows.map(r =>
     `<tr><td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;width:140px;">${r.label}</td>
      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${r.value}</td></tr>`
@@ -439,15 +523,18 @@ function buildTravelDocumentsEmail({ request, summaryRows, docCount, adminDetail
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
   <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f3f4f6;">
   <div style="max-width:600px;margin:0 auto;padding:20px;">
-    <div style="background:#2563EB;padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
-      <div style="font-size:36px;margin-bottom:10px;">✈️</div>
-      <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;font-family:Arial,sans-serif;">Your Travel Documents Are Ready</h1>
-      <p style="margin:8px 0 0;color:#dbeafe;font-size:14px;font-family:Arial,sans-serif;">Trip Reference #${request.id}</p>
+    <div style="background:${isUpdate ? '#F59E0B' : '#2563EB'};padding:32px 24px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:36px;margin-bottom:10px;">${isUpdate ? '🔄' : '✈️'}</div>
+      <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;font-family:Arial,sans-serif;">${isUpdate ? 'Updated Travel Documents' : 'Your Travel Documents Are Ready'}</h1>
+      <p style="margin:8px 0 0;color:${isUpdate ? '#FEF3C7' : '#dbeafe'};font-size:14px;font-family:Arial,sans-serif;">Trip Reference #${request.id}</p>
     </div>
     <div style="background:#fff;padding:32px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      ${isUpdate ? `<div style="background:#FEF3C7;border-left:4px solid #F59E0B;padding:14px 18px;border-radius:4px;margin-bottom:20px;">
+        <p style="margin:0;color:#92400E;font-size:14px;line-height:1.6;"><strong>⚠️ Travel Details Updated</strong><br>Your travel arrangements have been updated. Please review the new details below.</p>
+      </div>` : ''}
       <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Hi <strong>${request.employee_name}</strong>,</p>
       <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
-        Your travel has been arranged. Please find your travel details below${docCount > 0 ? ` and ${docCount} document${docCount !== 1 ? 's' : ''} attached` : ''}.
+        ${isUpdate ? 'Your travel details have been updated.' : 'Your travel has been arranged.'} Please find your travel details below${docCount > 0 ? ` and ${docCount} document${docCount !== 1 ? 's' : ''} attached` : ''}.
       </p>
       <div style="background:#f9fafb;border-radius:8px;padding:4px 0;margin-bottom:24px;border:1px solid #e5e7eb;">
         <table style="width:100%;border-collapse:collapse;">${rows}</table>

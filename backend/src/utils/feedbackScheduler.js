@@ -151,7 +151,7 @@ async function sendPreTravelReminders() {
           </div>
         </body></html>`;
 
-        await sendEmail({ to: adminEmail, subject, html, from: process.env.TRAVEL_ADMIN_EMAIL });
+        await sendEmail({ to: adminEmail, subject, html });
         console.log(`[FeedbackScheduler] Sent pre-travel reminder for request #${row.id}`);
       } catch (err) {
         console.error(`[FeedbackScheduler] Pre-travel reminder failed for #${row.id}:`, err.message);
@@ -217,7 +217,7 @@ async function sendPendingFeedbackEmails() {
           travelData
         });
 
-        await sendEmail({ to: row.employee_email, subject, html, from: process.env.TRAVEL_ADMIN_EMAIL });
+        await sendEmail({ to: row.employee_email, subject, html });
         console.log(`[FeedbackScheduler] Sent feedback email for request #${row.id} to ${row.employee_email}`);
       } catch (err) {
         console.error(`[FeedbackScheduler] Failed for request #${row.id}:`, err.message);
