@@ -366,6 +366,236 @@ async function sendPendingFeedbackEmails() {
   }
 }
 
+// ── Alert 1: Visa Expiry ──────────────────────────────────────────────────
+async function sendVisaExpiryAlerts() {
+  try {
+    const pool = await poolPromise;
+    const adminEmail = process.env.ADMIN_EMAIL;
+
+    // 90-day visa types
+    const ninetyDayTypes = ['High-skilled work visa', 'Skilled worker visa', 'Aufenthaltstitel', 'PSW', 'Indefinite stay to work in UK'];
+    // 15-day visa types
+    const fifteenDayTypes = ['Visitor Visa'];
+
+    // Build query — find users whose visa expires in exactly 90 or 15 days
+    const result = await pool.request().query(`
+      SELECT 
+        u.id, u.firstName, u.lastName, u.email, u.visa_type, u.visa_valid_till,
+        u.visa_country, u.l1_manager_id,
+        m.email AS l1_email, m.firstName AS l1_firstName, m.lastName AS l1_lastName
+      FROM petty_Users u
+      LEFT JOIN petty_Users m ON u.l1_manager_id = m.id
+      WHERE u.visa_valid_till IS NOT NULL
+        AND u.visa_type IS NOT NULL
+        AND u.visa_type != 'Citizen'
+        AND (
+          -- 90-day rule
+          (
+            u.visa_type IN ('High-skilled work visa','Skilled worker visa','Aufenthaltstitel','PSW','Indefinite stay to work in UK')
+            AND CAST(u.visa_valid_till AS DATE) = CAST(DATEADD(day, 90, GETUTCDATE()) AS DATE)
+          )
+          OR
+          -- 15-day rule
+          (
+            u.visa_type IN ('Visitor Visa')
+            AND CAST(u.visa_valid_till AS DATE) = CAST(DATEADD(day, 15, GETUTCDATE()) AS DATE)
+          )
+        )
+    `);
+
+    console.log(`[VisaAlert] Found ${result.recordset.length} visa expiry alerts to send`);
+
+    for (const user of result.recordset) {
+      try {
+        const fullName = `${user.firstName} ${user.lastName}`;
+        const expiryDate = new Date(user.visa_valid_till).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+        const daysLeft = ninetyDayTypes.includes(user.visa_type) ? 90 : 15;
+        const urgencyColor = daysLeft === 15 ? '#DC2626' : '#D97706';
+        const urgencyBg = daysLeft === 15 ? '#FEF2F2' : '#FFFBEB';
+        const urgencyBorder = daysLeft === 15 ? '#DC2626' : '#D97706';
+
+        const subject = `⚠️ Visa Expiry Alert — ${fullName} (${daysLeft} days remaining)`;
+
+        const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:${urgencyColor};padding:32px 28px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:40px;margin-bottom:10px;">⚠️</div>
+      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">Visa Expiry Alert</h1>
+      <p style="margin:8px 0 0;color:#fff;font-size:14px;opacity:0.9;">${daysLeft} days remaining</p>
+    </div>
+    <div style="background:#fff;padding:32px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
+        This is an automated alert to notify you that the visa for <strong>${fullName}</strong> is expiring in <strong>${daysLeft} days</strong>.
+      </p>
+      <div style="background:${urgencyBg};border-left:4px solid ${urgencyBorder};border-radius:6px;padding:18px 20px;margin:20px 0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;width:140px;">Employee</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">${fullName}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Email</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${user.email}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Visa Type</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">${user.visa_type}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Country</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${user.visa_country || '—'}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Expiry Date</td>
+            <td style="padding:6px 0;color:${urgencyColor};font-size:14px;font-weight:700;">${expiryDate}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Days Remaining</td>
+            <td style="padding:6px 0;color:${urgencyColor};font-size:14px;font-weight:700;">${daysLeft} days</td>
+          </tr>
+        </table>
+      </div>
+      <p style="margin:20px 0 0;color:#374151;font-size:14px;line-height:1.6;">
+        Please ensure the visa renewal process is initiated as soon as possible to avoid any disruption.
+      </p>
+      <p style="margin:16px 0 0;color:#9ca3af;font-size:12px;text-align:center;">PocketPro HR — Automated Visa Expiry Alert</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+        // Send to Employee
+        await sendEmail({ to: user.email, subject, html });
+
+        // Send to Admin
+        if (adminEmail) {
+          await sendEmail({ to: adminEmail, subject, html });
+        }
+
+        // Send to L1 Manager
+        if (user.l1_email) {
+          await sendEmail({ to: user.l1_email, subject, html });
+        }
+
+        console.log(`[VisaAlert] Sent visa expiry alert for ${fullName} (${user.visa_type}, expires ${expiryDate})`);
+      } catch (err) {
+        console.error(`[VisaAlert] Failed for user ${user.email}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[VisaAlert] Error:', err);
+  }
+}
+
+// ── Alert 2: Passport Expiry ──────────────────────────────────────────────
+async function sendPassportExpiryAlerts() {
+  try {
+    const pool = await poolPromise;
+    const adminEmail = process.env.ADMIN_EMAIL;
+
+    // All employees — 180 days before passport_expiry
+    const result = await pool.request().query(`
+      SELECT 
+        u.id, u.firstName, u.lastName, u.email, u.passport_number,
+        u.passport_expiry, u.passport_place_of_issue, u.nationality,
+        u.l1_manager_id,
+        m.email AS l1_email
+      FROM petty_Users u
+      LEFT JOIN petty_Users m ON u.l1_manager_id = m.id
+      WHERE u.passport_expiry IS NOT NULL
+        AND CAST(u.passport_expiry AS DATE) = CAST(DATEADD(day, 180, GETUTCDATE()) AS DATE)
+    `);
+
+    console.log(`[PassportAlert] Found ${result.recordset.length} passport expiry alerts to send`);
+
+    for (const user of result.recordset) {
+      try {
+        const fullName = `${user.firstName} ${user.lastName}`;
+        const expiryDate = new Date(user.passport_expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+
+        const subject = `🛂 Passport Renewal Alert — ${fullName} (180 days remaining)`;
+
+        const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:#1d4ed8;padding:32px 28px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:40px;margin-bottom:10px;">🛂</div>
+      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">Passport Renewal Alert</h1>
+      <p style="margin:8px 0 0;color:#bfdbfe;font-size:14px;">180 days remaining — action required</p>
+    </div>
+    <div style="background:#fff;padding:32px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
+        This is an automated reminder that the passport for <strong>${fullName}</strong> will expire in <strong>180 days</strong>. Please initiate the renewal process at the earliest.
+      </p>
+      <div style="background:#eff6ff;border-left:4px solid #1d4ed8;border-radius:6px;padding:18px 20px;margin:20px 0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;width:160px;">Employee</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">${fullName}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Email</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${user.email}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Nationality</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${user.nationality || '—'}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Passport No.</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">${user.passport_number || '—'}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Place of Issue</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${user.passport_place_of_issue || '—'}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Expiry Date</td>
+            <td style="padding:6px 0;color:#DC2626;font-size:14px;font-weight:700;">${expiryDate}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Days Remaining</td>
+            <td style="padding:6px 0;color:#DC2626;font-size:14px;font-weight:700;">180 days</td>
+          </tr>
+        </table>
+      </div>
+      <p style="margin:20px 0 0;color:#374151;font-size:14px;line-height:1.6;">
+        Many countries require a passport to be valid for at least 6 months beyond the travel date. Please renew well in advance.
+      </p>
+      <p style="margin:16px 0 0;color:#9ca3af;font-size:12px;text-align:center;">PocketPro HR — Automated Passport Renewal Alert</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+        // Send to Employee
+        await sendEmail({ to: user.email, subject, html });
+
+        // Send to Admin
+        if (adminEmail) {
+          await sendEmail({ to: adminEmail, subject, html });
+        }
+
+        // Send to L1 Manager
+        if (user.l1_email) {
+          await sendEmail({ to: user.l1_email, subject, html });
+        }
+
+        console.log(`[PassportAlert] Sent passport renewal alert for ${fullName} (expires ${expiryDate})`);
+      } catch (err) {
+        console.error(`[PassportAlert] Failed for user ${user.email}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[PassportAlert] Error:', err);
+  }
+}
+
 function startFeedbackScheduler() {
   // Run every day at 9:00 AM UTC
   cron.schedule('0 9 * * *', () => {
@@ -373,6 +603,8 @@ function startFeedbackScheduler() {
     sendPendingFeedbackEmails();
     sendPreTravelReminders();
     sendJourneyStartsTomorrow();
+    sendVisaExpiryAlerts();
+    sendPassportExpiryAlerts();
   });
 
   console.log('[FeedbackScheduler] Scheduled daily jobs at 09:00 UTC');
