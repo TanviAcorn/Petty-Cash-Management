@@ -270,6 +270,7 @@ router.post('/:requestId/save-details', async (req, res) => {
           .input('visaCost',      sql.Decimal(10,2), cd.visaCost      ? parseFloat(cd.visaCost)      : null)
           .input('baggageCost',   sql.Decimal(10,2), cd.baggageCost   ? parseFloat(cd.baggageCost)   : null)
           .input('transportCost', sql.Decimal(10,2), cd.transportCost ? parseFloat(cd.transportCost) : null)
+          .input('otherCost',     sql.Decimal(10,2), cd.otherCost     ? parseFloat(cd.otherCost)     : null)
           .input('currency',      sql.NVarChar(10),  currency || 'GBP');
 
         if (existing.recordset.length) {
@@ -279,6 +280,7 @@ router.post('/:requestId/save-details', async (req, res) => {
               travel_date=@travelDate, flight_cost=@flightCost, hotel_cost=@hotelCost,
               food_cost=@foodCost, car_park_cost=@carParkCost, visa_cost=@visaCost,
               baggage_cost=@baggageCost, transport_cost=@transportCost,
+              other_cost=@otherCost,
               currency=@currency, updated_at=SYSUTCDATETIME()
             WHERE request_id=@rid
           `);
@@ -286,10 +288,12 @@ router.post('/:requestId/save-details', async (req, res) => {
           await cr.query(`
             INSERT INTO petty_travel_costs
               (request_id,employee_name,employee_email,trip_summary,travel_date,
-               flight_cost,hotel_cost,food_cost,car_park_cost,visa_cost,baggage_cost,transport_cost,currency)
+               flight_cost,hotel_cost,food_cost,car_park_cost,visa_cost,baggage_cost,
+               transport_cost,other_cost,currency)
             VALUES
               (@rid,@empName,@empEmail,@tripSummary,@travelDate,
-               @flightCost,@hotelCost,@foodCost,@carParkCost,@visaCost,@baggageCost,@transportCost,@currency)
+               @flightCost,@hotelCost,@foodCost,@carParkCost,@visaCost,@baggageCost,
+               @transportCost,@otherCost,@currency)
           `);
         }
       } catch (costErr) {

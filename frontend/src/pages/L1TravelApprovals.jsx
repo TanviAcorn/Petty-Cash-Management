@@ -1198,8 +1198,22 @@ const L1TravelApprovals = () => {
                 })}
 
                 {/* Global / additional documents */}
-                <Box sx={{ mt: 2 }}>
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200' }}>
                   <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>Additional Documents & Remarks</Typography>
+                  
+                  {/* Other cost amount only */}
+                  <TextField
+                    size="small"
+                    label="Other Cost Amount"
+                    type="number"
+                    placeholder="0.00"
+                    value={costDetails.otherCost || ''}
+                    onChange={(e) => setCostDetails(p => ({ ...p, otherCost: e.target.value }))}
+                    disabled={uploadSending}
+                    sx={{ mb: 2, width: 220 }}
+                    InputProps={{ startAdornment: <Typography variant="caption" sx={{ mr: 0.5, color: 'text.secondary' }}>{currency}</Typography> }}
+                  />
+
                   <TextField
                     fullWidth
                     multiline
