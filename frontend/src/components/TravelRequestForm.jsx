@@ -547,17 +547,39 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                       </Grid>
                     </Grid>
                     <Box sx={{ mt: 1.5 }}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            size="small"
-                            name="needsHotel"
-                            checked={roundTrip.needsHotel || false}
-                            onChange={handleRoundTripCheckbox}
-                          />
-                        }
-                        label={<Typography variant="caption" fontWeight={500}>Hotel / Accommodation needed at {roundTrip.toCity || 'destination'}</Typography>}
-                      />
+                      <Box
+                        sx={{
+                          border: '2px solid',
+                          borderColor: roundTrip.needsHotel ? 'primary.main' : 'warning.main',
+                          borderRadius: 1.5,
+                          p: 1.5,
+                          bgcolor: roundTrip.needsHotel ? 'primary.50' : '#fffbeb',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              size="small"
+                              name="needsHotel"
+                              checked={roundTrip.needsHotel || false}
+                              onChange={handleRoundTripCheckbox}
+                              color="primary"
+                            />
+                          }
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Typography variant="body2" fontWeight={600}>
+                                🏨 Hotel / Accommodation needed at {roundTrip.toCity || 'destination'}
+                              </Typography>
+                              {!roundTrip.needsHotel && (
+                                <Typography variant="caption" color="warning.dark" fontWeight={600} sx={{ ml: 0.5 }}>
+                                  (Don't forget to check if required)
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                        />
                       {roundTrip.needsHotel && (
                         <Grid container spacing={2} sx={{ mt: 0.5 }}>
                           <Grid item xs={12} md={4}>
@@ -584,6 +606,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                           </Grid>
                         </Grid>
                       )}
+                      </Box>
                     </Box>
                   </Box>
                 </Grid>
@@ -630,14 +653,35 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                       </Grid>
                     </Grid>
                     <Box sx={{ mt: 1.5 }}>
-                      <FormControlLabel
-                        control={
-                          <Checkbox size="small" name="needsHotel"
-                            checked={roundTrip.needsHotel || false}
-                            onChange={handleRoundTripCheckbox} />
-                        }
-                        label={<Typography variant="caption" fontWeight={500}>Hotel / Accommodation needed at {roundTrip.toCity || 'destination'}</Typography>}
-                      />
+                      <Box
+                        sx={{
+                          border: '2px solid',
+                          borderColor: roundTrip.needsHotel ? 'primary.main' : 'warning.main',
+                          borderRadius: 1.5,
+                          p: 1.5,
+                          bgcolor: roundTrip.needsHotel ? 'primary.50' : '#fffbeb',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <FormControlLabel
+                          control={
+                            <Checkbox size="small" name="needsHotel"
+                              checked={roundTrip.needsHotel || false}
+                              onChange={handleRoundTripCheckbox} />
+                          }
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Typography variant="body2" fontWeight={600}>
+                                🏨 Hotel / Accommodation needed at {roundTrip.toCity || 'destination'}
+                              </Typography>
+                              {!roundTrip.needsHotel && (
+                                <Typography variant="caption" color="warning.dark" fontWeight={600} sx={{ ml: 0.5 }}>
+                                  (Don't forget to check if required)
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                        />
                       {roundTrip.needsHotel && (
                         <Grid container spacing={2} sx={{ mt: 0.5 }}>
                           <Grid item xs={12} md={4}>
@@ -661,6 +705,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                           </Grid>
                         </Grid>
                       )}
+                      </Box>
                     </Box>
                   </Box>
                 </Grid>
@@ -755,16 +800,37 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
 
                         {/* Per-leg hotel toggle */}
                         <Box sx={{ mt: 1.5 }}>
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                size="small"
-                                checked={leg.needsHotel || false}
-                                onChange={(e) => handleLegChange(index, 'needsHotel', e.target.checked)}
-                              />
-                            }
-                            label={<Typography variant="caption" fontWeight={500}>Hotel / Accommodation needed at {leg.toCity || 'destination'}</Typography>}
-                          />
+                          <Box
+                            sx={{
+                              border: '2px solid',
+                              borderColor: leg.needsHotel ? 'primary.main' : 'warning.main',
+                              borderRadius: 1.5,
+                              p: 1.5,
+                              bgcolor: leg.needsHotel ? 'primary.50' : '#fffbeb',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  size="small"
+                                  checked={leg.needsHotel || false}
+                                  onChange={(e) => handleLegChange(index, 'needsHotel', e.target.checked)}
+                                />
+                              }
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Typography variant="body2" fontWeight={600}>
+                                    🏨 Hotel / Accommodation needed at {leg.toCity || 'destination'}
+                                  </Typography>
+                                  {!leg.needsHotel && (
+                                    <Typography variant="caption" color="warning.dark" fontWeight={600} sx={{ ml: 0.5 }}>
+                                      (Don't forget to check if required)
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
+                            />
                           {leg.needsHotel && (
                             <Grid container spacing={2} sx={{ mt: 0.5 }}>
                               <Grid item xs={12} md={4}>
@@ -788,6 +854,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                               </Grid>
                             </Grid>
                           )}
+                          </Box>
                         </Box>
 
                         {index < multiCityLegs.length - 1 && <Divider sx={{ mt: 2 }} />}
@@ -1148,20 +1215,41 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                   </Grid>
                   {/* Hotel / Accommodation for Domestic */}
                   <Box sx={{ mt: 1.5 }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          size="small"
-                          checked={domesticHotel.needsHotel}
-                          onChange={(e) => {
-                            const updated = { ...domesticHotel, needsHotel: e.target.checked };
-                            setDomesticHotel(updated);
-                            emit({ domesticHotel: updated });
-                          }}
-                        />
-                      }
-                      label={<Typography variant="caption" fontWeight={500}>Hotel / Accommodation needed at {travelData.cityOfTravelDomestic || 'destination'}</Typography>}
-                    />
+                    <Box
+                      sx={{
+                        border: '2px solid',
+                        borderColor: domesticHotel.needsHotel ? 'primary.main' : 'warning.main',
+                        borderRadius: 1.5,
+                        p: 1.5,
+                        bgcolor: domesticHotel.needsHotel ? 'primary.50' : '#fffbeb',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={domesticHotel.needsHotel}
+                            onChange={(e) => {
+                              const updated = { ...domesticHotel, needsHotel: e.target.checked };
+                              setDomesticHotel(updated);
+                              emit({ domesticHotel: updated });
+                            }}
+                          />
+                        }
+                        label={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography variant="body2" fontWeight={600}>
+                              🏨 Hotel / Accommodation needed at {travelData.cityOfTravelDomestic || 'destination'}
+                            </Typography>
+                            {!domesticHotel.needsHotel && (
+                              <Typography variant="caption" color="warning.dark" fontWeight={600} sx={{ ml: 0.5 }}>
+                                (Don't forget to check if required)
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
                     {domesticHotel.needsHotel && (
                       <Grid container spacing={2} sx={{ mt: 0.5 }}>
                         <Grid item xs={12} md={4}>
@@ -1188,6 +1276,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                         </Grid>
                       </Grid>
                     )}
+                    </Box>
                   </Box>
                 </Box>
               </Grid>
