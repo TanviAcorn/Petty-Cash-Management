@@ -127,19 +127,59 @@ export default function TravelCostAudit() {
       .some(v => v?.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const exportCSV = () => {
-    const headers = ['Request ID','Employee','Trip','Date','Currency',
-      'Flight','Hotel','Food','Car Park','Visa','Baggage','Transport','Other','Total'];
-    const csvRows = filtered.map(r => [
-      r.request_id, r.employee_name, r.trip_summary, r.travel_date?.split('T')[0]||'',
-      r.currency, r.flight_cost||0, r.hotel_cost||0, r.food_cost||0, r.car_park_cost||0,
-      r.visa_cost||0, r.baggage_cost||0, r.transport_cost||0, r.other_cost||0, r.total_cost||0,
-    ]);
-    const csv = [headers,...csvRows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
-    const blob = new Blob([csv],{type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download='travel_cost_audit.csv'; a.click();
-    URL.revokeObjectURL(url);
+  const exportCSV = async () => {
+    try {
+      // Fetch ALL records matching current date filter (no client-side pagination limit)
+      const params = {};
+      if (fromDate) params.from = fromDate;
+      if (toDate)   params.to   = toDate;
+
+      const res = await axiosClient.get('/travel-costs', { params });
+      const allRows = res.data?.data || [];
+
+      // Apply search filter client-side (same as the table)
+      const exportRows = allRows.filter(r =>
+        !search || [r.employee_name, r.employee_email, r.trip_summary]
+          .some(v => v?.toLowerCase().includes(search.toLowerCase()))
+      );
+
+      const headers = ['Request ID', 'Employee', 'Email', 'Trip', 'Date', 'Currency',
+        'Flight', 'Hotel', 'Food', 'Car Park', 'Visa', 'Baggage', 'Transport', 'Other', 'Total'];
+      const csvRows = exportRows.map(r => [
+        r.request_id,
+        `"${(r.employee_name || '').replace(/"/g, '""')}"`,
+        `"${(r.employee_email || '').replace(/"/g, '""')}"`,
+        `"${(r.trip_summary || '').replace(/"/g, '""')}"`,
+        r.travel_date?.split('T')[0] || '',
+        r.currency || 'GBP',
+        r.flight_cost    || 0,
+        r.hotel_cost     || 0,
+        r.food_cost      || 0,
+        r.car_park_cost  || 0,
+        r.visa_cost      || 0,
+        r.baggage_cost   || 0,
+        r.transport_cost || 0,
+        r.other_cost     || 0,
+        r.total_cost     || 0,
+      ]);
+
+      const csv = [headers, ...csvRows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      // Build filename with date range if set
+      let filename = 'travel_cost_audit';
+      if (fromDate || toDate) {
+        filename = `travel_cost_audit_${fromDate || 'start'}_to_${toDate || 'end'}`;
+      }
+      a.download = `${filename}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
   };
 
   return (
