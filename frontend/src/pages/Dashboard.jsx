@@ -160,9 +160,19 @@ const Dashboard = () => {
       const key = r.category || 'Other';
       map.set(key, (map.get(key) || 0) + Number(r.amount || 0));
     });
-    const total = Array.from(map.values()).reduce((a,b)=>a+b,0) || 1;
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value, pct: (value/total)*100 }));
-  }, [rows]);
+
+    // Add cancellation charges from travel costs summary as a dedicated slice
+    const cancellationTotal = parseFloat(travelCostSummary?.total_cancellation || 0);
+    if (cancellationTotal > 0) {
+      const existing = map.get('Cancellation Charges') || 0;
+      map.set('Cancellation Charges', existing + cancellationTotal);
+    }
+
+    const total = Array.from(map.values()).reduce((a, b) => a + b, 0) || 1;
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1]) // largest slice first
+      .map(([name, value]) => ({ name, value, pct: (value / total) * 100 }));
+  }, [rows, travelCostSummary]);
 
   // Enhanced SVG line chart with live data features
   const LineChart = ({ data, width=520, height=260, stroke='#1976d2' }) => {
