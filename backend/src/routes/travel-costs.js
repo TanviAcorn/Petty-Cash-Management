@@ -21,15 +21,19 @@ async function ensureCostsTable(pool) {
       baggage_cost DECIMAL(10,2) NULL,
       transport_cost DECIMAL(10,2) NULL,
       other_cost DECIMAL(10,2) NULL,
+      cancellation_cost DECIMAL(10,2) NULL,
       other_notes NVARCHAR(500) NULL,
       total_cost AS (ISNULL(flight_cost,0)+ISNULL(hotel_cost,0)+ISNULL(food_cost,0)+
                      ISNULL(car_park_cost,0)+ISNULL(visa_cost,0)+ISNULL(baggage_cost,0)+
-                     ISNULL(transport_cost,0)+ISNULL(other_cost,0)) PERSISTED,
+                     ISNULL(transport_cost,0)+ISNULL(other_cost,0)+ISNULL(cancellation_cost,0)) PERSISTED,
       currency NVARCHAR(10) DEFAULT 'GBP',
       created_by NVARCHAR(320) NULL,
       created_at DATETIME2 DEFAULT SYSUTCDATETIME(),
       updated_at DATETIME2 NULL
     );
+    -- Add cancellation_cost column if table already existed without it
+    IF COL_LENGTH('dbo.petty_travel_costs','cancellation_cost') IS NULL
+      ALTER TABLE dbo.petty_travel_costs ADD cancellation_cost DECIMAL(10,2) NULL;
   `);
 }
 
