@@ -162,7 +162,53 @@ const Dashboard = () => {
     return { totalRequests, pending, byCurrency };
   }, [rows]);
 
-  const monthlySeries = useMemo(() => {
+  const taskSummary = useMemo(() => {
+    const now = new Date();
+
+    // Overdue: pending requests where date_of_purchase is in the past (older than 7 days with no action)
+    const overdue = rows.filter(r => {
+      if (String(r.status).toLowerCase() !== 'pending') return false;
+      const d = r.dateOfPurchase ? new Date(r.dateOfPurchase) : (r.date ? new Date(r.date) : null);
+      if (!d) return false;
+      const diffDays = (now - d) / (1000 * 60 * 60 * 24);
+      return diffDays > 7;
+    });
+
+    // In Progress: approved travel requests that are currently ongoing (departure <= today <= return)
+    const inProgress = travelRequests.filter(r => {
+      const td = r.travel_form_data;
+      if (!td) return false;
+      // Must be approved
+      if (r.l1_approval_status !== 'approved') return false;
+
+      let startDate = null;
+      let endDate = null;
+
+      if (td.travelType === 'domestic') {
+        startDate = td.domesticDateFlexFrom || td.dateOfTravel;
+        endDate = td.domesticDateFlexTo || td.dateOfTravel;
+      } else if (td.tripType === 'multiCity' && td.multiCityLegs?.length) {
+        startDate = td.multiCityLegs[0]?.date;
+        endDate = td.multiCityLegs[td.multiCityLegs.length - 1]?.date;
+      } else {
+        startDate = td.roundTrip?.departureDate || td.dateOfTravel;
+        endDate = td.roundTrip?.arrivalDate || td.dateOfTravel;
+      }
+
+      if (!startDate) return false;
+      const start = new Date(startDate);
+      const end = endDate ? new Date(endDate) : new Date(startDate);
+      end.setHours(23, 59, 59, 999);
+      return now >= start && now <= end;
+    });
+
+    // Also include pending_l1 travel requests as "In Progress" (awaiting approval)
+    const pendingL1 = travelRequests.filter(r =>
+      r.status === 'pending_l1' || r.l1_approval_status === 'pending'
+    );
+
+    return { overdue, inProgress: [...inProgress, ...pendingL1] };
+  }, [rows, travelRequests]);
     // Sum by month for current year, handling multiple currencies
     const byMonth = new Array(12).fill(0);
     const year = new Date().getFullYear();
