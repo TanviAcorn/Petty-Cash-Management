@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 
@@ -80,11 +81,19 @@ startFeedbackScheduler();
 // Static file hosting for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.use(express.static(path.join(__dirname, "../frontend/dist")));
+const distPath = path.join(__dirname, "../frontend/dist");
+const distIndex = path.join(distPath, "index.html");
 
-app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
-});
+if (fs.existsSync(distIndex)) {
+  app.use(express.static(distPath));
+  app.get("*", (req, res) => {
+    res.sendFile(distIndex);
+  });
+} else {
+  app.get("*", (req, res) => {
+    res.status(404).json({ message: "Frontend not built. Run `npm run build` in the frontend folder, or run the frontend dev server separately." });
+  });
+}
 
 app.listen(process.env.PORT || 5005, '0.0.0.0', () => {
   console.log(`Server running on port ${process.env.PORT || 5005}`);

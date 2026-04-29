@@ -14,6 +14,10 @@ router.post("/login", async (req, res) => {
     }
 
     const pool = await poolPromise;
+    if (!pool) {
+      return res.status(503).json({ message: "Database connection unavailable. Please check server logs." });
+    }
+
     const userByEmail = await pool
       .request()
       .input("email", String(email))

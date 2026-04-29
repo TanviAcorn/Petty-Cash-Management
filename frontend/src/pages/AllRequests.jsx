@@ -182,60 +182,80 @@ const AllRequests = () => {
     return { total, pending, approved, rejected };
   }, [rows, pagination.totalItems]);
 
-  const handleExportCSV = () => {
-    // Filter rows by date range for export
-    let exportRows = [...filteredRows];
-    
-    if (dateRange.startDate || dateRange.endDate) {
-      exportRows = exportRows.filter(row => {
-        const rowDate = new Date(row.date);
-        const startDate = dateRange.startDate ? new Date(dateRange.startDate) : null;
-        const endDate = dateRange.endDate ? new Date(dateRange.endDate) : null;
-        
-        if (startDate && endDate) {
-          return rowDate >= startDate && rowDate <= endDate;
-        } else if (startDate) {
-          return rowDate >= startDate;
-        } else if (endDate) {
-          return rowDate <= endDate;
-        }
-        return true;
-      });
-    }
+  const handleExportCSV = async () => {
+    try {
+      // Fetch ALL matching records (no pagination) for export
+      const params = { limit: 100000, page: 1 };
 
-    const header = ['Employee name', 'Date', 'Category', 'Company', 'Location', 'Amount', 'Status'];
-    const csv = [header.join(',')] 
-      .concat(
-        exportRows.map(r => [
-          `"${(r.employeeName ?? '').replace(/"/g, '""')}"`,
-          `"${r.date || ''}"`,
-          `"${(r.category ?? '').replace(/"/g, '""')}"`,
-          `"${(r.company ?? '').replace(/"/g, '""')}"`,
-          `"${(r.location ?? '').replace(/"/g, '""')}"`,
-          r.amount ?? 0,
-          `"${(r.status ?? '').replace(/"/g, '""')}"`,
-        ].join(','))
-      )
-      .join('\n');
-      
-    const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    
-    // Generate filename with date range if specified
-    let filename = 'all_requests';
-    if (dateRange.startDate || dateRange.endDate) {
-      const start = dateRange.startDate ? new Date(dateRange.startDate).toISOString().split('T')[0] : '';
-      const end = dateRange.endDate ? new Date(dateRange.endDate).toISOString().split('T')[0] : '';
-      filename = `requests_${start || 'start'}_to_${end || 'end'}`;
+      if (user) {
+        params.userRole = user.role;
+        if (user.role === 'Payment' && user.company) {
+          params.assignedCompany = user.company;
+        }
+      }
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (search.trim()) params.q = search.trim();
+
+      // Apply date range as a filter on the request date
+      if (dateRange.startDate) params.fromDate = new Date(dateRange.startDate).toISOString().split('T')[0];
+      if (dateRange.endDate)   params.toDate   = new Date(dateRange.endDate).toISOString().split('T')[0];
+
+      const { data } = await axiosClient.get('/requests', { params });
+      let exportRows = Array.isArray(data?.data || data) ? (data.data || data) : [];
+
+      // Client-side date filter as safety net (covers the date range pickers)
+      if (dateRange.startDate || dateRange.endDate) {
+        exportRows = exportRows.filter(row => {
+          const rowDate = new Date(row.date);
+          const start = dateRange.startDate ? new Date(dateRange.startDate) : null;
+          const end   = dateRange.endDate   ? new Date(dateRange.endDate)   : null;
+          if (start) start.setHours(0, 0, 0, 0);
+          if (end)   end.setHours(23, 59, 59, 999);
+          if (start && end) return rowDate >= start && rowDate <= end;
+          if (start) return rowDate >= start;
+          if (end)   return rowDate <= end;
+          return true;
+        });
+      }
+
+      const header = ['ID', 'Employee Name', 'Employee Email', 'Date', 'Category', 'Company', 'Location', 'Amount', 'Currency', 'Status'];
+      const csv = [header.join(',')]
+        .concat(
+          exportRows.map(r => [
+            r.id ?? '',
+            `"${(r.employeeName ?? '').replace(/"/g, '""')}"`,
+            `"${(r.employeeEmail ?? '').replace(/"/g, '""')}"`,
+            `"${r.date ? new Date(r.date).toLocaleDateString('en-GB') : ''}"`,
+            `"${(r.category ?? '').replace(/"/g, '""')}"`,
+            `"${(r.company ?? '').replace(/"/g, '""')}"`,
+            `"${(r.location ?? '').replace(/"/g, '""')}"`,
+            r.amount ?? 0,
+            `"${(r.currency ?? 'GBP').replace(/"/g, '""')}"`,
+            `"${(r.status ?? '').replace(/"/g, '""')}"`,
+          ].join(','))
+        )
+        .join('\n');
+
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      let filename = 'all_requests';
+      if (dateRange.startDate || dateRange.endDate) {
+        const start = dateRange.startDate ? new Date(dateRange.startDate).toISOString().split('T')[0] : 'start';
+        const end   = dateRange.endDate   ? new Date(dateRange.endDate).toISOString().split('T')[0]   : 'end';
+        filename = `requests_${start}_to_${end}`;
+      }
+
+      link.download = `${filename}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
     }
-    
-    link.download = `${filename}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   const handleDateChange = (date, type) => {

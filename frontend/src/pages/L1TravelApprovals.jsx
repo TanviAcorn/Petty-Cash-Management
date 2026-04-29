@@ -461,9 +461,20 @@ const L1TravelApprovals = () => {
   const saveDraft = async () => {
     if (!uploadRequest) return;
     try {
+      // Aggregate per-leg costs before saving draft too
+      const aggregatedCosts = { ...costDetails };
+      const legCostMap = { flights:'flightCost', hotel:'hotelCost', carPark:'carParkCost', visa:'visaCost', food:'foodCost', baggage:'baggageCost', rentedVehicle:'transportCost' };
+      Object.entries(costDetails).forEach(([key, val]) => {
+        const legMatch = key.match(/^(.+)_leg_(\d+)$/);
+        if (legMatch) {
+          const namedKey = legCostMap[legMatch[1]];
+          if (namedKey) aggregatedCosts[namedKey] = (parseFloat(aggregatedCosts[namedKey] || 0) + parseFloat(val || 0)).toString();
+          delete aggregatedCosts[key];
+        }
+      });
       await axiosClient.post(`/travel-documents/${uploadRequest.id}/save-details`, {
         details: sectionDetails,
-        costDetails,
+        costDetails: aggregatedCosts,
         currency,
         globalRemarks: globalRemarks.trim() || null,
         uploadedBy: currentUser.email,
@@ -513,10 +524,35 @@ const L1TravelApprovals = () => {
     try {
       const requestId = uploadRequest.id;
 
+      // Aggregate per-leg cost keys back into the named keys the backend expects
+      // e.g. flights_leg_0, flights_leg_1 → flightCost (summed)
+      const aggregatedCosts = { ...costDetails };
+      const legCostMap = {
+        flights:      'flightCost',
+        hotel:        'hotelCost',
+        carPark:      'carParkCost',
+        visa:         'visaCost',
+        food:         'foodCost',
+        baggage:      'baggageCost',
+        rentedVehicle:'transportCost',
+      };
+      Object.entries(costDetails).forEach(([key, val]) => {
+        const legMatch = key.match(/^(.+)_leg_(\d+)$/);
+        if (legMatch) {
+          const baseKey = legMatch[1];
+          const namedKey = legCostMap[baseKey];
+          if (namedKey) {
+            aggregatedCosts[namedKey] = (parseFloat(aggregatedCosts[namedKey] || 0) + parseFloat(val || 0)).toString();
+          }
+          // Remove the per-leg key so backend doesn't get confused
+          delete aggregatedCosts[key];
+        }
+      });
+
       // 1. Save text details
       await axiosClient.post(`/travel-documents/${requestId}/save-details`, {
         details: sectionDetails,
-        costDetails,
+        costDetails: aggregatedCosts,
         currency,
         globalRemarks: globalRemarks.trim() || null,
         uploadedBy: currentUser.email,
@@ -1149,8 +1185,8 @@ const L1TravelApprovals = () => {
                               size="small"
                               label={config.costField.label}
                               type="number"
-                              value={costDetails[config.costField.key] || ''}
-                              onChange={(e) => setCostDetails(prev => ({ ...prev, [config.costField.key]: e.target.value }))}
+                              value={costDetails[sectionKey] !== undefined ? costDetails[sectionKey] : (costDetails[config.costField.key] || '')}
+                              onChange={(e) => setCostDetails(prev => ({ ...prev, [sectionKey]: e.target.value }))}
                               disabled={uploadSending}
                               InputProps={{
                                 startAdornment: (
