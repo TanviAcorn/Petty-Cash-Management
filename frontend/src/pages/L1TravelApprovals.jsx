@@ -1177,7 +1177,8 @@ const L1TravelApprovals = () => {
                           </Grid>
                         ))}
 
-                        {/* Cost field for this section */}
+                        {/* Cost field for this section — uses sectionKey (e.g. flights_leg_0) as state key
+                            so each leg has its own independent value and never mirrors another */}
                         {config.costField && (
                           <Grid item xs={12} sm={4}>
                             <TextField
@@ -1185,7 +1186,7 @@ const L1TravelApprovals = () => {
                               size="small"
                               label={config.costField.label}
                               type="number"
-                              value={costDetails[sectionKey] !== undefined ? costDetails[sectionKey] : (costDetails[config.costField.key] || '')}
+                              value={costDetails[sectionKey] ?? ''}
                               onChange={(e) => setCostDetails(prev => ({ ...prev, [sectionKey]: e.target.value }))}
                               disabled={uploadSending}
                               InputProps={{
