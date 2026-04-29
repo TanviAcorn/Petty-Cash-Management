@@ -11,7 +11,9 @@ const app = express();
 // Replace the CORS configuration with:
 // Allowed origins for CORS
 const allowedOrigins = [
-  'http://172.30.36.47:5176',  // Internal frontend
+  'http://172.30.36.47:5176',  // Priyal's PC frontend
+  'http://172.30.27.35:5176',  // Harsh's PC frontend
+  'http://172.30.27.35:5005',  // Harsh's PC backend
   'http://localhost:5176',     // Local development
   'http://localhost:5005',     // Local backend port
   'http://103.206.209.210:5176', // External access
