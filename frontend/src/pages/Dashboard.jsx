@@ -469,60 +469,67 @@ const Dashboard = () => {
         <Grid item xs={12} md={5}>
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="subtitle1" fontWeight={800} gutterBottom>Category Breakdown</Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>Expenses by category this month</Typography>
+              <Typography variant="subtitle1" fontWeight={800} gutterBottom>Current Spending Overview</Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>Expenses by category — including cancellation charges</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
                 <PieChart series={categorySeries} />
-                <Box sx={{ display: 'grid', gap: 1, maxHeight: 300, overflowY: 'auto' }}>
+                <Box sx={{ display: 'grid', gap: 1, maxHeight: 300, overflowY: 'auto', flex: 1, minWidth: 140 }}>
                   {categorySeries.map((c, idx) => {
                     const colors = [
-                      '#1976d2', // Blue
-                      '#2e7d32', // Green
-                      '#ed6c02', // Orange
-                      '#9c27b0', // Purple
-                      '#607d8b', // Blue Grey
-                      '#ef5350', // Red
-                      '#00acc1', // Cyan
-                      '#7cb342', // Light Green
-                      '#f57c00', // Deep Orange
-                      '#5e35b1', // Deep Purple
+                      '#1976d2', '#2e7d32', '#ed6c02', '#9c27b0',
+                      '#607d8b', '#ef5350', '#00acc1', '#7cb342',
+                      '#f57c00', '#5e35b1',
                     ];
+                    const isCancellation = c.name === 'Cancellation Charges';
+                    const color = isCancellation ? '#ef5350' : colors[idx % colors.length];
                     return (
-                      <Box 
-                        key={c.name+idx}
-                        sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
+                      <Box
+                        key={c.name + idx}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
                           gap: 1,
                           px: 1,
                           py: 0.5,
                           borderRadius: 1,
-                          border: `1px solid ${colors[idx % colors.length]}20`,
-                          backgroundColor: `${colors[idx % colors.length]}08`
+                          border: `1px solid ${color}30`,
+                          backgroundColor: isCancellation ? `${color}12` : `${color}08`,
                         }}
                       >
-                        <Box 
-                          sx={{ 
-                            width: 8, 
-                            height: 8, 
-                            borderRadius: '50%',
-                            backgroundColor: colors[idx % colors.length],
-                            flexShrink: 0
-                          }} 
-                        />
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            color: colors[idx % colors.length],
-                            fontWeight: 500,
-                            fontSize: '0.8125rem'
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: isCancellation ? 0 : '50%', // diamond-ish for cancellation
+                            backgroundColor: color,
+                            flexShrink: 0,
+                            transform: isCancellation ? 'rotate(45deg)' : 'none',
                           }}
-                        >
-                          {c.name} {Math.round(c.pct)}%
-                        </Typography>
+                        />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color,
+                              fontWeight: isCancellation ? 700 : 500,
+                              fontSize: '0.8125rem',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {c.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                            {Math.round(c.pct)}% · {formatCurrency(c.value, currency)}
+                          </Typography>
+                        </Box>
                       </Box>
                     );
                   })}
+                  {categorySeries.length === 0 && (
+                    <Typography variant="caption" color="text.secondary">No spending data yet.</Typography>
+                  )}
                 </Box>
               </Box>
             </CardContent>
