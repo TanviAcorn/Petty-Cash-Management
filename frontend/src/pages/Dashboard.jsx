@@ -79,6 +79,7 @@ const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 const Dashboard = () => {
   const [rows, setRows] = useState([]);
+  const [travelCostSummary, setTravelCostSummary] = useState(null);
   const { currency, formatCurrency } = useRegionalSettings();
 
   useEffect(() => {
@@ -88,13 +89,24 @@ const Dashboard = () => {
         // Fetch all requests without pagination for dashboard charts
         const { data } = await axiosClient.get('/requests', { 
           signal: controller.signal,
-          params: { limit: 10000 } // Get all requests for dashboard calculations
+          params: { limit: 10000 }
         });
         setRows(Array.isArray(data?.data || data) ? (data.data || data) : []);
       } catch (e) {
         setRows([]);
       }
     })();
+
+    // Fetch travel cost summary for cancellation charges
+    (async () => {
+      try {
+        const { data } = await axiosClient.get('/travel-costs/summary');
+        setTravelCostSummary(data?.data || null);
+      } catch (e) {
+        setTravelCostSummary(null);
+      }
+    })();
+
     return () => controller.abort();
   }, []);
 
