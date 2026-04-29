@@ -13,6 +13,7 @@ const app = express();
 const allowedOrigins = [
   'http://172.30.36.47:5176',  // Internal frontend
   'http://localhost:5176',     // Local development
+  'http://localhost:5005',     // Local backend port
   'http://103.206.209.210:5176', // External access
   'http://103.206.209.210:5005', // External access (backend port)
 ];
