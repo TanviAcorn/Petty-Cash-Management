@@ -292,21 +292,15 @@ const Dashboard = () => {
     const theme = useTheme();
     const cx = width/2, cy = height/2, r = Math.min(width,height)/3;
     let startAngle = -Math.PI/2;
-    // Enhanced color palette with better contrast and visual appeal
     const colors = [
-      '#1976d2', // Blue
-      '#2e7d32', // Green
-      '#ed6c02', // Orange
-      '#9c27b0', // Purple
-      '#607d8b', // Blue Grey
-      '#ef5350', // Red
-      '#00acc1', // Cyan
-      '#7cb342', // Light Green
-      '#f57c00', // Deep Orange
-      '#5e35b1', // Deep Purple
+      '#1976d2', '#2e7d32', '#ed6c02', '#9c27b0',
+      '#607d8b', '#ef5350', '#00acc1', '#7cb342',
+      '#f57c00', '#5e35b1',
     ];
-    const arcs = series.map((s,idx)=>{
-      const angle = (s.pct/100)*2*Math.PI;
+    const arcs = series.map((s, idx) => {
+      // Cancellation Charges always gets red
+      const color = s.name === 'Cancellation Charges' ? '#ef5350' : colors[idx % colors.length];
+      const angle = (s.pct / 100) * 2 * Math.PI;
       const endAngle = startAngle + angle;
       const x1 = cx + r * Math.cos(startAngle);
       const y1 = cy + r * Math.sin(startAngle);
@@ -314,14 +308,14 @@ const Dashboard = () => {
       const y2 = cy + r * Math.sin(endAngle);
       const largeArc = angle > Math.PI ? 1 : 0;
       const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-      const path = <path key={idx} d={d} fill={colors[idx % colors.length]} stroke="#fff" strokeWidth={1} />;
+      const path = <path key={idx} d={d} fill={color} stroke="#fff" strokeWidth={1} />;
       startAngle = endAngle;
       return path;
     });
     const bg = theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fff';
     const axis = theme.palette.divider;
     return (
-      <svg width={width} height={height} role="img" aria-label="Category Breakdown">
+      <svg width={width} height={height} role="img" aria-label="Current Spending Overview">
         <rect x={0} y={0} width={width} height={height} fill={bg} stroke={axis} />
         {arcs}
       </svg>
