@@ -177,28 +177,62 @@ const Rejected = () => {
     return rows;
   }, [rows]);
 
-  const handleExportCSV = () => {
-    const header = ['ID', 'Employee', 'Company', 'Category', 'Amount', 'Date', 'Reason'];
-    const csv = [header.join(',')] 
-      .concat(
-        filteredRows.map(r => [
-          r.id ?? '',
-          (r.employeeName ?? '').replaceAll(',', ' '),
-          (r.company ?? '').replaceAll(',', ' '),
-          (r.category ?? '').replaceAll(',', ' '),
-          r.amount ?? 0,
-          r.date ?? '',
-          (r.reason ?? '').replaceAll('\n', ' ').replaceAll(',', ' '),
-        ].join(','))
-      )
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'rejected_requests.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+  const handleExportCSV = async () => {
+    try {
+      // Fetch ALL matching records (no pagination) for export
+      const params = {
+        limit: 100000,
+        page: 1,
+        status: 'rejected',
+      };
+
+      if (user) {
+        params.userRole = user.role;
+        if (user.role === 'Payment' && user.company) {
+          params.assignedCompany = user.company;
+        }
+      }
+      if (search.trim())    params.q        = search.trim();
+      if (company !== 'all') params.company  = company;
+      if (category !== 'all') params.category = category;
+      if (range !== 'all')  params.range    = range;
+
+      const { data } = await axiosClient.get('/requests', { params });
+      const exportRows = Array.isArray(data?.data || data) ? (data.data || data) : [];
+
+      const header = ['ID', 'Employee Name', 'Employee Email', 'Date Rejected', 'Category', 'Company', 'Location', 'Amount', 'Currency', 'Rejection Reason'];
+      const csv = [header.join(',')]
+        .concat(
+          exportRows.map(r => [
+            r.id ?? '',
+            `"${(r.employeeName ?? '').replace(/"/g, '""')}"`,
+            `"${(r.employeeEmail ?? '').replace(/"/g, '""')}"`,
+            `"${r.rejectedAt ? new Date(r.rejectedAt).toLocaleDateString('en-GB') : ''}"`,
+            `"${(r.category ?? '').replace(/"/g, '""')}"`,
+            `"${(r.company ?? '').replace(/"/g, '""')}"`,
+            `"${(r.location ?? '').replace(/"/g, '""')}"`,
+            r.amount ?? 0,
+            `"${(r.currency ?? 'GBP').replace(/"/g, '""')}"`,
+            `"${(r.reason ?? '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+          ].join(','))
+        )
+        .join('\n');
+
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Build filename with active range filter
+      const rangeLabel = range !== 'all' ? `_${range}` : '';
+      link.download = `rejected_requests${rangeLabel}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
   };
 
   // Reusable stat card
