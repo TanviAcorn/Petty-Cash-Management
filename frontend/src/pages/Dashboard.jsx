@@ -92,14 +92,15 @@ const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const Dashboard = () => {
   const [rows, setRows] = useState([]);
   const [travelCostSummary, setTravelCostSummary] = useState(null);
+  const [travelRequests, setTravelRequests] = useState([]);
+  const [taskTab, setTaskTab] = useState(0); // 0 = Overdue, 1 = In Progress
   const { currency, formatCurrency } = useRegionalSettings();
 
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
       try {
-        // Fetch all requests without pagination for dashboard charts
-        const { data } = await axiosClient.get('/requests', { 
+        const { data } = await axiosClient.get('/requests', {
           signal: controller.signal,
           params: { limit: 10000 }
         });
@@ -116,6 +117,16 @@ const Dashboard = () => {
         setTravelCostSummary(data?.data || null);
       } catch (e) {
         setTravelCostSummary(null);
+      }
+    })();
+
+    // Fetch travel requests for In Progress tab
+    (async () => {
+      try {
+        const { data } = await axiosClient.get('/l1-approvals');
+        setTravelRequests(data?.data || []);
+      } catch (e) {
+        setTravelRequests([]);
       }
     })();
 
