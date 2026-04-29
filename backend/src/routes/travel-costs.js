@@ -93,15 +93,16 @@ router.get('/summary', async (req, res) => {
     const result = await request.query(`
       SELECT
         COUNT(*) AS total_requests,
-        SUM(total_cost)     AS grand_total,
-        SUM(flight_cost)    AS total_flights,
-        SUM(hotel_cost)     AS total_hotel,
-        SUM(food_cost)      AS total_food,
-        SUM(car_park_cost)  AS total_car_park,
-        SUM(visa_cost)      AS total_visa,
-        SUM(baggage_cost)   AS total_baggage,
-        SUM(transport_cost) AS total_transport,
-        SUM(other_cost)     AS total_other
+        SUM(total_cost)        AS grand_total,
+        SUM(flight_cost)       AS total_flights,
+        SUM(hotel_cost)        AS total_hotel,
+        SUM(food_cost)         AS total_food,
+        SUM(car_park_cost)     AS total_car_park,
+        SUM(visa_cost)         AS total_visa,
+        SUM(baggage_cost)      AS total_baggage,
+        SUM(transport_cost)    AS total_transport,
+        SUM(other_cost)        AS total_other,
+        SUM(cancellation_cost) AS total_cancellation
       FROM petty_travel_costs
       ${whereClause}
     `);
