@@ -303,7 +303,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   const handleTripTypeChange = (e) => {
     const val = e.target.value;
     setTripType(val);
-    // Update travelData with new tripType so all subsequent emits use the correct value
+    // Keep travelData.tripType in sync — this is what all onChange calls read
     setTravelData(prev => ({ ...prev, tripType: val }));
     emit({ tripType: val });
   };
