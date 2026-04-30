@@ -99,8 +99,12 @@ const MyTravelRequests = () => {
             <TableContainer component={Box}><Table size="small"><TableBody>
               <Row label="From City" value={tf.roundTrip.fromCity} />
               <Row label="To City" value={tf.roundTrip.toCity} />
-              <Row label="Departure Date" value={tf.roundTrip.departureDate || 'Flexible'} />
-              <Row label="Return Date" value={tf.roundTrip.arrivalDate || 'Flexible'} />
+              {tf.roundTrip.departureDateFlexFrom
+                ? <><Row label="Flexible Departure From" value={fmt(tf.roundTrip.departureDateFlexFrom)} /><Row label="Flexible Departure To" value={fmt(tf.roundTrip.departureDateFlexTo)} /></>
+                : <Row label="Departure Date" value={fmt(tf.roundTrip.departureDate) || 'Flexible'} />}
+              {tf.roundTrip.arrivalDateFlexFrom
+                ? <><Row label="Flexible Return From" value={fmt(tf.roundTrip.arrivalDateFlexFrom)} /><Row label="Flexible Return To" value={fmt(tf.roundTrip.arrivalDateFlexTo)} /></>
+                : <Row label="Return Date" value={fmt(tf.roundTrip.arrivalDate) || 'Flexible'} />}
               {tf.roundTrip.needsHotel && <>
                 <Row label="Hotel Check-in" value={fmt(tf.roundTrip.hotelFrom)} />
                 <Row label="Hotel Check-out" value={fmt(tf.roundTrip.hotelTo)} />
@@ -117,7 +121,9 @@ const MyTravelRequests = () => {
             <TableContainer component={Box}><Table size="small"><TableBody>
               <Row label="From City" value={tf.roundTrip.fromCity} />
               <Row label="To City" value={tf.roundTrip.toCity} />
-              <Row label="Departure Date" value={tf.roundTrip.departureDate || 'Flexible'} />
+              {tf.roundTrip.departureDateFlexFrom
+                ? <><Row label="Flexible Departure From" value={fmt(tf.roundTrip.departureDateFlexFrom)} /><Row label="Flexible Departure To" value={fmt(tf.roundTrip.departureDateFlexTo)} /></>
+                : <Row label="Departure Date" value={fmt(tf.roundTrip.departureDate) || 'Flexible'} />}
               {tf.roundTrip.needsHotel && <>
                 <Row label="Hotel Check-in" value={fmt(tf.roundTrip.hotelFrom)} />
                 <Row label="Hotel Check-out" value={fmt(tf.roundTrip.hotelTo)} />
@@ -136,7 +142,9 @@ const MyTravelRequests = () => {
                 <TableContainer component={Box}><Table size="small"><TableBody>
                   <Row label="From City" value={leg.fromCity} />
                   <Row label="To City" value={leg.toCity} />
-                  <Row label="Date" value={leg.date || 'Flexible'} />
+                  {leg.dateFlexFrom
+                    ? <><Row label="Flexible Date From" value={fmt(leg.dateFlexFrom)} /><Row label="Flexible Date To" value={fmt(leg.dateFlexTo)} /></>
+                    : <Row label="Date" value={fmt(leg.date) || 'Flexible'} />}
                   {leg.needsHotel && <>
                     <Row label="Hotel Check-in" value={fmt(leg.hotelFrom)} />
                     <Row label="Hotel Check-out" value={fmt(leg.hotelTo)} />

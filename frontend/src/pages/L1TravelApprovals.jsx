@@ -664,8 +664,12 @@ const L1TravelApprovals = () => {
             <TableContainer component={Box}><Table size="small"><TableBody>
               <InfoRow label="From City" value={tf.roundTrip.fromCity} />
               <InfoRow label="To City" value={tf.roundTrip.toCity} />
-              <InfoRow label="Departure Date" value={tf.roundTrip.departureDate || 'Flexible'} />
-              <InfoRow label="Return Date" value={tf.roundTrip.arrivalDate || 'Flexible'} />
+              {tf.roundTrip.departureDateFlexFrom
+                ? <><InfoRow label="Flexible Departure From" value={formatDate(tf.roundTrip.departureDateFlexFrom)} /><InfoRow label="Flexible Departure To" value={formatDate(tf.roundTrip.departureDateFlexTo)} /></>
+                : <InfoRow label="Departure Date" value={formatDate(tf.roundTrip.departureDate) || 'Flexible'} />}
+              {tf.roundTrip.arrivalDateFlexFrom
+                ? <><InfoRow label="Flexible Return From" value={formatDate(tf.roundTrip.arrivalDateFlexFrom)} /><InfoRow label="Flexible Return To" value={formatDate(tf.roundTrip.arrivalDateFlexTo)} /></>
+                : <InfoRow label="Return Date" value={formatDate(tf.roundTrip.arrivalDate) || 'Flexible'} />}
               {tf.roundTrip.needsHotel && <>
                 <InfoRow label="Hotel Check-in" value={formatDate(tf.roundTrip.hotelFrom)} />
                 <InfoRow label="Hotel Check-out" value={formatDate(tf.roundTrip.hotelTo)} />
@@ -681,7 +685,9 @@ const L1TravelApprovals = () => {
             <TableContainer component={Box}><Table size="small"><TableBody>
               <InfoRow label="From City" value={tf.roundTrip.fromCity} />
               <InfoRow label="To City" value={tf.roundTrip.toCity} />
-              <InfoRow label="Departure Date" value={tf.roundTrip.departureDate || 'Flexible'} />
+              {tf.roundTrip.departureDateFlexFrom
+                ? <><InfoRow label="Flexible Departure From" value={formatDate(tf.roundTrip.departureDateFlexFrom)} /><InfoRow label="Flexible Departure To" value={formatDate(tf.roundTrip.departureDateFlexTo)} /></>
+                : <InfoRow label="Departure Date" value={formatDate(tf.roundTrip.departureDate) || 'Flexible'} />}
               {tf.roundTrip.needsHotel && <>
                 <InfoRow label="Hotel Check-in" value={formatDate(tf.roundTrip.hotelFrom)} />
                 <InfoRow label="Hotel Check-out" value={formatDate(tf.roundTrip.hotelTo)} />
@@ -700,7 +706,9 @@ const L1TravelApprovals = () => {
                 <TableContainer component={Box}><Table size="small"><TableBody>
                   <InfoRow label="From City" value={leg.fromCity} />
                   <InfoRow label="To City" value={leg.toCity} />
-                  <InfoRow label="Date" value={leg.date || 'Flexible'} />
+                  {leg.dateFlexFrom
+                    ? <><InfoRow label="Flexible Date From" value={formatDate(leg.dateFlexFrom)} /><InfoRow label="Flexible Date To" value={formatDate(leg.dateFlexTo)} /></>
+                    : <InfoRow label="Date" value={formatDate(leg.date) || 'Flexible'} />}
                   {leg.needsHotel && <>
                     <InfoRow label="Hotel Check-in" value={formatDate(leg.hotelFrom)} />
                     <InfoRow label="Hotel Check-out" value={formatDate(leg.hotelTo)} />

@@ -256,8 +256,18 @@ const NewTravelRequest = () => {
     if (td.cityOfTravelDomestic) items.push({ label: 'City', value: td.cityOfTravelDomestic });
     if (td.tripType) items.push({ label: 'Trip Type', value: td.tripType === 'roundTrip' ? 'Round Trip' : td.tripType === 'multiCity' ? 'Multi-City' : 'One Way' });
     if (td.roundTrip?.fromCity) items.push({ label: 'Route', value: `${td.roundTrip.fromCity} → ${td.roundTrip.toCity}` });
-    if (td.roundTrip?.departureDate) items.push({ label: 'Departure', value: td.roundTrip.departureDate });
-    if (td.roundTrip?.arrivalDate) items.push({ label: 'Return', value: td.roundTrip.arrivalDate });
+    if (td.roundTrip?.departureDateFlexFrom) {
+      items.push({ label: 'Flexible Departure From', value: td.roundTrip.departureDateFlexFrom });
+      items.push({ label: 'Flexible Departure To', value: td.roundTrip.departureDateFlexTo || '—' });
+    } else if (td.roundTrip?.departureDate) {
+      items.push({ label: 'Departure', value: td.roundTrip.departureDate });
+    }
+    if (td.roundTrip?.arrivalDateFlexFrom) {
+      items.push({ label: 'Flexible Return From', value: td.roundTrip.arrivalDateFlexFrom });
+      items.push({ label: 'Flexible Return To', value: td.roundTrip.arrivalDateFlexTo || '—' });
+    } else if (td.roundTrip?.arrivalDate) {
+      items.push({ label: 'Return', value: td.roundTrip.arrivalDate });
+    }
     const reqs = td.requirements || {};
     const reqLabels = { flights: 'Flights', visa: 'Visa', rentedVehicle: 'Rented Vehicle', carPark: 'Airport Car Park', food: 'Food Preferance', baggage: 'Baggage Requirements' };
     const selected = Object.entries(reqs).filter(([, v]) => v).map(([k]) => reqLabels[k] || k);
@@ -523,8 +533,18 @@ const NewTravelRequest = () => {
                             if (tf.tripType === 'roundTrip' && tf.roundTrip) {
                               const rt = tf.roundTrip;
                               if (rt.fromCity || rt.toCity) rows.push({ label: 'Route', value: `${rt.fromCity || '—'} → ${rt.toCity || '—'}` });
-                              if (rt.departureDate) rows.push({ label: 'Departure', value: rt.departureDate });
-                              if (rt.arrivalDate) rows.push({ label: 'Return', value: rt.arrivalDate });
+                              if (rt.departureDateFlexFrom) {
+                                rows.push({ label: 'Flexible Departure From', value: rt.departureDateFlexFrom });
+                                rows.push({ label: 'Flexible Departure To', value: rt.departureDateFlexTo || '—' });
+                              } else if (rt.departureDate) {
+                                rows.push({ label: 'Departure', value: rt.departureDate });
+                              }
+                              if (rt.arrivalDateFlexFrom) {
+                                rows.push({ label: 'Flexible Return From', value: rt.arrivalDateFlexFrom });
+                                rows.push({ label: 'Flexible Return To', value: rt.arrivalDateFlexTo || '—' });
+                              } else if (rt.arrivalDate) {
+                                rows.push({ label: 'Return', value: rt.arrivalDate });
+                              }
                               if (rt.needsHotel) {
                                 rows.push({ label: 'Hotel', value: `${rt.hotelFrom || '—'} to ${rt.hotelTo || '—'}${rt.hotelDays ? ` (${rt.hotelDays} days)` : ''}` });
                               }
@@ -532,7 +552,10 @@ const NewTravelRequest = () => {
 
                             if (tf.tripType === 'multiCity' && tf.multiCityLegs?.length) {
                               tf.multiCityLegs.forEach((leg, i) => {
-                                rows.push({ label: `Leg ${i + 1}`, value: `${leg.fromCity || '—'} → ${leg.toCity || '—'}${leg.date ? ` | ${leg.date}` : ''}` });
+                                const legDate = leg.dateFlexFrom
+                                  ? `Flexible: ${leg.dateFlexFrom} – ${leg.dateFlexTo || '—'}`
+                                  : (leg.date || '');
+                                rows.push({ label: `Leg ${i + 1}`, value: `${leg.fromCity || '—'} → ${leg.toCity || '—'}${legDate ? ` | ${legDate}` : ''}` });
                                 if (leg.needsHotel) {
                                   rows.push({ label: `  Hotel ${i + 1}`, value: `${leg.hotelFrom || '—'} to ${leg.hotelTo || '—'}${leg.hotelDays ? ` (${leg.hotelDays} days)` : ''}` });
                                 }
@@ -542,7 +565,12 @@ const NewTravelRequest = () => {
 
                           if (tf.travelType === 'domestic') {
                             rows.push({ label: 'City', value: tf.cityOfTravelDomestic || '—' });
-                            rows.push({ label: 'Date', value: tf.dateOfTravel || '—' });
+                            if (tf.domesticDateFlex) {
+                              rows.push({ label: 'Flexible Date From', value: tf.domesticDateFlexFrom || '—' });
+                              rows.push({ label: 'Flexible Date To', value: tf.domesticDateFlexTo || '—' });
+                            } else {
+                              rows.push({ label: 'Date', value: tf.dateOfTravel || '—' });
+                            }
                             if (tf.departurePostcode || tf.destinationPostcode) {
                               rows.push({ label: 'Postcodes', value: `${tf.departurePostcode || '—'} → ${tf.destinationPostcode || '—'}` });
                             }

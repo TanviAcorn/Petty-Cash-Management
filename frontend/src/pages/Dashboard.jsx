@@ -227,16 +227,34 @@ const Dashboard = () => {
 
   const categorySeries = useMemo(() => {
     const map = new Map();
+
+    // Group petty cash requests by category, but exclude Travel Request
+    // (travel costs are broken down separately from the summary)
     rows.forEach(r => {
-      const key = r.category || 'Other';
+      const key = r.category || r.category_name || 'Other';
+      if (key === 'Travel Request' || key === 'Travel') return; // handled via travel cost summary
       map.set(key, (map.get(key) || 0) + Number(r.amount || 0));
     });
 
-    // Add cancellation charges from travel costs summary as a dedicated slice
-    const cancellationTotal = parseFloat(travelCostSummary?.total_cancellation || 0);
-    if (cancellationTotal > 0) {
-      const existing = map.get('Cancellation Charges') || 0;
-      map.set('Cancellation Charges', existing + cancellationTotal);
+    // Add travel cost breakdown from summary as dedicated slices
+    if (travelCostSummary) {
+      const travelComponents = [
+        { key: 'Flights',               field: 'total_flights'    },
+        { key: 'Hotel',                 field: 'total_hotel'      },
+        { key: 'Transport',             field: 'total_transport'  },
+        { key: 'Food (Travel)',         field: 'total_food'       },
+        { key: 'Car Park',              field: 'total_car_park'   },
+        { key: 'Visa',                  field: 'total_visa'       },
+        { key: 'Baggage',               field: 'total_baggage'    },
+        { key: 'Other (Travel)',        field: 'total_other'      },
+        { key: 'Cancellation Charges',  field: 'total_cancellation' },
+      ];
+      travelComponents.forEach(({ key, field }) => {
+        const val = parseFloat(travelCostSummary[field] || 0);
+        if (val > 0) {
+          map.set(key, (map.get(key) || 0) + val);
+        }
+      });
     }
 
     const total = Array.from(map.values()).reduce((a, b) => a + b, 0) || 1;
@@ -363,14 +381,23 @@ const Dashboard = () => {
     const theme = useTheme();
     const cx = width/2, cy = height/2, r = Math.min(width,height)/3;
     let startAngle = -Math.PI/2;
-    const colors = [
+    const SLICE_COLORS = {
+      'Flights':              '#1976d2',
+      'Hotel':                '#2e7d32',
+      'Transport':            '#ed6c02',
+      'Food (Travel)':        '#00acc1',
+      'Car Park':             '#7cb342',
+      'Visa':                 '#9c27b0',
+      'Baggage':              '#f57c00',
+      'Other (Travel)':       '#607d8b',
+      'Cancellation Charges': '#ef5350',
+    };
+    const fallbackColors = [
       '#1976d2', '#2e7d32', '#ed6c02', '#9c27b0',
-      '#607d8b', '#ef5350', '#00acc1', '#7cb342',
-      '#f57c00', '#5e35b1',
+      '#607d8b', '#00acc1', '#7cb342', '#f57c00', '#5e35b1', '#0288d1',
     ];
     const arcs = series.map((s, idx) => {
-      // Cancellation Charges always gets red
-      const color = s.name === 'Cancellation Charges' ? '#ef5350' : colors[idx % colors.length];
+      const color = SLICE_COLORS[s.name] || fallbackColors[idx % fallbackColors.length];
       const angle = (s.pct / 100) * 2 * Math.PI;
       const endAngle = startAngle + angle;
       const x1 = cx + r * Math.cos(startAngle);
@@ -540,13 +567,23 @@ const Dashboard = () => {
                 <PieChart series={categorySeries} />
                 <Box sx={{ display: 'grid', gap: 1, maxHeight: 300, overflowY: 'auto', flex: 1, minWidth: 140 }}>
                   {categorySeries.map((c, idx) => {
-                    const colors = [
+                    const LEGEND_COLORS = {
+                      'Flights':              '#1976d2',
+                      'Hotel':                '#2e7d32',
+                      'Transport':            '#ed6c02',
+                      'Food (Travel)':        '#00acc1',
+                      'Car Park':             '#7cb342',
+                      'Visa':                 '#9c27b0',
+                      'Baggage':              '#f57c00',
+                      'Other (Travel)':       '#607d8b',
+                      'Cancellation Charges': '#ef5350',
+                    };
+                    const fallbackLegendColors = [
                       '#1976d2', '#2e7d32', '#ed6c02', '#9c27b0',
-                      '#607d8b', '#ef5350', '#00acc1', '#7cb342',
-                      '#f57c00', '#5e35b1',
+                      '#607d8b', '#00acc1', '#7cb342', '#f57c00', '#5e35b1', '#0288d1',
                     ];
                     const isCancellation = c.name === 'Cancellation Charges';
-                    const color = isCancellation ? '#ef5350' : colors[idx % colors.length];
+                    const color = LEGEND_COLORS[c.name] || fallbackLegendColors[idx % fallbackLegendColors.length];
                     return (
                       <Box
                         key={c.name + idx}

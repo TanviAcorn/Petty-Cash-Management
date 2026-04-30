@@ -1431,8 +1431,9 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
           if (l1ManagerResult.recordset.length > 0) {
             const l1Manager = l1ManagerResult.recordset[0];
             const { subject, html } = buildL1ManagerApprovalEmail(newRequest, l1Manager);
-            console.log(`Sending L1 manager email to ${l1Manager.email}`);
-            sendEmail({ to: l1Manager.email, subject, html, replyTo, attachments: emailAttachments })
+            console.log(`[EMAIL] Sending L1 manager notification to ${l1Manager.email} for request #${newRequest.id}`);
+            sendEmail({ to: l1Manager.email, subject, html, attachments: emailAttachments })
+              .then(() => console.log(`[EMAIL] L1 manager notification sent to ${l1Manager.email}`))
               .catch((e) => console.error('Failed sending L1 manager email:', e.message));
           }
         }
@@ -1442,7 +1443,9 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
         const adminTo = process.env.ADMIN_EMAIL;
         if (adminTo) {
           const { subject, html } = buildAdminNewRequestEmail(newRequest);
-          sendEmail({ to: adminTo, subject, html, replyTo, attachments: emailAttachments })
+          console.log(`[EMAIL] Sending admin notification to ${adminTo} for request #${newRequest.id}`);
+          sendEmail({ to: adminTo, subject, html, attachments: emailAttachments })
+            .then(() => console.log(`[EMAIL] Admin notification sent to ${adminTo}`))
             .catch((e) => console.error('Failed sending admin email:', e.message));
         } else {
           console.warn('ADMIN_EMAIL is not set; skipping admin notification');
@@ -1529,10 +1532,12 @@ router.put('/:id/status', async (req, res) => {
     // Notify requester on status change
     try {
       const recipient = row?.employee_email || row?.employeeEmail || null;
-      console.log('[MAIL][status] to:', recipient, 'status:', row?.status, 'id:', id, 'reason:', row?.rejection_reason || row?.reason || 'none');
+      console.log(`[EMAIL] PUT /status called for request #${id} — new status: ${row?.status} — recipient: ${recipient}`);
       if (recipient) {
         const { subject, html } = buildUserStatusEmail(row);
+        console.log(`[EMAIL] Sending status update email to ${recipient} for request #${id}`);
         await sendEmail({ to: recipient, subject, html });
+        console.log(`[EMAIL] Status update email sent to ${recipient}`);
       } else {
         console.warn('[MAIL][status] missing employee email for request id', id);
       }
