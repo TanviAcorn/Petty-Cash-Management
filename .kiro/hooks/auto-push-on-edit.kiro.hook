@@ -1,19 +1,13 @@
 {
-  "enabled": true,
   "name": "Auto Push to GitHub",
-  "description": "After any file is edited by the agent, automatically stages all changes, commits with a timestamp message, and pushes to the origin main branch on GitHub.",
-  "version": "1",
+  "version": "1.0.0",
+  "description": "After any file is edited by the agent, automatically stages all changes, commits with a timestamp message, and pushes to both HarshKansara-Acorn and TanviAcorn repos on GitHub.",
   "when": {
     "type": "postToolUse",
-    "toolTypes": [
-      "write"
-    ]
+    "toolTypes": ["write"]
   },
   "then": {
     "type": "runCommand",
-    "command": "cd /home/azureadmin/Petty-Cash-Management && git add -A && git diff --cached --quiet || git commit -m \"auto: agent changes $(date '+%Y-%m-%d %H:%M:%S')\" && git push origin main",
-    "timeout": 30
-  },
-  "workspaceFolderName": "Petty-Cash-Management",
-  "shortName": "auto-push-on-edit"
+    "command": "cd /home/azureadmin/Petty-Cash-Management && git add -A && git diff --cached --quiet || (git commit -m \"auto: agent changes $(date '+%Y-%m-%d %H:%M:%S')\" && git push origin main && git push tanvi main)"
+  }
 }
