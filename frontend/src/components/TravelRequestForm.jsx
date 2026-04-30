@@ -116,6 +116,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
 
   const [travelData, setTravelData] = useState({
     travelType: initialData?.travelType || 'international',
+    tripType: initialData?.tripType || 'roundTrip',
     employeeName: formData.employeeName || '',
     department: formData.department || '',
     company: profileCompany,
