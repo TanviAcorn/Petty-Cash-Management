@@ -189,7 +189,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     onChange({
       ...nd,
       requirements: val === 'international' ? internationalRequirements : domesticRequirements,
-      tripType, roundTrip, multiCityLegs, foodOptions
+      tripType: nd.tripType, roundTrip, multiCityLegs, foodOptions
     });
   };
 
@@ -197,14 +197,14 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     const { name, checked } = e.target;
     const nr = { ...internationalRequirements, [name]: checked };
     setInternationalRequirements(nr);
-    onChange({ ...travelData, requirements: nr, tripType, roundTrip, multiCityLegs, foodOptions });
+    onChange({ ...travelData, requirements: nr, tripType: travelData.tripType, roundTrip, multiCityLegs, foodOptions });
   };
 
   const handleDomReqChange = (e) => {
     const { name, checked } = e.target;
     const nr = { ...domesticRequirements, [name]: checked };
     setDomesticRequirements(nr);
-    onChange({ ...travelData, requirements: nr, tripType, roundTrip, multiCityLegs, foodOptions });
+    onChange({ ...travelData, requirements: nr, tripType: travelData.tripType, roundTrip, multiCityLegs, foodOptions });
   };
 
   const handleFieldChange = (e) => {
@@ -212,7 +212,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     const nd = { ...travelData, [name]: value };
     setTravelData(nd);
     const reqs = travelType === 'international' ? internationalRequirements : domesticRequirements;
-    onChange({ ...nd, requirements: reqs, tripType, roundTrip, multiCityLegs, foodOptions });
+    onChange({ ...nd, requirements: reqs, tripType: nd.tripType, roundTrip, multiCityLegs, foodOptions });
   };
 
   const handleRoundTripChange = (e) => {
