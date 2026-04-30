@@ -162,12 +162,13 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   const emit = (overrides = {}) => {
     const reqs = travelType === 'international' ? internationalRequirements : domesticRequirements;
     onChange({
-      ...travelData, ...overrides,
+      ...travelData,
       requirements: reqs, tripType, roundTrip, multiCityLegs, foodOptions,
       carParkRequired, carParkDuration, carParkVehicleNumber, carParkCarColor,
       rentedVehicleRequired, rentedVehicleLegs,
       domesticHotel, domesticDateFlex, domesticDateFlexFrom, domesticDateFlexTo,
       accompanying, accompanyingNames,
+      ...overrides, // overrides LAST so they always win over stale closure values
     });
   };
 
