@@ -161,14 +161,16 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
 
   const emit = (overrides = {}) => {
     const reqs = travelType === 'international' ? internationalRequirements : domesticRequirements;
+    // Use overrides.tripType first, then local tripType state, then travelData.tripType as fallback
+    const currentTripType = overrides.tripType ?? tripType;
     onChange({
       ...travelData,
-      requirements: reqs, tripType, roundTrip, multiCityLegs, foodOptions,
+      requirements: reqs, tripType: currentTripType, roundTrip, multiCityLegs, foodOptions,
       carParkRequired, carParkDuration, carParkVehicleNumber, carParkCarColor,
       rentedVehicleRequired, rentedVehicleLegs,
       domesticHotel, domesticDateFlex, domesticDateFlexFrom, domesticDateFlexTo,
       accompanying, accompanyingNames,
-      ...overrides, // overrides LAST so they always win over stale closure values
+      ...overrides,
     });
   };
 
