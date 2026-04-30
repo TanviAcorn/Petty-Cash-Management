@@ -209,6 +209,8 @@ const Dashboard = () => {
 
     return { overdue, inProgress: [...inProgress, ...pendingL1] };
   }, [rows, travelRequests]);
+
+  const monthlySeries = useMemo(() => {
     // Sum by month for current year, handling multiple currencies
     const byMonth = new Array(12).fill(0);
     const year = new Date().getFullYear();
