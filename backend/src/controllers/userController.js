@@ -8,14 +8,28 @@ exports.login = async (req, res) => {
     }
 
     const pool = await poolPromise;
-    const userByEmail = await pool
+    // Query petty_Users (the primary user table used across the app)
+    // Fall back to Users table if not found, for backward compatibility
+    let userByEmail = await pool
       .request()
       .input("email", String(email))
       .query(`
         SELECT TOP 1 *
-        FROM Users
+        FROM petty_Users
         WHERE LOWER(LTRIM(RTRIM(email))) = LOWER(LTRIM(RTRIM(@email)))
       `);
+
+    // Fallback: try legacy Users table
+    if (!userByEmail.recordset || userByEmail.recordset.length === 0) {
+      userByEmail = await pool
+        .request()
+        .input("email", String(email))
+        .query(`
+          SELECT TOP 1 *
+          FROM Users
+          WHERE LOWER(LTRIM(RTRIM(email))) = LOWER(LTRIM(RTRIM(@email)))
+        `);
+    }
 
     if (!userByEmail.recordset || userByEmail.recordset.length === 0) {
       return res.status(401).json({ message: "Invalid email or password" });

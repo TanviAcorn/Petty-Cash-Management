@@ -55,21 +55,6 @@ async function ensureUpdatesTable(pool) {
   `);
 }
 
-// GET /api/travel-documents/:requestId — list docs for a request
-router.get('/:requestId', async (req, res) => {
-  try {
-    const pool = await poolPromise;
-    await ensureTable(pool);
-    const result = await pool.request()
-      .input('rid', sql.Int, parseInt(req.params.requestId))
-      .query('SELECT * FROM petty_travel_documents WHERE request_id = @rid ORDER BY uploaded_at DESC');
-    res.json({ data: result.recordset });
-  } catch (err) {
-    console.error('travel-documents GET error:', err);
-    res.status(500).json({ message: 'Failed to fetch documents' });
-  }
-});
-
 // POST /api/travel-documents/:requestId/upload — admin uploads docs
 router.post('/:requestId/upload', upload.array('documents', 20), async (req, res) => {
   try {
@@ -117,6 +102,21 @@ router.delete('/:requestId/:docId', async (req, res) => {
   } catch (err) {
     console.error('travel-documents delete error:', err);
     res.status(500).json({ message: 'Delete failed' });
+  }
+});
+
+// GET /api/travel-documents/:requestId/costs — fetch existing cost record for a request
+router.get('/:requestId/costs', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const requestId = parseInt(req.params.requestId);
+    const result = await pool.request()
+      .input('rid', sql.Int, requestId)
+      .query('SELECT * FROM petty_travel_costs WHERE request_id = @rid');
+    res.json({ data: result.recordset[0] || null });
+  } catch (err) {
+    console.error('travel-documents costs GET error:', err);
+    res.status(500).json({ message: 'Failed to fetch cost record' });
   }
 });
 
@@ -276,13 +276,21 @@ router.post('/:requestId/save-details', async (req, res) => {
         if (existing.recordset.length) {
           await cr.query(`
             UPDATE petty_travel_costs SET
-              employee_name=@empName, employee_email=@empEmail, trip_summary=@tripSummary,
-              travel_date=@travelDate, flight_cost=@flightCost, hotel_cost=@hotelCost,
-              food_cost=@foodCost, car_park_cost=@carParkCost, visa_cost=@visaCost,
-              baggage_cost=@baggageCost, transport_cost=@transportCost,
-              other_cost=@otherCost,
-              currency=@currency, updated_at=SYSUTCDATETIME()
-            WHERE request_id=@rid
+              employee_name  = @empName,
+              employee_email = @empEmail,
+              trip_summary   = @tripSummary,
+              travel_date    = @travelDate,
+              flight_cost    = CASE WHEN @flightCost    IS NOT NULL THEN @flightCost    ELSE flight_cost    END,
+              hotel_cost     = CASE WHEN @hotelCost     IS NOT NULL THEN @hotelCost     ELSE hotel_cost     END,
+              food_cost      = CASE WHEN @foodCost      IS NOT NULL THEN @foodCost      ELSE food_cost      END,
+              car_park_cost  = CASE WHEN @carParkCost   IS NOT NULL THEN @carParkCost   ELSE car_park_cost  END,
+              visa_cost      = CASE WHEN @visaCost      IS NOT NULL THEN @visaCost      ELSE visa_cost      END,
+              baggage_cost   = CASE WHEN @baggageCost   IS NOT NULL THEN @baggageCost   ELSE baggage_cost   END,
+              transport_cost = CASE WHEN @transportCost IS NOT NULL THEN @transportCost ELSE transport_cost END,
+              other_cost     = CASE WHEN @otherCost     IS NOT NULL THEN @otherCost     ELSE other_cost     END,
+              currency       = @currency,
+              updated_at     = SYSUTCDATETIME()
+            WHERE request_id = @rid
           `);
         } else {
           await cr.query(`
@@ -569,6 +577,23 @@ function buildTravelDocumentsEmail({ request, summaryRows, docCount, adminDetail
 
   return { subject, html };
 }
+
+// GET /api/travel-documents/:requestId — list docs for a request
+// NOTE: This wildcard route MUST stay last among GET routes so that specific
+// sub-paths (/costs, /draft, /updates) are matched first by Express.
+router.get('/:requestId', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    await ensureTable(pool);
+    const result = await pool.request()
+      .input('rid', sql.Int, parseInt(req.params.requestId))
+      .query('SELECT * FROM petty_travel_documents WHERE request_id = @rid ORDER BY uploaded_at DESC');
+    res.json({ data: result.recordset });
+  } catch (err) {
+    console.error('travel-documents GET error:', err);
+    res.status(500).json({ message: 'Failed to fetch documents' });
+  }
+});
 
 module.exports = router;
 

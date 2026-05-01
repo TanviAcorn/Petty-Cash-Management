@@ -1006,8 +1006,8 @@ export default function RequestReview() {
                       <Stack spacing={1}>
                         {req.attachments.map((f, idx) => {
                           const name = f.originalName || f.filename || `file-${idx+1}`;
-                          // Construct the file URL using the getFileUrl helper
-                          const fileUrl = getFileUrl(f.filename ? `/uploads/${f.filename}` : '');
+                          // Use server-provided fileUrl if available, otherwise build it
+                          const fileUrl = f.fileUrl || getFileUrl(f.filename || '');
                           return (
                             <Box key={`req-${idx}`} sx={{ display: 'flex', gap: 1 }}>
                               <Button 

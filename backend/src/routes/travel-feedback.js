@@ -228,6 +228,49 @@ router.post('/:token', async (req, res) => {
   }
 });
 
+// GET /api/travel-feedback/notification-log — admin view of all notification delivery logs
+router.get('/notification-log', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+
+    // Table may not exist yet if scheduler hasn't run — create it if needed
+    await pool.request().query(`
+      IF OBJECT_ID('dbo.petty_notification_log','U') IS NULL
+      CREATE TABLE dbo.petty_notification_log (
+        id          INT IDENTITY(1,1) PRIMARY KEY,
+        request_id  INT NULL,
+        recipient   NVARCHAR(320) NOT NULL,
+        subject     NVARCHAR(500) NOT NULL,
+        type        NVARCHAR(100) NOT NULL,
+        status      NVARCHAR(20)  NOT NULL DEFAULT 'sent',
+        error_msg   NVARCHAR(MAX) NULL,
+        sent_at     DATETIME2 DEFAULT SYSUTCDATETIME()
+      );
+    `);
+
+    const { type, status, limit: limitParam } = req.query;
+    const limit = Math.min(parseInt(limitParam) || 200, 500);
+
+    const where = [];
+    const request = pool.request();
+    if (type)   { where.push('type = @type');     request.input('type',   sql.NVarChar(100), type); }
+    if (status) { where.push('status = @status'); request.input('status', sql.NVarChar(20),  status); }
+    request.input('limit', sql.Int, limit);
+
+    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const result = await request.query(`
+      SELECT TOP (@limit) * FROM petty_notification_log
+      ${whereClause}
+      ORDER BY sent_at DESC
+    `);
+
+    res.json({ data: result.recordset });
+  } catch (err) {
+    console.error('notification-log GET error:', err);
+    res.status(500).json({ message: 'Failed to fetch notification log' });
+  }
+});
+
 module.exports = router;
 module.exports.ensureFeedbackTable = ensureFeedbackTable;
 

@@ -14,14 +14,17 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: {
         "/api": {
-          target: env.VITE_API_BACKEND || "http://172.30.36.47:5005",
+          // In dev, proxy /api to the backend.
+          // VITE_API_BACKEND must be set in .env for this to work correctly.
+          // Falls back to localhost:5177 (the backend port from backend/.env PORT=5177)
+          target: env.VITE_API_BACKEND || "http://localhost:5177",
           changeOrigin: true,
           secure: false
         },
       },
     },
-    // For production build
-    base: './', // This makes the build work when deployed to subdirectories
+    // Use absolute base path so assets load correctly on any route (fixes blank page on refresh)
+    base: '/',
     build: {
       outDir: 'dist',
       assetsDir: 'assets',

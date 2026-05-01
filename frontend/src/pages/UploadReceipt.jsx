@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { getFileUrl } from '../api/axiosClient';
 import {
   Button,
   Typography,
@@ -36,24 +37,6 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import { styled } from '@mui/material/styles';
-
-// Robust API/FILE base resolution across environments
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
-const FILE_BASE = (() => {
-  const backendFromEnv = (import.meta.env.VITE_API_BACKEND || '').replace(/\/$/, '');
-  if (/^https?:\/\//i.test(API_BASE)) {
-    return API_BASE.replace(/\/api\/?$/, '');
-  }
-  if (backendFromEnv) {
-    return backendFromEnv;
-  }
-  try {
-    const url = new URL(window.location.href);
-    return `${url.protocol}//${url.hostname}:5005`;
-  } catch {
-    return '';
-  }
-})();
 
 const fmtMoney = (n, currency = 'GBP') =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(n || 0));
@@ -351,7 +334,7 @@ const UploadReceipt = () => {
                               <Button
                                 size="small"
                                 startIcon={<ReceiptLongOutlinedIcon />}
-                                onClick={() => window.open(`${FILE_BASE}/uploads/${encodeURIComponent(pay.receiptFilename)}`, '_blank')}
+                                onClick={() => window.open(getFileUrl(pay.receiptFilename), '_blank')}
                               >
                                 View
                               </Button>

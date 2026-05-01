@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axiosClient, { getFileUrl } from '../api/axiosClient';
 import {
   Box, Card, CardContent, Typography, Table, TableBody, TableCell,
@@ -60,6 +60,7 @@ const L1TravelApprovals = () => {
   const [editNotifyUser, setEditNotifyUser] = useState(true);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   // Reason options for Edit & Resend
@@ -75,6 +76,17 @@ const L1TravelApprovals = () => {
   ];
 
   useEffect(() => { fetchPendingRequests(); }, []);
+
+  // If the page was opened from an email link with ?requestId=xxx,
+  // auto-open the detail dialog for that specific request once loaded.
+  useEffect(() => {
+    const requestId = searchParams.get('requestId');
+    if (requestId) {
+      handleViewDetails(parseInt(requestId, 10));
+      // Remove the query param from the URL so refreshing doesn't re-open the dialog
+      navigate('/l1-approvals', { replace: true });
+    }
+  }, [searchParams]);
 
   const fetchPendingRequests = async () => {
     setLoading(true);
@@ -275,6 +287,37 @@ const L1TravelApprovals = () => {
     return active;
   };
 
+  // Maps petty_travel_costs DB column names → costDetails section keys used by the input fields
+  const DB_COST_TO_SECTION_KEY = {
+    flight_cost:    'flights',
+    hotel_cost:     'hotel',
+    food_cost:      'food',
+    car_park_cost:  'carPark',
+    visa_cost:      'visa',
+    baggage_cost:   'baggage',
+    transport_cost: 'rentedVehicle',
+    other_cost:     'otherCost',
+  };
+
+  // Fetch existing cost record and return costDetails map pre-populated with saved values
+  const loadExistingCosts = async (requestId) => {
+    try {
+      const res = await axiosClient.get(`/travel-documents/${requestId}/costs`);
+      const record = res.data?.data;
+      if (!record) return {};
+      const costs = {};
+      Object.entries(DB_COST_TO_SECTION_KEY).forEach(([dbCol, sectionKey]) => {
+        const val = record[dbCol];
+        if (val !== null && val !== undefined && parseFloat(val) > 0) {
+          costs[sectionKey] = String(parseFloat(val));
+        }
+      });
+      return costs;
+    } catch {
+      return {};
+    }
+  };
+
   const openUploadDialog = async (request) => {
     setUploadRequest(request);
     setSectionFiles({});
@@ -284,16 +327,23 @@ const L1TravelApprovals = () => {
     setNotifyUser(true);
     setUploadAlert(null);
 
-    // Load existing draft if any
+    // Load existing draft and cost record in parallel
     try {
-      const res = await axiosClient.get(`/travel-documents/${request.id}/draft`);
-      const draft = res.data?.data;
+      const [draftRes, existingCosts] = await Promise.all([
+        axiosClient.get(`/travel-documents/${request.id}/draft`),
+        loadExistingCosts(request.id),
+      ]);
+      const draft = draftRes.data?.data;
       if (draft) {
         setSectionDetails(draft.details || {});
         setGlobalRemarks(draft.globalRemarks || '');
       } else {
         setSectionDetails({});
         setGlobalRemarks('');
+      }
+      // Pre-populate cost fields with any previously saved values
+      if (Object.keys(existingCosts).length > 0) {
+        setCostDetails(existingCosts);
       }
     } catch {
       setSectionDetails({});
@@ -439,16 +489,23 @@ const L1TravelApprovals = () => {
     setNotifyUser(true);
     setUploadAlert(null);
 
-    // Load existing draft (which contains the current sent data)
+    // Load existing draft and cost record in parallel
     try {
-      const res = await axiosClient.get(`/travel-documents/${request.id}/draft`);
-      const draft = res.data?.data;
+      const [draftRes, existingCosts] = await Promise.all([
+        axiosClient.get(`/travel-documents/${request.id}/draft`),
+        loadExistingCosts(request.id),
+      ]);
+      const draft = draftRes.data?.data;
       if (draft) {
         setSectionDetails(draft.details || {});
         setGlobalRemarks(draft.globalRemarks || '');
       } else {
         setSectionDetails({});
         setGlobalRemarks('');
+      }
+      // Pre-populate cost fields with any previously saved values
+      if (Object.keys(existingCosts).length > 0) {
+        setCostDetails(existingCosts);
       }
     } catch {
       setSectionDetails({});
@@ -462,14 +519,20 @@ const L1TravelApprovals = () => {
     if (!uploadRequest) return;
     try {
       // Aggregate per-leg costs before saving draft too
-      const aggregatedCosts = { ...costDetails };
+      const aggregatedCosts = {};
       const legCostMap = { flights:'flightCost', hotel:'hotelCost', carPark:'carParkCost', visa:'visaCost', food:'foodCost', baggage:'baggageCost', rentedVehicle:'transportCost' };
       Object.entries(costDetails).forEach(([key, val]) => {
         const legMatch = key.match(/^(.+)_leg_(\d+)$/);
         if (legMatch) {
+          // Per-leg key (e.g. flights_leg_0) → sum into named key (flightCost)
           const namedKey = legCostMap[legMatch[1]];
           if (namedKey) aggregatedCosts[namedKey] = (parseFloat(aggregatedCosts[namedKey] || 0) + parseFloat(val || 0)).toString();
-          delete aggregatedCosts[key];
+        } else if (legCostMap[key]) {
+          // Plain section key (e.g. 'flights') → remap to named key (flightCost)
+          aggregatedCosts[legCostMap[key]] = (parseFloat(aggregatedCosts[legCostMap[key]] || 0) + parseFloat(val || 0)).toString();
+        } else {
+          // Pass-through keys like 'otherCost'
+          aggregatedCosts[key] = val;
         }
       });
       await axiosClient.post(`/travel-documents/${uploadRequest.id}/save-details`, {
@@ -514,8 +577,74 @@ const L1TravelApprovals = () => {
     setGlobalFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // All fields are optional — Save & Send is enabled as long as dialog is open
-  const isAllSectionsFilled = () => true;
+  // ── Mandatory field definitions per section ──────────────────────────────
+  // Each entry lists the field keys that MUST be filled before Send is enabled.
+  // Documents are required for sections marked requiresDoc: true.
+  const SECTION_MANDATORY = {
+    flights:      { fields: ['airline', 'flightNumber', 'departureTime', 'arrivalTime'], requiresDoc: true,  costRequired: true  },
+    hotel:        { fields: ['hotelName', 'checkIn', 'checkOut'],                        requiresDoc: true,  costRequired: true  },
+    visa:         { fields: ['visaNumber', 'visaExpiryDate'],                            requiresDoc: true,  costRequired: false },
+    carPark:      { fields: ['carParkName', 'carParkEntryDate', 'carParkExitDate'],      requiresDoc: false, costRequired: true  },
+    food:         { fields: [],                                                           requiresDoc: false, costRequired: true  },
+    baggage:      { fields: ['baggageAllowance'],                                        requiresDoc: false, costRequired: true  },
+    rentedVehicle:{ fields: ['rentalCompany', 'pickupDateTime', 'dropoffDateTime'],      requiresDoc: false, costRequired: true  },
+  };
+
+  // Returns an array of human-readable validation error strings.
+  // Empty array = all good, Send can be enabled.
+  const getValidationErrors = () => {
+    // Only enforce for Admin role
+    if (currentUser.role !== 'Admin') return [];
+    if (!uploadRequest) return [];
+
+    const td = uploadRequest.travel_form_data;
+    const sections = getActiveSections(td);
+    const errors = [];
+
+    sections.forEach((sectionKey) => {
+      const legMatch = sectionKey.match(/^(.+)_leg_(\d+)$/);
+      const baseKey = legMatch ? legMatch[1] : sectionKey;
+      const legIndex = legMatch ? parseInt(legMatch[2]) : null;
+      const leg = legIndex !== null ? (td?.multiCityLegs || [])[legIndex] : null;
+
+      const config = SECTION_CONFIG[baseKey];
+      const rules = SECTION_MANDATORY[baseKey];
+      if (!config || !rules) return;
+
+      const details = sectionDetails[sectionKey] || {};
+      const files   = sectionFiles[sectionKey]  || [];
+
+      // Build a readable label for this section
+      const sectionLabel = leg
+        ? `${config.label} — Leg ${legIndex + 1} (${leg.fromCity || '?'} → ${leg.toCity || '?'})`
+        : config.label;
+
+      // Check mandatory text fields
+      rules.fields.forEach((fieldKey) => {
+        if (!details[fieldKey]?.trim()) {
+          const fieldLabel = config.fields.find(f => f.key === fieldKey)?.label || fieldKey;
+          errors.push(`${sectionLabel}: "${fieldLabel}" is required`);
+        }
+      });
+
+      // Check document requirement
+      if (rules.requiresDoc && files.length === 0) {
+        errors.push(`${sectionLabel}: at least one document must be uploaded`);
+      }
+
+      // Check cost field requirement
+      if (rules.costRequired && config.costField) {
+        const costVal = costDetails[sectionKey];
+        if (!costVal || parseFloat(costVal) <= 0) {
+          errors.push(`${sectionLabel}: "${config.costField.label}" is required`);
+        }
+      }
+    });
+
+    return errors;
+  };
+
+  const isAllSectionsFilled = () => getValidationErrors().length === 0;
 
   const handleSendTravelDetails = async () => {
     if (!uploadRequest) return;
@@ -526,7 +655,8 @@ const L1TravelApprovals = () => {
 
       // Aggregate per-leg cost keys back into the named keys the backend expects
       // e.g. flights_leg_0, flights_leg_1 → flightCost (summed)
-      const aggregatedCosts = { ...costDetails };
+      // Also remap plain section keys: flights → flightCost, hotel → hotelCost, etc.
+      const aggregatedCosts = {};
       const legCostMap = {
         flights:      'flightCost',
         hotel:        'hotelCost',
@@ -539,13 +669,18 @@ const L1TravelApprovals = () => {
       Object.entries(costDetails).forEach(([key, val]) => {
         const legMatch = key.match(/^(.+)_leg_(\d+)$/);
         if (legMatch) {
+          // Per-leg key (e.g. flights_leg_0) → sum into named key (flightCost)
           const baseKey = legMatch[1];
           const namedKey = legCostMap[baseKey];
           if (namedKey) {
             aggregatedCosts[namedKey] = (parseFloat(aggregatedCosts[namedKey] || 0) + parseFloat(val || 0)).toString();
           }
-          // Remove the per-leg key so backend doesn't get confused
-          delete aggregatedCosts[key];
+        } else if (legCostMap[key]) {
+          // Plain section key (e.g. 'flights') → remap to named key (flightCost)
+          aggregatedCosts[legCostMap[key]] = (parseFloat(aggregatedCosts[legCostMap[key]] || 0) + parseFloat(val || 0)).toString();
+        } else {
+          // Pass-through keys like 'otherCost'
+          aggregatedCosts[key] = val;
         }
       });
 
@@ -1299,6 +1434,31 @@ const L1TravelApprovals = () => {
           })()}
         </DialogContent>
 
+        {/* ── Validation summary (Admin only) — shown when Send is blocked ── */}
+        {currentUser.role === 'Admin' && uploadRequest && (() => {
+          const errors = getValidationErrors();
+          if (errors.length === 0) return null;
+          return (
+            <Box sx={{ px: 3, pt: 1.5, pb: 0 }}>
+              <Alert
+                severity="warning"
+                sx={{ '& .MuiAlert-message': { width: '100%' } }}
+              >
+                <Typography variant="body2" fontWeight={700} sx={{ mb: 0.5 }}>
+                  Complete the following before sending ({errors.length} item{errors.length !== 1 ? 's' : ''}):
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                  {errors.map((e, i) => (
+                    <Typography key={i} component="li" variant="caption" sx={{ lineHeight: 1.8 }}>
+                      {e}
+                    </Typography>
+                  ))}
+                </Box>
+              </Alert>
+            </Box>
+          );
+        })()}
+
         <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
           <Button onClick={() => setUploadOpen(false)} disabled={uploadSending}>
             Cancel
@@ -1310,15 +1470,62 @@ const L1TravelApprovals = () => {
           >
             Save Draft
           </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<CloudUpload />}
-            onClick={handleSendTravelDetails}
-            disabled={uploadSending || !isAllSectionsFilled()}
-          >
-            {uploadSending ? 'Sending...' : `Save & Send to ${uploadRequest?.employeeFirstName || 'Employee'}`}
-          </Button>
+          {currentUser.role === 'Admin' && (() => {
+            const errors = getValidationErrors();
+            const isReady = errors.length === 0;
+            return (
+              <Tooltip
+                title={
+                  !isReady
+                    ? (
+                      <Box sx={{ p: 0.5 }}>
+                        <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>
+                          Complete the following before sending:
+                        </Typography>
+                        {errors.slice(0, 8).map((e, i) => (
+                          <Typography key={i} variant="caption" sx={{ display: 'block', lineHeight: 1.6 }}>
+                            • {e}
+                          </Typography>
+                        ))}
+                        {errors.length > 8 && (
+                          <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.8 }}>
+                            …and {errors.length - 8} more
+                          </Typography>
+                        )}
+                      </Box>
+                    )
+                    : ''
+                }
+                arrow
+                placement="top"
+                disableHoverListener={isReady}
+              >
+                {/* Wrap in span so Tooltip works on a disabled button */}
+                <span>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<CloudUpload />}
+                    onClick={handleSendTravelDetails}
+                    disabled={uploadSending || !isReady}
+                  >
+                    {uploadSending ? 'Sending...' : `Save & Send to ${uploadRequest?.employeeFirstName || 'Employee'}`}
+                  </Button>
+                </span>
+              </Tooltip>
+            );
+          })()}
+          {currentUser.role !== 'Admin' && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<CloudUpload />}
+              onClick={handleSendTravelDetails}
+              disabled={uploadSending}
+            >
+              {uploadSending ? 'Sending...' : `Save & Send to ${uploadRequest?.employeeFirstName || 'Employee'}`}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

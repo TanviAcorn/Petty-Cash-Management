@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axiosClient from "../api/axiosClient";
 import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,7 +20,12 @@ export default function Login() {
       const res = await axiosClient.post("/users/login", { email, password });
       // Use the auth context login method
       login(res.data.token, res.data.user);
-      // Navigation will be handled automatically by AuthGate
+      // Redirect to intended destination if navigated here from a protected route
+      const from = location.state?.from;
+      if (from && from !== '/login') {
+        navigate(from, { replace: true });
+      }
+      // Otherwise navigation is handled automatically by App.jsx route guards
     } catch (err) {
       const msg = err?.response?.data?.message || "Invalid email or password";
       setError(msg);

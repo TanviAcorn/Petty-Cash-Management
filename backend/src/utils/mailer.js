@@ -556,7 +556,9 @@ module.exports = {
 
 function buildL1ManagerApprovalEmail(request, l1Manager) {
   const urls = getFrontendUrls();
-  const publicLink = `${urls[0]}/l1-requests/${request.id}`;
+  // Include the request ID as a query param so the L1 manager lands directly
+  // on the correct request after logging in via the email link.
+  const publicLink = `${urls[0]}/l1-approvals?requestId=${request.id}`;
   const submittedAt = new Date(request.created_at || Date.now()).toLocaleString();
 
   const subject = `Travel Request #${request.id} - L1 Approval Required`;

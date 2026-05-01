@@ -305,23 +305,73 @@ async function sendPendingFeedbackEmails() {
     const pool = await poolPromise;
     await ensureFeedbackTable(pool);
 
-    // Find approved travel requests where return date was today or earlier,
-    // feedback not yet sent, and request is approved
+    // Ensure notification log table exists for delivery tracking
+    await pool.request().query(`
+      IF OBJECT_ID('dbo.petty_notification_log','U') IS NULL
+      CREATE TABLE dbo.petty_notification_log (
+        id          INT IDENTITY(1,1) PRIMARY KEY,
+        request_id  INT NULL,
+        recipient   NVARCHAR(320) NOT NULL,
+        subject     NVARCHAR(500) NOT NULL,
+        type        NVARCHAR(100) NOT NULL,
+        status      NVARCHAR(20)  NOT NULL DEFAULT 'sent',
+        error_msg   NVARCHAR(MAX) NULL,
+        sent_at     DATETIME2 DEFAULT SYSUTCDATETIME()
+      );
+    `);
+
+    // Find travel requests where:
+    //   1. Trip has FULLY ended — return date is strictly BEFORE today (< today),
+    //      giving the employee at least 1 full day to return home before we ask for feedback.
+    //   2. Admin has sent travel docs (travel_docs_sent_at IS NOT NULL) — confirms the
+    //      trip was properly arranged and actually happened.
+    //   3. No feedback email has been sent yet (not in petty_travel_feedback).
+    //   4. l1_approval_status covers both paths:
+    //        - With L1 manager  → 'approved' (set by L1 approve endpoint)
+    //        - Without L1 manager → NULL (routed directly to admin, still valid)
     const result = await pool.request().query(`
       SELECT 
         r.id, r.employee_email, r.employee_name,
         r.travel_form_data, r.travel_details
       FROM petty_cash_requests r
-      WHERE r.category_name = 'Travel Request'
-        AND r.status IN ('approved', 'pending', 'payment done')
-        AND r.l1_approval_status = 'approved'
-        AND r.id NOT IN (SELECT request_id FROM petty_travel_feedback)
+      WHERE (r.category_name = 'Travel Request' OR r.category_name = 'Travel')
+        AND (r.l1_approval_status = 'approved' OR r.l1_approval_status IS NULL)
+        AND r.status NOT IN ('rejected', 'pending_l1', 'pending')
+        AND r.travel_docs_sent_at IS NOT NULL
+        AND r.id NOT IN (
+          SELECT request_id FROM petty_travel_feedback
+        )
         AND (
-          TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.returnDate') AS DATE) <= CAST(GETUTCDATE() AS DATE)
-          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.roundTrip.arrivalDate') AS DATE) <= CAST(GETUTCDATE() AS DATE)
+          -- International round trip: arrival date strictly before today
+          TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.roundTrip.arrivalDate') AS DATE)
+            < CAST(GETUTCDATE() AS DATE)
+
+          -- International round trip flexible return: flex-to date strictly before today
+          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.roundTrip.arrivalDateFlexTo') AS DATE)
+            < CAST(GETUTCDATE() AS DATE)
+
+          -- Domestic: flex-to date strictly before today
+          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.domesticDateFlexTo') AS DATE)
+            < CAST(GETUTCDATE() AS DATE)
+
+          -- Domestic single-day: date of travel strictly before today
+          OR (
+            JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.travelType') = 'domestic'
+            AND JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.domesticDateFlexTo') IS NULL
+            AND TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.dateOfTravel') AS DATE)
+              < CAST(GETUTCDATE() AS DATE)
+          )
+
+          -- Multi-city: check last known leg dates (legs 0-5), strictly before today
+          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[5].date') AS DATE) < CAST(GETUTCDATE() AS DATE)
+          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[4].date') AS DATE) < CAST(GETUTCDATE() AS DATE)
+          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[3].date') AS DATE) < CAST(GETUTCDATE() AS DATE)
+          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[2].date') AS DATE) < CAST(GETUTCDATE() AS DATE)
+          OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[1].date') AS DATE) < CAST(GETUTCDATE() AS DATE)
           OR (
             JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.tripType') = 'multiCity'
-            AND TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[1].date') AS DATE) <= CAST(GETUTCDATE() AS DATE)
+            AND TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[0].date') AS DATE)
+              < CAST(GETUTCDATE() AS DATE)
           )
         )
     `);
@@ -329,16 +379,18 @@ async function sendPendingFeedbackEmails() {
     console.log(`[FeedbackScheduler] Found ${result.recordset.length} trips ready for feedback email`);
 
     for (const row of result.recordset) {
-      try {
-        const token = crypto.randomBytes(32).toString('hex');
+      let emailStatus = 'sent';
+      let errorMsg = null;
+      const token = crypto.randomBytes(32).toString('hex');
 
+      try {
         let travelData = null;
         try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
         if (!travelData) {
           try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {}
         }
 
-        // Insert feedback record
+        // Insert feedback record FIRST — prevents duplicate sends even if email fails
         await pool.request()
           .input('requestId', sql.Int, row.id)
           .input('token', sql.NVarChar(64), token)
@@ -358,7 +410,26 @@ async function sendPendingFeedbackEmails() {
         await sendEmail({ to: row.employee_email, subject, html });
         console.log(`[FeedbackScheduler] Sent feedback email for request #${row.id} to ${row.employee_email}`);
       } catch (err) {
+        emailStatus = 'failed';
+        errorMsg = err.message;
         console.error(`[FeedbackScheduler] Failed for request #${row.id}:`, err.message);
+      }
+
+      // Log every attempt — satisfies "Notification logs confirm delivery" requirement
+      try {
+        await pool.request()
+          .input('requestId', sql.Int, row.id)
+          .input('recipient', sql.NVarChar(320), row.employee_email)
+          .input('subject', sql.NVarChar(500), `Travel Feedback Request – Trip #${row.id}`)
+          .input('type', sql.NVarChar(100), 'feedback')
+          .input('status', sql.NVarChar(20), emailStatus)
+          .input('errorMsg', sql.NVarChar(sql.MAX), errorMsg)
+          .query(`
+            INSERT INTO petty_notification_log (request_id, recipient, subject, type, status, error_msg)
+            VALUES (@requestId, @recipient, @subject, @type, @status, @errorMsg)
+          `);
+      } catch (logErr) {
+        console.error(`[FeedbackScheduler] Log write failed for #${row.id}:`, logErr.message);
       }
     }
   } catch (err) {
@@ -598,17 +669,26 @@ async function sendPassportExpiryAlerts() {
 
 function startFeedbackScheduler() {
   // Run every day at 9:00 AM UTC
-  cron.schedule('0 9 * * *', () => {
-    console.log('[FeedbackScheduler] Running daily feedback check...');
-    sendPendingFeedbackEmails();
-    sendPreTravelReminders();
-    sendJourneyStartsTomorrow();
-    sendVisaExpiryAlerts();
-    sendPassportExpiryAlerts();
+  cron.schedule('0 9 * * *', async () => {
+    console.log('[FeedbackScheduler] ── Daily run started ──', new Date().toISOString());
+    try { await sendPendingFeedbackEmails(); }   catch (e) { console.error('[FeedbackScheduler] sendPendingFeedbackEmails crashed:', e.message); }
+    try { await sendPreTravelReminders(); }       catch (e) { console.error('[FeedbackScheduler] sendPreTravelReminders crashed:', e.message); }
+    try { await sendJourneyStartsTomorrow(); }    catch (e) { console.error('[FeedbackScheduler] sendJourneyStartsTomorrow crashed:', e.message); }
+    try { await sendVisaExpiryAlerts(); }         catch (e) { console.error('[FeedbackScheduler] sendVisaExpiryAlerts crashed:', e.message); }
+    try { await sendPassportExpiryAlerts(); }     catch (e) { console.error('[FeedbackScheduler] sendPassportExpiryAlerts crashed:', e.message); }
+    console.log('[FeedbackScheduler] ── Daily run complete ──', new Date().toISOString());
   });
 
   console.log('[FeedbackScheduler] Scheduled daily jobs at 09:00 UTC');
 }
 
-module.exports = { startFeedbackScheduler };
+module.exports = {
+  startFeedbackScheduler,
+  // Exported for manual trigger endpoint and testing
+  sendPendingFeedbackEmails,
+  sendPreTravelReminders,
+  sendJourneyStartsTomorrow,
+  sendVisaExpiryAlerts,
+  sendPassportExpiryAlerts,
+};
 

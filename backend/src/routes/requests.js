@@ -501,6 +501,20 @@ router.get('/:id', async (req, res) => {
       row.attachments = [];
     }
 
+    // Enrich each attachment with a ready-to-use fileUrl that works in all environments.
+    // This avoids the frontend needing to construct URLs — it just uses attachment.fileUrl directly.
+    const frontendBase = (process.env.FRONTEND_URL || '').split(',')[0].trim().replace(/\/$/, '')
+      || `${req.protocol}://${req.get('host')}`;
+    if (Array.isArray(row.attachments)) {
+      row.attachments = row.attachments.map(att => {
+        const fname = att.filename || att.originalName || att;
+        return {
+          ...att,
+          fileUrl: `${frontendBase}/api/file/${path.basename(String(fname))}`,
+        };
+      });
+    }
+
     // Try to parse travel_details JSON if present
     try {
       row.travelDetails = row.travelDetails ? JSON.parse(row.travelDetails) : null;

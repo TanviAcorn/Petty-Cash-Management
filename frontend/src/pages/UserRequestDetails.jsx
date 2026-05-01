@@ -15,29 +15,7 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
-import axiosClient from '../api/axiosClient';
-
-// Build a robust file base URL that works in both dev and prod
-// Priority:
-// 1) If VITE_API_URL is absolute, use its origin (strip trailing /api)
-// 2) Else, if VITE_API_BACKEND is provided, use it
-// 3) Else, fall back to current host with backend port 5005 (dev default)
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
-const FILE_BASE = (() => {
-  const backendFromEnv = (import.meta.env.VITE_API_BACKEND || '').replace(/\/$/, '');
-  if (/^https?:\/\//i.test(API_BASE)) {
-    return API_BASE.replace(/\/api\/?$/, '');
-  }
-  if (backendFromEnv) {
-    return backendFromEnv;
-  }
-  try {
-    const url = new URL(window.location.href);
-    return `${url.protocol}//${url.hostname}:5005`;
-  } catch {
-    return '';
-  }
-})();
+import axiosClient, { getFileUrl } from '../api/axiosClient';
 
 const fmtMoney = (n, currency) => {
   try {
@@ -305,7 +283,7 @@ export default function UserRequestDetails() {
                     <Button
                       key={idx}
                       component="a"
-                      href={`${FILE_BASE}/uploads/${encodeURIComponent(f.filename || '')}`}
+                      href={f.fileUrl || getFileUrl(f.filename || '')}
                       target="_blank"
                       rel="noopener noreferrer"
                       variant="outlined"

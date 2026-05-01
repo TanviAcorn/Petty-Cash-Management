@@ -69,6 +69,7 @@ const getMenuItemsByRole = (userRole) => {
     { text: "New Request", icon: <AddCircle />, path: "/new-request" },
     { text: "New Travel Request", icon: <FlightTakeoff />, path: "/new-travel-request" },
     { text: "My Travel Requests", icon: <AssignmentTurnedIn />, path: "/my-travel-requests" },
+    { text: "Travel Request Approvals", icon: <RateReview />, path: "/l1-approvals" },
     { text: "Profile", icon: <Person />, path: "/profile" },
   ];
 

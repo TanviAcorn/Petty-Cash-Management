@@ -406,7 +406,13 @@ const App = () => {
           <Route path="/l1-approvals" element={
             userInfo ? 
             <L1TravelApprovals /> : 
-            <Navigate to="/login" replace />
+            <Navigate to="/login" replace state={{ from: location.pathname }} />
+          } />
+          {/* Backward-compat: email links used /l1-requests/:id — redirect to /l1-approvals */}
+          <Route path="/l1-requests/:id" element={
+            userInfo ?
+            <Navigate to="/l1-approvals" replace /> :
+            <Navigate to="/login" replace state={{ from: '/l1-approvals' }} />
           } />
 
           <Route path="/my-travel-requests" element={
