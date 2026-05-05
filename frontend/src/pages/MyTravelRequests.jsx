@@ -3,24 +3,35 @@ import axiosClient, { getFileUrl } from '../api/axiosClient';
 import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Button, CircularProgress,
-  Alert, Dialog, DialogTitle, DialogContent, DialogActions,
+  Alert, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+  Tooltip,
 } from '@mui/material';
-import { Visibility, CheckCircle, InsertDriveFile } from '@mui/icons-material';
+import { Visibility, CheckCircle, InsertDriveFile, Cancel, FlightTakeoff } from '@mui/icons-material';
 
 const MyTravelRequests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Cancel flight dialog state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelAlert, setCancelAlert] = useState(null);
+
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
-  useEffect(() => {
+  const fetchRequests = () => {
     if (!currentUser.email) return;
     axiosClient.get('/l1-approvals/my-travel-requests', { params: { email: currentUser.email } })
       .then(res => setRequests(res.data.data || []))
       .catch(err => console.error('Failed to fetch travel requests:', err))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchRequests(); }, []);
 
   const handleView = async (id) => {
     try {
@@ -29,6 +40,41 @@ const MyTravelRequests = () => {
       setDialogOpen(true);
     } catch (err) {
       console.error('Failed to fetch request details:', err);
+    }
+  };
+
+  const openCancelDialog = (req) => {
+    setCancelTarget(req);
+    setCancelReason('');
+    setCancelAlert(null);
+    setCancelDialogOpen(true);
+  };
+
+  const handleSubmitCancellation = async () => {
+    if (!cancelReason.trim()) {
+      setCancelAlert({ type: 'error', msg: 'Please provide a reason for cancellation.' });
+      return;
+    }
+    if (cancelReason.trim().split(/\s+/).filter(Boolean).length < 5) {
+      setCancelAlert({ type: 'error', msg: 'Please provide at least 5 words explaining the reason.' });
+      return;
+    }
+    setCancelSubmitting(true);
+    setCancelAlert(null);
+    try {
+      await axiosClient.post(`/l1-approvals/${cancelTarget.id}/request-cancellation`, {
+        reason: cancelReason.trim(),
+        employeeEmail: currentUser.email,
+      });
+      setCancelAlert({ type: 'success', msg: 'Cancellation request submitted. Your L1 manager has been notified.' });
+      setTimeout(() => {
+        setCancelDialogOpen(false);
+        fetchRequests();
+      }, 2000);
+    } catch (err) {
+      setCancelAlert({ type: 'error', msg: err.response?.data?.message || 'Failed to submit cancellation request.' });
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
@@ -41,6 +87,22 @@ const MyTravelRequests = () => {
   };
 
   const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB') : '—';
+
+  // Determine if Cancel Flight button should be shown/enabled for a request
+  const getCancelState = (req) => {
+    // Only show for L1-approved requests
+    if (req.l1_approval_status !== 'approved') return { show: false };
+    if (req.cancellation_status === 'approved' || req.status === 'cancelled') {
+      return { show: true, disabled: true, label: 'Cancelled', color: 'error' };
+    }
+    if (req.cancellation_status === 'pending') {
+      return { show: true, disabled: true, label: 'Cancellation Pending', color: 'warning' };
+    }
+    if (req.cancellation_status === 'rejected') {
+      return { show: true, disabled: false, label: 'Re-request Cancellation', color: 'error' };
+    }
+    return { show: true, disabled: false, label: 'Cancel Flight', color: 'error' };
+  };
 
   const renderDetails = (travelData) => {
     if (!travelData) return <Typography color="text.secondary">No travel details available.</Typography>;
@@ -65,7 +127,6 @@ const MyTravelRequests = () => {
 
     return (
       <Box>
-        {/* Employee Info */}
         <SectionTitle>Employee Information</SectionTitle>
         <TableContainer component={Box}><Table size="small"><TableBody>
           <Row label="Name" value={tf.employeeName} />
@@ -73,7 +134,6 @@ const MyTravelRequests = () => {
           <Row label="Company" value={tf.company} />
         </TableBody></Table></TableContainer>
 
-        {/* Travel Overview */}
         <SectionTitle>Travel Overview</SectionTitle>
         <TableContainer component={Box}><Table size="small"><TableBody>
           <Row label="Travel Type" value={isIntl ? 'International' : 'Domestic'} />
@@ -92,7 +152,6 @@ const MyTravelRequests = () => {
           <Row label="Remarks" value={tf.remarks} />
         </TableBody></Table></TableContainer>
 
-        {/* Round Trip */}
         {isIntl && tf.tripType === 'roundTrip' && tf.roundTrip && (
           <>
             <SectionTitle>Round Trip Details</SectionTitle>
@@ -114,7 +173,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* One-Way */}
         {isIntl && tf.tripType === 'oneWay' && tf.roundTrip && (
           <>
             <SectionTitle>One-Way Details</SectionTitle>
@@ -132,7 +190,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* Multi-City */}
         {isIntl && tf.tripType === 'multiCity' && tf.multiCityLegs?.length > 0 && (
           <>
             <SectionTitle>Multi-City Legs</SectionTitle>
@@ -155,7 +212,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* Domestic Hotel */}
         {!isIntl && tf.domesticHotel?.needsHotel && (
           <>
             <SectionTitle>Hotel / Accommodation</SectionTitle>
@@ -167,7 +223,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* Requirements */}
         {selectedReqs.length > 0 && (
           <>
             <SectionTitle>Travel Requirements</SectionTitle>
@@ -177,7 +232,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* Visa */}
         {reqs.visa && (
           <>
             <SectionTitle>Visa Details</SectionTitle>
@@ -192,7 +246,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* Rented Vehicle */}
         {reqs.rentedVehicle && (
           <>
             <SectionTitle>Rented Vehicle</SectionTitle>
@@ -209,7 +262,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* Car Park */}
         {reqs.carPark && (
           <>
             <SectionTitle>Airport Car Park</SectionTitle>
@@ -221,7 +273,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* Food */}
         {reqs.food && tf.foodOptions && (
           <>
             <SectionTitle>Food Preference</SectionTitle>
@@ -234,7 +285,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* Baggage */}
         {reqs.baggage && (
           <>
             <SectionTitle>Baggage</SectionTitle>
@@ -247,7 +297,6 @@ const MyTravelRequests = () => {
           </>
         )}
 
-        {/* Accompanying */}
         {reqs.accompanying && (
           <>
             <SectionTitle>Anyone Accompanying</SectionTitle>
@@ -282,29 +331,77 @@ const MyTravelRequests = () => {
                     <TableCell sx={{ fontWeight: 600 }}>Trip</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Submitted</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>L1 Status</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Cancellation</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {requests.map(req => (
-                    <TableRow key={req.id} hover>
-                      <TableCell>#{req.id}</TableCell>
-                      <TableCell>{getTripSummary(req.travel_form_data)}</TableCell>
-                      <TableCell>{new Date(req.created_at).toLocaleDateString('en-GB')}</TableCell>
-                      <TableCell>
-                        {req.l1_approval_status === 'approved'
-                          ? <Chip label="L1 Approved" color="success" size="small" icon={<CheckCircle />} />
-                          : req.l1_approval_status === 'rejected'
-                          ? <Chip label="L1 Rejected" color="error" size="small" />
-                          : <Chip label="Pending L1" color="warning" size="small" />}
-                      </TableCell>
-                      <TableCell>
-                        <Button size="small" startIcon={<Visibility />} onClick={() => handleView(req.id)}>
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {requests.map(req => {
+                    const cancelState = getCancelState(req);
+                    return (
+                      <TableRow key={req.id} hover>
+                        <TableCell>#{req.id}</TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            <FlightTakeoff sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            <Typography variant="body2">{getTripSummary(req.travel_form_data)}</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{new Date(req.created_at).toLocaleDateString('en-GB')}</TableCell>
+                        <TableCell>
+                          {req.l1_approval_status === 'approved'
+                            ? <Chip label="L1 Approved" color="success" size="small" icon={<CheckCircle />} />
+                            : req.l1_approval_status === 'rejected'
+                            ? <Chip label="L1 Rejected" color="error" size="small" />
+                            : <Chip label="Pending L1" color="warning" size="small" />}
+                        </TableCell>
+                        <TableCell>
+                          {req.cancellation_status === 'approved' || req.status === 'cancelled'
+                            ? <Chip label="Cancelled" color="error" size="small" />
+                            : req.cancellation_status === 'pending'
+                            ? <Chip label="Cancellation Pending" color="warning" size="small" />
+                            : req.cancellation_status === 'rejected'
+                            ? <Chip label="Cancellation Rejected" color="default" size="small" />
+                            : <Typography variant="caption" color="text.disabled">—</Typography>}
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                            <Button
+                              size="small"
+                              startIcon={<Visibility />}
+                              onClick={() => handleView(req.id)}
+                              variant="outlined"
+                            >
+                              View
+                            </Button>
+                            {cancelState.show && (
+                              <Tooltip
+                                title={
+                                  cancelState.disabled
+                                    ? cancelState.label
+                                    : 'Request cancellation of this travel booking'
+                                }
+                                arrow
+                              >
+                                <span>
+                                  <Button
+                                    size="small"
+                                    startIcon={<Cancel />}
+                                    color={cancelState.color || 'error'}
+                                    variant={cancelState.disabled ? 'outlined' : 'contained'}
+                                    disabled={cancelState.disabled}
+                                    onClick={() => openCancelDialog(req)}
+                                  >
+                                    {cancelState.label || 'Cancel Flight'}
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -312,7 +409,7 @@ const MyTravelRequests = () => {
         </Card>
       )}
 
-      {/* View Details Dialog */}
+      {/* ── View Details Dialog ─────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Travel Request Details — #{selected?.id}</DialogTitle>
         <DialogContent dividers>
@@ -320,7 +417,6 @@ const MyTravelRequests = () => {
             <>
               {renderDetails(selected.travel_form_data)}
 
-              {/* Attachments */}
               {(() => {
                 const attachments = Array.isArray(selected.attachments) ? selected.attachments : [];
                 if (attachments.length === 0) return null;
@@ -335,23 +431,14 @@ const MyTravelRequests = () => {
                         const displayName = typeof item === 'string'
                           ? filename.replace(/^\d+-\d+-/, '')
                           : (item?.originalName || filename.replace(/^\d+-\d+-/, ''));
-                        const fileUrl = getFileUrl(`/uploads/${filename}`);
+                        const fileUrl = item?.fileUrl || getFileUrl(filename);
                         const isImage = /\.(jpg|jpeg|png|gif|webp|PNG|JPG|JPEG)$/i.test(filename);
                         const isPdf = /\.pdf$/i.test(filename);
                         return (
                           <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, bgcolor: 'action.hover', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                             <InsertDriveFile sx={{ color: isPdf ? 'error.main' : isImage ? 'primary.main' : 'text.secondary', fontSize: 20, flexShrink: 0 }} />
-                            <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all', fontSize: '0.8125rem' }}>
-                              {displayName}
-                            </Typography>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              href={fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              sx={{ flexShrink: 0, textTransform: 'none', fontSize: '0.75rem' }}
-                            >
+                            <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all', fontSize: '0.8125rem' }}>{displayName}</Typography>
+                            <Button size="small" variant="outlined" href={fileUrl} target="_blank" rel="noopener noreferrer" sx={{ flexShrink: 0, textTransform: 'none', fontSize: '0.75rem' }}>
                               {isImage ? 'View' : 'Open'}
                             </Button>
                           </Box>
@@ -363,15 +450,61 @@ const MyTravelRequests = () => {
               })()}
 
               <Box sx={{ mt: 2 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Submitted: {fmt(selected.created_at)}
-                </Typography>
+                <Typography variant="caption" color="text.secondary">Submitted: {fmt(selected.created_at)}</Typography>
               </Box>
             </>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Cancel Flight Dialog ────────────────────────────────────────── */}
+      <Dialog open={cancelDialogOpen} onClose={() => !cancelSubmitting && setCancelDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Cancel color="error" />
+          <Box>
+            <Typography variant="h6" fontWeight={700}>Request Flight Cancellation</Typography>
+            {cancelTarget && (
+              <Typography variant="caption" color="text.secondary">
+                Trip #{cancelTarget.id} — {getTripSummary(cancelTarget.travel_form_data)}
+              </Typography>
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {cancelAlert && (
+            <Alert severity={cancelAlert.type} sx={{ mb: 2 }}>{cancelAlert.msg}</Alert>
+          )}
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            This will send a cancellation request to your L1 manager for approval. Once approved, it will be forwarded to admin for refund processing.
+          </Alert>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Reason for Cancellation *"
+            placeholder="Please explain why you need to cancel this travel booking (e.g. meeting cancelled, personal emergency, etc.)..."
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            disabled={cancelSubmitting}
+            helperText={`${cancelReason.trim().split(/\s+/).filter(Boolean).length} words — minimum 5 required`}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button onClick={() => setCancelDialogOpen(false)} disabled={cancelSubmitting}>
+            Close
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<Cancel />}
+            onClick={handleSubmitCancellation}
+            disabled={cancelSubmitting || !cancelReason.trim()}
+          >
+            {cancelSubmitting ? 'Submitting...' : 'Submit Cancellation Request'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

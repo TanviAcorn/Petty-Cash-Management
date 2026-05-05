@@ -1062,11 +1062,6 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                             <FormControlLabel control={<Checkbox checked={foodOptions.nonVegan} onChange={handleFoodChange} name="nonVegan" size="small" />} label="Non-Veg" />
                           </FormGroup>
                         </Grid>
-                        <Grid item xs={12} md={4}>
-                          <TextField fullWidth label="Number of Days" name="foodNumberOfDays" type="number"
-                            value={travelData.foodNumberOfDays || ''} onChange={handleFieldChange}
-                            size="small" slotProps={{ htmlInput: { min: 1 } }} />
-                        </Grid>
                       </Grid>
                     </Box>
                   )}
@@ -1401,11 +1396,6 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                             <FormControlLabel control={<Checkbox checked={foodOptions.vegan} onChange={handleFoodChange} name="vegan" size="small" />} label="Vegan" />
                             <FormControlLabel control={<Checkbox checked={foodOptions.nonVegan} onChange={handleFoodChange} name="nonVegan" size="small" />} label="Non-Veg" />
                           </FormGroup>
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                          <TextField fullWidth label="Number of Days" name="foodNumberOfDays" type="number"
-                            value={travelData.foodNumberOfDays || ''} onChange={handleFieldChange}
-                            size="small" slotProps={{ htmlInput: { min: 1 } }} />
                         </Grid>
                       </Grid>
                     </Box>

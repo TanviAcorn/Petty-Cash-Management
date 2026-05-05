@@ -59,6 +59,14 @@ const L1TravelApprovals = () => {
   const [editSaving, setEditSaving] = useState(false);
   const [editNotifyUser, setEditNotifyUser] = useState(true);
 
+  // Cancellation approval state
+  const [cancellations, setCancellations] = useState([]);
+  const [cancelActionOpen, setCancelActionOpen] = useState(false);
+  const [cancelActionTarget, setCancelActionTarget] = useState(null);
+  const [cancelRejectionNote, setCancelRejectionNote] = useState('');
+  const [cancelActionSubmitting, setCancelActionSubmitting] = useState(false);
+  const [cancelActionAlert, setCancelActionAlert] = useState(null);
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -92,8 +100,12 @@ const L1TravelApprovals = () => {
     setLoading(true);
     try {
       const params = currentUser.role === 'Admin' ? {} : { managerEmail: currentUser.email };
-      const response = await axiosClient.get('/l1-approvals', { params });
-      setRequests(response.data.data || []);
+      const [requestsRes, cancellationsRes] = await Promise.all([
+        axiosClient.get('/l1-approvals', { params }),
+        axiosClient.get('/l1-approvals/cancellations', { params }),
+      ]);
+      setRequests(requestsRes.data.data || []);
+      setCancellations(cancellationsRes.data.data || []);
     } catch (error) {
       console.error('Failed to fetch pending requests:', error);
     } finally {
@@ -974,6 +986,102 @@ const L1TravelApprovals = () => {
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" fontWeight="bold" gutterBottom>Travel Request Approvals</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Review and approve travel requests from your team</Typography>
+
+      {/* ── Pending Cancellation Requests ─────────────────────────────── */}
+      {cancellations.length > 0 && (
+        <Card variant="outlined" sx={{ mb: 3, borderRadius: 2, borderColor: 'error.light' }}>
+          <CardContent sx={{ pb: '12px !important' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Cancel color="error" />
+              <Typography variant="h6" fontWeight={700} color="error.main">
+                Pending Cancellation Requests ({cancellations.length})
+              </Typography>
+            </Box>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'error.50' }}>
+                    <TableCell sx={{ fontWeight: 700 }}>Request ID</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Employee</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Trip</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Reason</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Requested</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {cancellations.map(c => {
+                    const tf = c.travel_form_data;
+                    let tripSummary = '—';
+                    if (tf) {
+                      if (tf.travelType === 'domestic') tripSummary = `Domestic → ${tf.cityOfTravelDomestic || '—'}`;
+                      else if (tf.tripType === 'roundTrip' && tf.roundTrip) tripSummary = `${tf.roundTrip.fromCity || '—'} → ${tf.roundTrip.toCity || '—'}`;
+                      else if (tf.tripType === 'multiCity') tripSummary = `Multi-City`;
+                      else tripSummary = tf.countryOfTravel || '—';
+                    }
+                    return (
+                      <TableRow key={c.id} hover>
+                        <TableCell>#{c.id}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600}>{c.employee_name}</Typography>
+                          <Typography variant="caption" color="text.secondary">{c.employee_email}</Typography>
+                        </TableCell>
+                        <TableCell>{tripSummary}</TableCell>
+                        <TableCell sx={{ maxWidth: 200 }}>
+                          <Typography variant="body2" noWrap title={c.cancellation_reason}>
+                            {c.cancellation_reason || '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                          {c.cancellation_requested_at
+                            ? new Date(c.cancellation_requested_at).toLocaleDateString('en-GB')
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              onClick={async () => {
+                                if (!window.confirm(`Approve cancellation for Trip #${c.id} (${c.employee_name})?\n\nThis will mark the request as cancelled and notify admin for refund.`)) return;
+                                try {
+                                  await axiosClient.put(`/l1-approvals/${c.id}/approve-cancellation`, {
+                                    managerEmail: currentUser.email,
+                                  });
+                                  alert('Cancellation approved. Admin has been notified for refund processing.');
+                                  fetchPendingRequests();
+                                } catch (err) {
+                                  alert('Failed: ' + (err.response?.data?.message || err.message));
+                                }
+                              }}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={() => {
+                                setCancelActionTarget(c);
+                                setCancelRejectionNote('');
+                                setCancelActionAlert(null);
+                                setCancelActionOpen(true);
+                              }}
+                            >
+                              Reject
+                            </Button>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      )}
 
       {requests.length === 0 && !loading && (
         <Alert severity="info">No pending travel requests for approval</Alert>
@@ -2086,6 +2194,73 @@ const L1TravelApprovals = () => {
             disabled={!selectedReason || (selectedReason === 'Other' && otherReasonText.trim().split(/\s+/).filter(w => w).length < 10)}
           >
             Continue to Edit
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Reject Cancellation Dialog ─────────────────────────────────── */}
+      <Dialog open={cancelActionOpen} onClose={() => !cancelActionSubmitting && setCancelActionOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Cancel color="error" />
+          <Box>
+            <Typography variant="h6" fontWeight={700}>Reject Cancellation Request</Typography>
+            {cancelActionTarget && (
+              <Typography variant="caption" color="text.secondary">
+                Trip #{cancelActionTarget.id} — {cancelActionTarget.employee_name}
+              </Typography>
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {cancelActionAlert && (
+            <Alert severity={cancelActionAlert.type} sx={{ mb: 2 }}>{cancelActionAlert.msg}</Alert>
+          )}
+          {cancelActionTarget && (
+            <Box sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'grey.200' }}>
+              <Typography variant="caption" color="text.secondary" fontWeight={600}>Employee's Cancellation Reason:</Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>{cancelActionTarget.cancellation_reason || '—'}</Typography>
+            </Box>
+          )}
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Rejection Note (optional)"
+            placeholder="Explain why the cancellation request is being rejected..."
+            value={cancelRejectionNote}
+            onChange={(e) => setCancelRejectionNote(e.target.value)}
+            disabled={cancelActionSubmitting}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button onClick={() => setCancelActionOpen(false)} disabled={cancelActionSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={cancelActionSubmitting}
+            onClick={async () => {
+              setCancelActionSubmitting(true);
+              setCancelActionAlert(null);
+              try {
+                await axiosClient.put(`/l1-approvals/${cancelActionTarget.id}/reject-cancellation`, {
+                  managerEmail: currentUser.email,
+                  rejectionNote: cancelRejectionNote.trim() || null,
+                });
+                setCancelActionAlert({ type: 'success', msg: 'Cancellation request rejected. Employee has been notified.' });
+                setTimeout(() => {
+                  setCancelActionOpen(false);
+                  fetchPendingRequests();
+                }, 1500);
+              } catch (err) {
+                setCancelActionAlert({ type: 'error', msg: err.response?.data?.message || 'Failed to reject cancellation.' });
+              } finally {
+                setCancelActionSubmitting(false);
+              }
+            }}
+          >
+            {cancelActionSubmitting ? 'Rejecting...' : 'Confirm Rejection'}
           </Button>
         </DialogActions>
       </Dialog>

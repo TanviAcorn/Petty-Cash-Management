@@ -363,8 +363,8 @@ const NewTravelRequest = () => {
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
                     <FormControl fullWidth error={!!errors.company} size="small">
-                      <InputLabel>Company *</InputLabel>
-                      <Select name="company" value={formData.company} onChange={handleChange} label="Company *" disabled={loading}>
+                      <InputLabel>Company Travelling For *</InputLabel>
+                      <Select name="company" value={formData.company} onChange={handleChange} label="Company Travelling For *" disabled={loading}>
                         <MenuItem value=""><em style={{ color: '#aaa' }}>Select company</em></MenuItem>
                         <MenuItem onClickCapture={(e) => { e.stopPropagation(); toggleComp(); }} sx={{ color: 'text.secondary', fontSize: '0.75rem', py: 0.5, borderBottom: '1px solid', borderColor: 'divider' }} disableRipple>
                           {compAsc ? '↑ A → Z' : '↓ Z → A'} &nbsp;<span style={{ opacity: 0.5 }}>click to reverse</span>
@@ -517,7 +517,7 @@ const NewTravelRequest = () => {
 
                         // Basic
                         rows.push({ label: 'Date', value: formData.dateOfPurchase || '—' });
-                        rows.push({ label: 'Company', value: formData.company || '—' });
+                        rows.push({ label: 'Company Travelling For', value: formData.company || '—' });
                         rows.push({ label: 'Location', value: formData.location || '—' });
 
                         if (tf) {

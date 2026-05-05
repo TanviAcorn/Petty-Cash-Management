@@ -90,7 +90,8 @@ router.get('/my-travel-requests', async (req, res) => {
       .input('email', sql.NVarChar(320), email)
       .query(`
         SELECT id, employee_name, employee_email, category_name, status,
-               l1_approval_status, created_at, travel_form_data, travel_docs_sent_at
+               l1_approval_status, created_at, travel_form_data, travel_docs_sent_at,
+               cancellation_status, cancellation_reason, cancellation_requested_at
         FROM petty_cash_requests
         WHERE employee_email = @email
           AND (category_name = 'Travel Request' OR category_name = 'Travel')
@@ -139,6 +140,62 @@ router.get('/last-trip', async (req, res) => {
   } catch (err) {
     console.error('last-trip error:', err);
     res.status(500).json({ message: 'Failed to fetch last trip' });
+  }
+});
+
+
+// GET /api/l1-approvals/cancellations — fetch pending cancellation requests for L1 manager
+// NOTE: Must be registered BEFORE GET /:id to avoid the wildcard swallowing it
+router.get('/cancellations', async (req, res) => {
+  try {
+    const { managerEmail } = req.query;
+    const pool = await poolPromise;
+
+    // Ensure cancellation columns exist before querying
+    await pool.request().query(`
+      IF COL_LENGTH('dbo.petty_cash_requests','cancellation_status') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD cancellation_status NVARCHAR(50) NULL;
+      IF COL_LENGTH('dbo.petty_cash_requests','cancellation_reason') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD cancellation_reason NVARCHAR(MAX) NULL;
+      IF COL_LENGTH('dbo.petty_cash_requests','cancellation_requested_at') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD cancellation_requested_at DATETIME2 NULL;
+      IF COL_LENGTH('dbo.petty_cash_requests','cancellation_approved_at') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD cancellation_approved_at DATETIME2 NULL;
+    `);
+
+    let query = `
+      SELECT r.id, r.employee_name, r.employee_email, r.company_name,
+             r.cancellation_status, r.cancellation_reason, r.cancellation_requested_at,
+             r.travel_form_data, r.l1_manager_id,
+             u.firstName AS employeeFirstName, u.lastName AS employeeLastName
+      FROM petty_cash_requests r
+      LEFT JOIN petty_Users u ON r.employee_email = u.email
+      WHERE (r.category_name = 'Travel Request' OR r.category_name = 'Travel')
+        AND r.cancellation_status = 'pending'
+    `;
+
+    if (managerEmail) {
+      const managerResult = await pool.request()
+        .input('email', sql.NVarChar(320), managerEmail)
+        .query('SELECT id FROM petty_Users WHERE email = @email');
+      if (!managerResult.recordset.length) return res.json({ data: [] });
+      const managerId = managerResult.recordset[0].id;
+      query += ` AND r.l1_manager_id = ${managerId}`;
+    }
+
+    query += ' ORDER BY r.cancellation_requested_at DESC';
+
+    const result = await pool.request().query(query);
+    const rows = result.recordset.map(row => {
+      let travelData = null;
+      try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+      return { ...row, travel_form_data: travelData };
+    });
+
+    res.json({ data: rows });
+  } catch (err) {
+    console.error('Error fetching cancellations:', err);
+    res.status(500).json({ message: 'Failed to fetch cancellation requests' });
   }
 });
 
@@ -563,6 +620,326 @@ router.put('/:id/edit-request', async (req, res) => {
     res.status(500).json({ message: 'Failed to update travel request' });
   }
 });
+
+// ── CANCELLATION FLOW ────────────────────────────────────────────────────────
+
+// POST /api/l1-approvals/:id/request-cancellation
+// Employee requests cancellation of their approved travel request
+router.post('/:id/request-cancellation', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, employeeEmail } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: 'Cancellation reason is required' });
+    }
+
+    const pool = await poolPromise;
+
+    // Ensure cancellation columns exist
+    await pool.request().query(`
+      IF COL_LENGTH('dbo.petty_cash_requests','cancellation_status') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD cancellation_status NVARCHAR(50) NULL;
+      IF COL_LENGTH('dbo.petty_cash_requests','cancellation_reason') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD cancellation_reason NVARCHAR(MAX) NULL;
+      IF COL_LENGTH('dbo.petty_cash_requests','cancellation_requested_at') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD cancellation_requested_at DATETIME2 NULL;
+      IF COL_LENGTH('dbo.petty_cash_requests','cancellation_approved_at') IS NULL
+        ALTER TABLE dbo.petty_cash_requests ADD cancellation_approved_at DATETIME2 NULL;
+    `);
+
+    // Fetch request
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT * FROM petty_cash_requests WHERE id = @id');
+
+    if (!result.recordset.length) return res.status(404).json({ message: 'Request not found' });
+    const request = result.recordset[0];
+
+    // Only allow cancellation on approved requests
+    if (request.l1_approval_status !== 'approved') {
+      return res.status(400).json({ message: 'Only approved travel requests can be cancelled' });
+    }
+
+    // Prevent duplicate cancellation requests
+    if (request.cancellation_status === 'pending') {
+      return res.status(400).json({ message: 'A cancellation request is already pending' });
+    }
+    if (request.cancellation_status === 'approved') {
+      return res.status(400).json({ message: 'This request has already been cancelled' });
+    }
+
+    // Set cancellation_status to 'pending'
+    await pool.request()
+      .input('id', sql.Int, id)
+      .input('reason', sql.NVarChar(sql.MAX), reason.trim())
+      .query(`
+        UPDATE petty_cash_requests
+        SET cancellation_status = 'pending',
+            cancellation_reason = @reason,
+            cancellation_requested_at = SYSUTCDATETIME()
+        WHERE id = @id
+      `);
+
+    // Parse travel data for email summary
+    let travelData = null;
+    try { travelData = request.travel_form_data ? JSON.parse(request.travel_form_data) : null; } catch {}
+
+    // Build trip summary
+    let tripSummary = 'Travel Request';
+    if (travelData) {
+      if (travelData.travelType === 'domestic') tripSummary = `Domestic → ${travelData.cityOfTravelDomestic || ''}`;
+      else if (travelData.tripType === 'roundTrip' && travelData.roundTrip)
+        tripSummary = `${travelData.roundTrip.fromCity || ''} → ${travelData.roundTrip.toCity || ''}, ${travelData.countryOfTravel || ''}`;
+      else if (travelData.tripType === 'multiCity') tripSummary = `Multi-City, ${travelData.countryOfTravel || ''}`;
+    }
+
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5174').split(',')[0].trim();
+
+    // Notify L1 manager
+    try {
+      const managerResult = await pool.request()
+        .input('id', sql.Int, request.l1_manager_id)
+        .query('SELECT firstName, lastName, email FROM petty_Users WHERE id = @id');
+      const manager = managerResult.recordset[0];
+
+      if (manager?.email) {
+        const subject = `✈️ Cancellation Request — Trip #${id} (${request.employee_name})`;
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:#DC2626;padding:28px 24px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">✈️</div>
+      <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">Flight Cancellation Request</h1>
+      <p style="margin:6px 0 0;color:#fecaca;font-size:13px;">Trip Reference #${id}</p>
+    </div>
+    <div style="background:#fff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 20px;">
+        Dear ${manager.firstName || 'Manager'},<br><br>
+        <strong>${request.employee_name}</strong> has requested to cancel their approved travel request and is seeking a refund.
+      </p>
+      <div style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;width:40%;">Employee</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:600;">${request.employee_name}</td></tr>
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Trip</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${tripSummary}</td></tr>
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Request ID</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">#${id}</td></tr>
+          <tr><td style="padding:10px 16px;color:#6b7280;font-size:13px;">Reason</td><td style="padding:10px 16px;color:#111827;font-size:14px;">${reason.trim()}</td></tr>
+        </table>
+      </div>
+      <div style="background:#FEF2F2;border-left:4px solid #DC2626;padding:14px 18px;border-radius:4px;margin-bottom:24px;">
+        <p style="margin:0;color:#991B1B;font-size:13px;line-height:1.6;"><strong>Action Required:</strong> Please review and approve or reject this cancellation request. If approved, it will be forwarded to admin for refund processing.</p>
+      </div>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${frontendUrl}/l1-approvals?requestId=${id}" style="display:inline-block;background:#DC2626;color:#fff;padding:12px 32px;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">Review Cancellation Request</a>
+      </div>
+      <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">PocketPro HR — Automated Notification</p>
+    </div>
+  </div>
+</body></html>`;
+        await sendEmail({ to: manager.email, subject, html });
+      }
+    } catch (emailErr) {
+      console.error('[Cancellation] L1 notification failed (non-fatal):', emailErr.message);
+    }
+
+    res.json({ message: 'Cancellation request submitted successfully' });
+  } catch (err) {
+    console.error('Error submitting cancellation request:', err);
+    res.status(500).json({ message: 'Failed to submit cancellation request' });
+  }
+});
+
+// PUT /api/l1-approvals/:id/approve-cancellation
+// L1 manager approves the cancellation → notifies admin for refund
+router.put('/:id/approve-cancellation', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { managerEmail } = req.body;
+
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT * FROM petty_cash_requests WHERE id = @id');
+
+    if (!result.recordset.length) return res.status(404).json({ message: 'Request not found' });
+    const request = result.recordset[0];
+
+    if (request.cancellation_status !== 'pending') {
+      return res.status(400).json({ message: 'No pending cancellation request found' });
+    }
+
+    // Approve cancellation — mark request as cancelled
+    await pool.request()
+      .input('id', sql.Int, id)
+      .query(`
+        UPDATE petty_cash_requests
+        SET cancellation_status = 'approved',
+            cancellation_approved_at = SYSUTCDATETIME(),
+            status = 'cancelled'
+        WHERE id = @id
+      `);
+
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5174').split(',')[0].trim();
+
+    // Parse travel data for summary
+    let travelData = null;
+    try { travelData = request.travel_form_data ? JSON.parse(request.travel_form_data) : null; } catch {}
+    let tripSummary = 'Travel Request';
+    if (travelData) {
+      if (travelData.travelType === 'domestic') tripSummary = `Domestic → ${travelData.cityOfTravelDomestic || ''}`;
+      else if (travelData.tripType === 'roundTrip' && travelData.roundTrip)
+        tripSummary = `${travelData.roundTrip.fromCity || ''} → ${travelData.roundTrip.toCity || ''}, ${travelData.countryOfTravel || ''}`;
+      else if (travelData.tripType === 'multiCity') tripSummary = `Multi-City, ${travelData.countryOfTravel || ''}`;
+    }
+
+    // Get manager name
+    const managerResult = await pool.request()
+      .input('email', sql.NVarChar(320), managerEmail || '')
+      .query('SELECT firstName, lastName FROM petty_Users WHERE email = @email');
+    const manager = managerResult.recordset[0];
+    const managerName = manager ? `${manager.firstName} ${manager.lastName}`.trim() : (managerEmail || 'L1 Manager');
+
+    // Notify employee
+    try {
+      const subject = `✅ Cancellation Approved — Trip #${id}`;
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:#16A34A;padding:28px 24px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">✅</div>
+      <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">Cancellation Approved</h1>
+      <p style="margin:6px 0 0;color:#bbf7d0;font-size:13px;">Trip Reference #${id}</p>
+    </div>
+    <div style="background:#fff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 20px;">
+        Hi <strong>${request.employee_name}</strong>,<br><br>
+        Your cancellation request for Trip #${id} has been <strong style="color:#16A34A;">approved by your L1 manager</strong>. It has been forwarded to admin for refund processing.
+      </p>
+      <div style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;width:40%;">Trip</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${tripSummary}</td></tr>
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Approved By</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:600;">${managerName}</td></tr>
+          <tr><td style="padding:10px 16px;color:#6b7280;font-size:13px;">Reason</td><td style="padding:10px 16px;color:#111827;font-size:14px;">${request.cancellation_reason || '—'}</td></tr>
+        </table>
+      </div>
+      <p style="color:#374151;font-size:14px;line-height:1.6;">Admin will process your refund shortly. You will be notified once the refund is initiated.</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">PocketPro HR — Automated Notification</p>
+    </div>
+  </div>
+</body></html>`;
+      await sendEmail({ to: request.employee_email, subject, html, replyTo: managerEmail });
+    } catch (e) { console.error('[Cancellation] Employee notification failed:', e.message); }
+
+    // Notify admin for refund
+    try {
+      const adminEmails = [process.env.ADMIN_EMAIL, process.env.TRAVEL_ADMIN_EMAIL].filter(Boolean);
+      const subject = `💰 Refund Required — Cancelled Trip #${id} (${request.employee_name})`;
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:#7C3AED;padding:28px 24px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">💰</div>
+      <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">Refund Request — Action Required</h1>
+      <p style="margin:6px 0 0;color:#e9d5ff;font-size:13px;">Trip Reference #${id}</p>
+    </div>
+    <div style="background:#fff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 20px;">
+        A travel cancellation has been <strong>approved by the L1 manager</strong>. Please process the refund for the following employee.
+      </p>
+      <div style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;width:40%;">Employee</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:600;">${request.employee_name}</td></tr>
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Email</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${request.employee_email}</td></tr>
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Trip</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${tripSummary}</td></tr>
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Request ID</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">#${id}</td></tr>
+          <tr><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">Approved By</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:600;">${managerName}</td></tr>
+          <tr><td style="padding:10px 16px;color:#6b7280;font-size:13px;">Cancellation Reason</td><td style="padding:10px 16px;color:#111827;font-size:14px;">${request.cancellation_reason || '—'}</td></tr>
+        </table>
+      </div>
+      <div style="background:#EFF6FF;border-left:4px solid #7C3AED;padding:14px 18px;border-radius:4px;margin-bottom:24px;">
+        <p style="margin:0;color:#5B21B6;font-size:13px;line-height:1.6;"><strong>Action Required:</strong> Please process the refund for this cancelled travel request and notify the employee once complete.</p>
+      </div>
+      <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">PocketPro HR — Automated Notification</p>
+    </div>
+  </div>
+</body></html>`;
+      for (const adminEmail of adminEmails) {
+        sendEmail({ to: adminEmail, subject, html, replyTo: managerEmail })
+          .catch(e => console.error(`[Cancellation] Admin notification failed for ${adminEmail}:`, e.message));
+      }
+    } catch (e) { console.error('[Cancellation] Admin notification failed:', e.message); }
+
+    res.json({ message: 'Cancellation approved and admin notified for refund' });
+  } catch (err) {
+    console.error('Error approving cancellation:', err);
+    res.status(500).json({ message: 'Failed to approve cancellation' });
+  }
+});
+
+// PUT /api/l1-approvals/:id/reject-cancellation
+// L1 manager rejects the cancellation request
+router.put('/:id/reject-cancellation', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { managerEmail, rejectionNote } = req.body;
+
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT * FROM petty_cash_requests WHERE id = @id');
+
+    if (!result.recordset.length) return res.status(404).json({ message: 'Request not found' });
+    const request = result.recordset[0];
+
+    if (request.cancellation_status !== 'pending') {
+      return res.status(400).json({ message: 'No pending cancellation request found' });
+    }
+
+    // Reset cancellation status — request stays active
+    await pool.request()
+      .input('id', sql.Int, id)
+      .query(`
+        UPDATE petty_cash_requests
+        SET cancellation_status = 'rejected'
+        WHERE id = @id
+      `);
+
+    // Notify employee
+    try {
+      const subject = `❌ Cancellation Rejected — Trip #${id}`;
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:#DC2626;padding:28px 24px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">❌</div>
+      <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">Cancellation Rejected</h1>
+      <p style="margin:6px 0 0;color:#fecaca;font-size:13px;">Trip Reference #${id}</p>
+    </div>
+    <div style="background:#fff;padding:28px 24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 20px;">
+        Hi <strong>${request.employee_name}</strong>,<br><br>
+        Your cancellation request for Trip #${id} has been <strong style="color:#DC2626;">rejected by your L1 manager</strong>. Your travel request remains active.
+      </p>
+      ${rejectionNote ? `<div style="background:#FEF2F2;border-left:4px solid #DC2626;padding:14px 18px;border-radius:4px;margin-bottom:20px;"><p style="margin:0;color:#991B1B;font-size:14px;"><strong>Reason:</strong> ${rejectionNote}</p></div>` : ''}
+      <p style="color:#374151;font-size:14px;line-height:1.6;">If you have questions, please contact your manager directly.</p>
+      <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">PocketPro HR — Automated Notification</p>
+    </div>
+  </div>
+</body></html>`;
+      await sendEmail({ to: request.employee_email, subject, html, replyTo: managerEmail });
+    } catch (e) { console.error('[Cancellation] Employee rejection notification failed:', e.message); }
+
+    res.json({ message: 'Cancellation request rejected' });
+  } catch (err) {
+    console.error('Error rejecting cancellation:', err);
+    res.status(500).json({ message: 'Failed to reject cancellation' });
+  }
+});
+
+// Also include cancellation_status in my-travel-requests response
+// (already returned via SELECT * in the existing endpoint — no change needed)
 
 module.exports = router;
 
