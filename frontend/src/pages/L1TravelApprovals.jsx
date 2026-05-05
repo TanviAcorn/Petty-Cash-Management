@@ -1107,11 +1107,12 @@ const L1TravelApprovals = () => {
                   {requests.map((request) => {
                     const travelData = request.travel_form_data;
                     const isApproved = request.l1_approval_status === 'approved';
+                    const isCancelled = request.status === 'cancelled' || request.cancellation_status === 'approved';
                     const locked = isTripLocked(travelData);
                     const endDate = getTripEndDate(travelData);
                     const lockMsg = endDate ? `Trip ended on ${new Date(endDate).toLocaleDateString('en-GB')} — editing locked` : 'Trip completed — editing locked';
                     return (
-                      <TableRow key={request.id} hover>
+                      <TableRow key={request.id} hover sx={isCancelled ? { bgcolor: 'error.50' } : {}}>
                         <TableCell>{request.id}</TableCell>
                         <TableCell>
                           {request.employeeFirstName} {request.employeeLastName}
@@ -1122,7 +1123,9 @@ const L1TravelApprovals = () => {
                         <TableCell>{formatDate(travelData?.departureDate)}</TableCell>
                         <TableCell>{formatDate(request.created_at)}</TableCell>
                         <TableCell>
-                          {isApproved
+                          {isCancelled
+                            ? <Chip label="Cancelled" color="error" size="small" icon={<Cancel />} />
+                            : isApproved
                             ? <Chip label="L1 Approved" color="success" size="small" />
                             : <Chip label="Pending L1" color="warning" size="small" />}
                         </TableCell>
@@ -1131,8 +1134,42 @@ const L1TravelApprovals = () => {
                             <Button size="small" startIcon={<Visibility />} onClick={() => handleViewDetails(request.id)}>
                               Review
                             </Button>
+                            {/* Cancelled request — show refund badge + Edit & Resend for admin */}
+                            {isCancelled && currentUser.role === 'Admin' && (
+                              <>
+                                <Chip
+                                  label="⚠️ Refund Required"
+                                  color="error"
+                                  variant="outlined"
+                                  size="small"
+                                  sx={{ fontWeight: 700 }}
+                                />
+                                {request.travel_docs_sent_at && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="warning"
+                                    startIcon={<Edit />}
+                                    onClick={() => openEditReasonModal(request)}
+                                  >
+                                    Edit & Resend
+                                  </Button>
+                                )}
+                                {!request.travel_docs_sent_at && (
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="primary"
+                                    startIcon={<CloudUpload />}
+                                    onClick={() => openUploadDialog(request)}
+                                  >
+                                    Upload Travel Details
+                                  </Button>
+                                )}
+                              </>
+                            )}
                             {/* L1 Manager: Edit Request button — only when approved AND trip not yet ended */}
-                            {currentUser.role !== 'Admin' && isApproved && !locked && (
+                            {!isCancelled && currentUser.role !== 'Admin' && isApproved && !locked && (
                               <Button
                                 size="small"
                                 variant="outlined"
@@ -1143,7 +1180,7 @@ const L1TravelApprovals = () => {
                                 Edit Request
                               </Button>
                             )}
-                        {isApproved && !request.travel_docs_sent_at && (
+                        {!isCancelled && isApproved && !request.travel_docs_sent_at && (
                           locked ? (
                             <Tooltip title={lockMsg} arrow>
                               <span>
@@ -1164,7 +1201,7 @@ const L1TravelApprovals = () => {
                               </Button>
                           )
                             )}
-                            {isApproved && request.travel_docs_sent_at && (
+                            {!isCancelled && isApproved && request.travel_docs_sent_at && (
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
                                 <Chip label="Details Sent" color="success" size="small" icon={<CheckCircle />} />
                                 <Button
