@@ -301,14 +301,16 @@ const L1TravelApprovals = () => {
 
   // Maps petty_travel_costs DB column names → costDetails section keys used by the input fields
   const DB_COST_TO_SECTION_KEY = {
-    flight_cost:    'flights',
-    hotel_cost:     'hotel',
-    food_cost:      'food',
-    car_park_cost:  'carPark',
-    visa_cost:      'visa',
-    baggage_cost:   'baggage',
-    transport_cost: 'rentedVehicle',
-    other_cost:     'otherCost',
+    flight_cost:         'flights',
+    hotel_cost:          'hotel',
+    food_cost:           'food',
+    car_park_cost:       'carPark',
+    visa_cost:           'visa',
+    baggage_cost:        'baggage',
+    transport_cost:      'rentedVehicle',
+    other_cost:          'otherCost',
+    cancellation_charges:'cancellationCharges',
+    refund_initiated:    'refundInitiated',
   };
 
   // Fetch existing cost record and return costDetails map pre-populated with saved values
@@ -1487,6 +1489,54 @@ const L1TravelApprovals = () => {
                               sx={{ bgcolor: 'warning.50', '& .MuiOutlinedInput-root': { borderColor: 'warning.main' } }}
                             />
                           </Grid>
+                        )}
+
+                        {/* Cancellation Charges + Refund Initiated — only for flights sections on cancelled requests */}
+                        {baseKey === 'flights' && (uploadRequest?.status === 'cancelled' || uploadRequest?.cancellation_status === 'approved') && (
+                          <>
+                            <Grid item xs={12} sm={4}>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                label="Cancellation Charges"
+                                type="number"
+                                placeholder="0.00"
+                                value={costDetails.cancellationCharges ?? ''}
+                                onChange={(e) => setCostDetails(prev => ({ ...prev, cancellationCharges: e.target.value }))}
+                                disabled={uploadSending}
+                                InputProps={{
+                                  startAdornment: (
+                                    <Box component="span" sx={{ mr: 0.5, color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>
+                                      {currency}
+                                    </Box>
+                                  ),
+                                }}
+                                sx={{ bgcolor: 'error.50', '& .MuiOutlinedInput-root': { borderColor: 'error.main' } }}
+                                helperText="Airline/provider cancellation fee"
+                              />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                label="Refund Initiated"
+                                type="number"
+                                placeholder="0.00"
+                                value={costDetails.refundInitiated ?? ''}
+                                onChange={(e) => setCostDetails(prev => ({ ...prev, refundInitiated: e.target.value }))}
+                                disabled={uploadSending}
+                                InputProps={{
+                                  startAdornment: (
+                                    <Box component="span" sx={{ mr: 0.5, color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600 }}>
+                                      {currency}
+                                    </Box>
+                                  ),
+                                }}
+                                sx={{ bgcolor: 'success.50', '& .MuiOutlinedInput-root': { borderColor: 'success.main' } }}
+                                helperText="Net refund = Flight Cost − Cancellation Charges"
+                              />
+                            </Grid>
+                          </>
                         )}
 
                         {/* Section file upload */}

@@ -208,7 +208,7 @@ router.post('/:requestId/save-details', async (req, res) => {
     // Save costs to petty_travel_costs if costDetails provided and not just a draft
     if (costDetails && Object.keys(costDetails).length > 0) {
       try {
-        // Ensure costs table exists
+        // Ensure costs table exists with cancellation columns
         await pool.request().query(`
           IF OBJECT_ID('dbo.petty_travel_costs','U') IS NULL
           CREATE TABLE dbo.petty_travel_costs (
@@ -220,6 +220,8 @@ router.post('/:requestId/save-details', async (req, res) => {
             food_cost DECIMAL(10,2) NULL, car_park_cost DECIMAL(10,2) NULL,
             visa_cost DECIMAL(10,2) NULL, baggage_cost DECIMAL(10,2) NULL,
             transport_cost DECIMAL(10,2) NULL, other_cost DECIMAL(10,2) NULL,
+            cancellation_charges DECIMAL(10,2) NULL,
+            refund_initiated DECIMAL(10,2) NULL,
             other_notes NVARCHAR(500) NULL,
             total_cost AS (ISNULL(flight_cost,0)+ISNULL(hotel_cost,0)+ISNULL(food_cost,0)+
                            ISNULL(car_park_cost,0)+ISNULL(visa_cost,0)+ISNULL(baggage_cost,0)+
@@ -229,6 +231,11 @@ router.post('/:requestId/save-details', async (req, res) => {
             created_at DATETIME2 DEFAULT SYSUTCDATETIME(),
             updated_at DATETIME2 NULL
           );
+          -- Add cancellation columns if table already existed without them
+          IF COL_LENGTH('dbo.petty_travel_costs','cancellation_charges') IS NULL
+            ALTER TABLE dbo.petty_travel_costs ADD cancellation_charges DECIMAL(10,2) NULL;
+          IF COL_LENGTH('dbo.petty_travel_costs','refund_initiated') IS NULL
+            ALTER TABLE dbo.petty_travel_costs ADD refund_initiated DECIMAL(10,2) NULL;
         `);
 
         // Fetch request info for employee details
@@ -271,6 +278,8 @@ router.post('/:requestId/save-details', async (req, res) => {
           .input('baggageCost',   sql.Decimal(10,2), cd.baggageCost   ? parseFloat(cd.baggageCost)   : null)
           .input('transportCost', sql.Decimal(10,2), cd.transportCost ? parseFloat(cd.transportCost) : null)
           .input('otherCost',     sql.Decimal(10,2), cd.otherCost     ? parseFloat(cd.otherCost)     : null)
+          .input('cancellationCharges', sql.Decimal(10,2), cd.cancellationCharges ? parseFloat(cd.cancellationCharges) : null)
+          .input('refundInitiated',     sql.Decimal(10,2), cd.refundInitiated     ? parseFloat(cd.refundInitiated)     : null)
           .input('currency',      sql.NVarChar(10),  currency || 'GBP');
 
         if (existing.recordset.length) {
@@ -288,6 +297,8 @@ router.post('/:requestId/save-details', async (req, res) => {
               baggage_cost   = CASE WHEN @baggageCost   IS NOT NULL THEN @baggageCost   ELSE baggage_cost   END,
               transport_cost = CASE WHEN @transportCost IS NOT NULL THEN @transportCost ELSE transport_cost END,
               other_cost     = CASE WHEN @otherCost     IS NOT NULL THEN @otherCost     ELSE other_cost     END,
+              cancellation_charges = CASE WHEN @cancellationCharges IS NOT NULL THEN @cancellationCharges ELSE cancellation_charges END,
+              refund_initiated     = CASE WHEN @refundInitiated     IS NOT NULL THEN @refundInitiated     ELSE refund_initiated     END,
               currency       = @currency,
               updated_at     = SYSUTCDATETIME()
             WHERE request_id = @rid
@@ -297,11 +308,11 @@ router.post('/:requestId/save-details', async (req, res) => {
             INSERT INTO petty_travel_costs
               (request_id,employee_name,employee_email,trip_summary,travel_date,
                flight_cost,hotel_cost,food_cost,car_park_cost,visa_cost,baggage_cost,
-               transport_cost,other_cost,currency)
+               transport_cost,other_cost,cancellation_charges,refund_initiated,currency)
             VALUES
               (@rid,@empName,@empEmail,@tripSummary,@travelDate,
                @flightCost,@hotelCost,@foodCost,@carParkCost,@visaCost,@baggageCost,
-               @transportCost,@otherCost,@currency)
+               @transportCost,@otherCost,@cancellationCharges,@refundInitiated,@currency)
           `);
         }
       } catch (costErr) {
