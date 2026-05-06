@@ -136,7 +136,8 @@ const NewTravelRequest = () => {
 
         if (lastTripRes.data?.data) {
           setLastTrip(lastTripRes.data.data);
-          setShowRecommendation(true);
+          // Don't show last-trip recommendation when editing an existing request
+          if (!isEditMode) setShowRecommendation(true);
         }
         setDataError('');
       } catch (err) {
@@ -202,10 +203,12 @@ const NewTravelRequest = () => {
     const newErrors = {};
     if (!formData.dateOfPurchase) newErrors.dateOfPurchase = 'Date is required';
     if (!formData.company) newErrors.company = 'Company is required';
+    // In edit mode with no existing travel data, the user fills it in fresh — only validate if they've started
     if (!travelFormData || !travelFormData.reasonOfTravel) {
-      newErrors.travelForm = 'Please fill out the travel request form completely, including the reason for travel';
+      newErrors.travelForm = isEditMode && !existingData?.travelFormData
+        ? 'Please fill in the travel details below — your original request did not have travel form data saved.'
+        : 'Please fill out the travel request form completely, including the reason for travel';
     }
-    // Reason of Travel minimum 20 words
     if (travelFormData?.reasonOfTravel) {
       const wordCount = travelFormData.reasonOfTravel.trim().split(/\s+/).filter(Boolean).length;
       if (wordCount < 20) {
@@ -382,6 +385,11 @@ const NewTravelRequest = () => {
             You are editing an existing request. Once your L1 manager approves it, editing will be locked.
           </Alert>
         )}
+        {isEditMode && !existingData?.travelFormData && (
+          <Alert severity="warning" sx={{ mt: 1 }}>
+            Your original request did not have travel details saved. Please fill in the full travel form below and save.
+          </Alert>
+        )}
       </Box>
 
       <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -448,7 +456,12 @@ const NewTravelRequest = () => {
             {errors.travelForm && (
               <Typography variant="caption" color="error" sx={{ mb: 1, px: 1 }}>{errors.travelForm}</Typography>
             )}
-            <TravelRequestForm formData={formData} onChange={handleTravelFormChange} initialData={travelFormData} />
+            <TravelRequestForm
+              key={isEditMode ? `edit-${editRequestId}` : 'new'}
+              formData={formData}
+              onChange={handleTravelFormChange}
+              initialData={travelFormData}
+            />
 
             {/* Reason of Travel + Remarks — fixed position, always visible */}
             <Card variant="outlined" sx={{ mb: 2, borderRadius: 2, borderColor: 'divider' }}>
