@@ -7,35 +7,29 @@ on:
 
 jobs:
   deploy:
-    name: Build & Deploy
-    # Runs directly on the production server — no SSH needed
-    runs-on: self-hosted
+    name: Trigger Deploy
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install backend dependencies
-        run: npm install --production
-        working-directory: backend
-
-      - name: Build frontend
+      - name: Notify production server to deploy
         run: |
-          npm install
-          rm -rf dist
-          npm run build
-        working-directory: frontend
+          # Build the HMAC-SHA256 signature for the webhook payload
+          PAYLOAD='{"ref":"refs/heads/main","pusher":{"name":"github-actions"},"after":"${{ github.sha }}"}'
+          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "${{ secrets.WEBHOOK_SECRET }}" | awk '{print "sha256="$2}')
 
-      - name: Restart backend
-        run: pm2 restart pettycash-backend --update-env
+          HTTP_STATUS=$(curl -s -o /tmp/webhook_response.txt -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: $SIGNATURE" \
+            -d "$PAYLOAD" \
+            https://pettycash.astutehealthcare.co.uk/deploy-webhook)
 
-      - name: Verify deployment
-        run: |
-          sleep 2
-          pm2 list
-          echo "Deploy complete at $(date)"
+          echo "Response: $(cat /tmp/webhook_response.txt)"
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "202" ]; then
+            echo "Webhook call failed with status $HTTP_STATUS"
+            exit 1
+          fi
+
+          echo "Deploy triggered successfully on production server"
