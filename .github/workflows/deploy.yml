@@ -8,7 +8,6 @@ on:
 jobs:
   deploy:
     name: Build & Deploy
-    # Runs directly on the production VM — no SSH or secrets needed
     runs-on: self-hosted
 
     steps:
@@ -17,14 +16,14 @@ jobs:
 
       - name: Install backend dependencies
         run: npm install --production
-        working-directory: backend
+        working-directory: /var/www/pettycash.astutehealthcare.co.uk/html/backend
 
       - name: Build frontend
         run: |
           npm install
           rm -rf dist
           npm run build
-        working-directory: frontend
+        working-directory: /var/www/pettycash.astutehealthcare.co.uk/html/frontend
 
       - name: Restart backend
         run: pm2 restart pettycash-backend --update-env
@@ -33,4 +32,5 @@ jobs:
         run: |
           sleep 2
           pm2 list
-          echo "✅ Deploy complete at $(date)"
+          curl -s http://127.0.0.1:5177/ | grep -o 'index-[^"]*\.js' | head -1
+          echo "Deploy complete at $(date)"
