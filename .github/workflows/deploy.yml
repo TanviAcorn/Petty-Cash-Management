@@ -7,50 +7,30 @@ on:
 
 jobs:
   deploy:
-    name: Trigger Deploy
-    runs-on: ubuntu-latest
+    name: Build & Deploy
+    # Runs directly on the production VM — no SSH or secrets needed
+    runs-on: self-hosted
 
     steps:
-      - name: Trigger webhook deploy on production server
-        env:
-          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+      - name: Checkout latest code
+        uses: actions/checkout@v4
+
+      - name: Install backend dependencies
+        run: npm install --production
+        working-directory: backend
+
+      - name: Build frontend
         run: |
-          python3 - << 'PYEOF'
-          import hmac, hashlib, urllib.request, json, os, sys
+          npm install
+          rm -rf dist
+          npm run build
+        working-directory: frontend
 
-          secret = os.environ.get('WEBHOOK_SECRET', '').encode()
-          payload = json.dumps({
-            "ref": "refs/heads/main",
-            "pusher": {"name": "github-actions"},
-            "after": "${{ github.sha }}"
-          }).encode()
+      - name: Restart backend
+        run: pm2 restart pettycash-backend --update-env
 
-          sig = 'sha256=' + hmac.new(secret, payload, hashlib.sha256).hexdigest()
-
-          req = urllib.request.Request(
-            'https://pettycash.astutehealthcare.co.uk/deploy-webhook',
-            data=payload,
-            headers={
-              'Content-Type': 'application/json',
-              'X-Hub-Signature-256': sig,
-            },
-            method='POST'
-          )
-
-          try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-              body = resp.read().decode()
-              print(f'Status: {resp.status}')
-              print(f'Response: {body}')
-              if resp.status not in (200, 202):
-                sys.exit(1)
-          except urllib.error.HTTPError as e:
-            print(f'HTTP Error: {e.code} {e.reason}')
-            print(e.read().decode())
-            sys.exit(1)
-          except Exception as e:
-            print(f'Error: {e}')
-            sys.exit(1)
-
-          print('Deploy triggered successfully')
-          PYEOF
+      - name: Verify
+        run: |
+          sleep 2
+          pm2 list
+          echo "✅ Deploy complete at $(date)"
