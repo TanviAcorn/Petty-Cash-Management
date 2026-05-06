@@ -7,7 +7,7 @@
  * Or via PM2: pm2 start webhook-deploy.js --name pettycash-webhook
  */
 
-require('dotenv').config();
+require('dotenv').config({ path: '/var/www/pettycash.astutehealthcare.co.uk/html/backend/.env' });
 const http = require('http');
 const crypto = require('crypto');
 const { exec } = require('child_process');
