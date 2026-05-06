@@ -31,8 +31,9 @@ import {
   DialogActions,
   Chip,
   Divider,
+  Alert,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import TravelRequestForm from '../components/TravelRequestForm';
 import useSortedItems from '../hooks/useSortedItems';
@@ -44,10 +45,18 @@ import {
   InsertDriveFile,
   FlightTakeoff,
   History,
+  Edit,
 } from '@mui/icons-material';
 
 const NewTravelRequest = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Edit mode — passed via navigate state from MyTravelRequests
+  const editState = location.state?.editMode ? location.state : null;
+  const isEditMode = !!editState;
+  const editRequestId = editState?.requestId || null;
+  const existingData = editState?.existingData || null;
 
   const formatDateForInput = (date) => {
     if (!date) return '';
@@ -64,6 +73,21 @@ const NewTravelRequest = () => {
     const employeeName = user.name ||
       (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) ||
       user.email?.split('@')[0] || '';
+    // If editing, pre-populate from existing request
+    if (existingData) {
+      return {
+        dateOfPurchase: existingData.dateOfPurchase ? formatDateForInput(new Date(existingData.dateOfPurchase)) : formatDateForInput(new Date()),
+        category: 'Travel Request',
+        company: existingData.company || user.company || '',
+        location: existingData.location || '',
+        description: existingData.description || '',
+        amount: existingData.amount || '',
+        currency: existingData.currency || 'GBP',
+        selectedLocation: null,
+        employeeName,
+        department: user.department || '',
+      };
+    }
     return {
       dateOfPurchase: formatDateForInput(new Date()),
       category: 'Travel Request',
@@ -82,7 +106,8 @@ const NewTravelRequest = () => {
   const [attachments, setAttachments] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [travelFormData, setTravelFormData] = useState(null);
+  // Pre-populate travel form data from existing request in edit mode
+  const [travelFormData, setTravelFormData] = useState(existingData?.travelFormData || null);
 
   // Last trip recommendation
   const [lastTrip, setLastTrip] = useState(null);
@@ -207,7 +232,6 @@ const NewTravelRequest = () => {
     try {
       setSubmitting(true);
       const user = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
-      const formDataToSend = new FormData();
       const employeeName = user.name ||
         (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : null) ||
         user.email?.split('@')[0] || 'User';
@@ -216,29 +240,44 @@ const NewTravelRequest = () => {
         ? new Date(formData.dateOfPurchase).toISOString()
         : new Date().toISOString();
 
-      formDataToSend.append('employeeName', employeeName);
-      formDataToSend.append('employeeEmail', user.email || '');
-      formDataToSend.append('company', formData.company);
-      formDataToSend.append('category', 'Travel Request');
-      formDataToSend.append('location', formData.location || '');
-      formDataToSend.append('amount', '0');
-      formDataToSend.append('currency', formData.currency);
-      formDataToSend.append('dateOfPurchase', formattedDate);
-      formDataToSend.append('description', travelFormData?.reasonOfTravel || '');
-      formDataToSend.append('isTravelRequest', 'true');
-      formDataToSend.append('travelFormData', JSON.stringify(travelFormData));
+      if (isEditMode && editRequestId) {
+        // ── Edit mode: update existing request ──────────────────────────
+        await axiosClient.put(`/l1-approvals/${editRequestId}/user-edit-request`, {
+          travelFormData: {
+            ...travelFormData,
+            company: formData.company,
+            location: formData.location,
+          },
+          editedBy: user.email,
+        });
+        alert('Travel request updated successfully!');
+        navigate('/my-travel-requests');
+      } else {
+        // ── New request ──────────────────────────────────────────────────
+        const formDataToSend = new FormData();
+        formDataToSend.append('employeeName', employeeName);
+        formDataToSend.append('employeeEmail', user.email || '');
+        formDataToSend.append('company', formData.company);
+        formDataToSend.append('category', 'Travel Request');
+        formDataToSend.append('location', formData.location || '');
+        formDataToSend.append('amount', '0');
+        formDataToSend.append('currency', formData.currency);
+        formDataToSend.append('dateOfPurchase', formattedDate);
+        formDataToSend.append('description', travelFormData?.reasonOfTravel || '');
+        formDataToSend.append('isTravelRequest', 'true');
+        formDataToSend.append('travelFormData', JSON.stringify(travelFormData));
+        attachments.forEach(file => formDataToSend.append('attachments', file));
 
-      attachments.forEach(file => formDataToSend.append('attachments', file));
+        await axiosClient({
+          method: 'post',
+          url: '/requests',
+          data: formDataToSend,
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
 
-      await axiosClient({
-        method: 'post',
-        url: '/requests',
-        data: formDataToSend,
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      alert('Travel request submitted successfully!');
-      navigate('/my-requests');
+        alert('Travel request submitted successfully!');
+        navigate('/my-requests');
+      }
     } catch (err) {
       console.error('Submit failed', err);
       alert(err?.response?.data?.message || 'Failed to submit travel request');
@@ -328,10 +367,21 @@ const NewTravelRequest = () => {
       </Dialog>
       <Box sx={{ mb: 3, p: 2, borderRadius: 2, backgroundColor: 'background.paper', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <FlightTakeoff sx={{ color: 'primary.main' }} />
-          <Typography variant="h5" fontWeight={800}>New Travel Request</Typography>
+          {isEditMode ? <Edit sx={{ color: 'secondary.main' }} /> : <FlightTakeoff sx={{ color: 'primary.main' }} />}
+          <Typography variant="h5" fontWeight={800}>
+            {isEditMode ? `Edit Travel Request #${editRequestId}` : 'New Travel Request'}
+          </Typography>
         </Box>
-        <Typography variant="body2" color="text.secondary">Submit a travel request for approval before your trip</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {isEditMode
+            ? 'Update your travel request details below. Changes are saved immediately.'
+            : 'Submit a travel request for approval before your trip'}
+        </Typography>
+        {isEditMode && (
+          <Alert severity="info" sx={{ mt: 1.5 }}>
+            You are editing an existing request. Once your L1 manager approves it, editing will be locked.
+          </Alert>
+        )}
       </Box>
 
       <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -619,16 +669,30 @@ const NewTravelRequest = () => {
                   </Table>
                 </TableContainer>
                 <Box sx={{ display: 'flex', gap: 2, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
-                  <Button variant="outlined" fullWidth onClick={() => navigate('/my-requests')} size="small" sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 500, py: 1 }}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => navigate(isEditMode ? '/my-travel-requests' : '/my-requests')}
+                    size="small"
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 500, py: 1 }}
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit" variant="contained" disabled={submitting} size="small" fullWidth sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 500, py: 1, boxShadow: 'none' }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    color={isEditMode ? 'secondary' : 'primary'}
+                    disabled={submitting}
+                    size="small"
+                    fullWidth
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 500, py: 1, boxShadow: 'none' }}
+                  >
                     {submitting ? (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CircularProgress size={16} color="inherit" />
-                        Submitting...
+                        {isEditMode ? 'Saving...' : 'Submitting...'}
                       </Box>
-                    ) : 'Submit Travel Request'}
+                    ) : isEditMode ? 'Save Changes' : 'Submit Travel Request'}
                   </Button>
                 </Box>
               </CardContent>

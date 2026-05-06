@@ -292,11 +292,18 @@ router.put('/:id/approve', async (req, res) => {
       request.attachments = [];
     }
     
-    // Send notification to employee
+    // Send notification to employee (+ CC accompanying persons)
     try {
       const { subject, html } = buildL1ApprovalNotificationEmail(request, true);
+      // Extract accompanying person emails from travel_form_data
+      let travelDataForCC = null;
+      try { travelDataForCC = request.travel_form_data ? JSON.parse(request.travel_form_data) : null; } catch {}
+      const accompanyingCC = (travelDataForCC?.accompanyingPersons || [])
+        .map(p => p.email).filter(e => e && e.includes('@'));
+
       await sendEmail({ 
-        to: request.employee_email, 
+        to: request.employee_email,
+        cc: accompanyingCC.length ? accompanyingCC : undefined,
         subject, 
         html,
         replyTo: managerEmail
@@ -454,6 +461,49 @@ router.put('/:id/reject', async (req, res) => {
   } catch (err) {
     console.error('Error rejecting L1 request:', err);
     res.status(500).json({ message: 'Failed to reject request' });
+  }
+});
+
+// PUT /api/l1-approvals/:id/user-edit-request
+// Employee edits their own travel request BEFORE L1 approval
+router.put('/:id/user-edit-request', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { travelFormData, editedBy } = req.body;
+
+    if (!travelFormData) return res.status(400).json({ message: 'Travel form data is required' });
+
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT * FROM petty_cash_requests WHERE id = @id');
+
+    if (!result.recordset.length) return res.status(404).json({ message: 'Request not found' });
+    const request = result.recordset[0];
+
+    // Block editing once L1 has approved — only L1 manager can edit after that
+    if (request.l1_approval_status === 'approved') {
+      return res.status(403).json({
+        message: 'Your request has been approved by your L1 manager. Only your L1 manager can edit it now.'
+      });
+    }
+
+    // Block if already rejected
+    if (request.l1_approval_status === 'rejected' || request.status === 'rejected') {
+      return res.status(403).json({ message: 'Rejected requests cannot be edited.' });
+    }
+
+    // Update travel_form_data directly (this is still the employee's own request, pre-approval)
+    await pool.request()
+      .input('id', sql.Int, id)
+      .input('formData', sql.NVarChar(sql.MAX), JSON.stringify(travelFormData))
+      .query(`UPDATE petty_cash_requests SET travel_form_data = @formData WHERE id = @id`);
+
+    res.json({ message: 'Travel request updated successfully' });
+  } catch (err) {
+    console.error('Error updating travel request (user):', err);
+    res.status(500).json({ message: 'Failed to update travel request' });
   }
 });
 

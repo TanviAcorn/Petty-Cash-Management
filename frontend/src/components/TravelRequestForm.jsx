@@ -17,6 +17,132 @@ const defaultLeg = () => ({ fromCity: '', toCity: '', date: '', dateFlex: false,
 
 const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format for min date
 
+// ── Accompanying Persons Picker ───────────────────────────────────────────────
+// Renders a list of accompanying persons. Each person can be:
+//   - An employee selected from the dropdown (email auto-filled, read-only)
+//   - "Other" — free-text name + email inputs
+const AccompanyingPersonsPicker = ({ persons, employees, onChange }) => {
+  const addPerson = () => onChange([...persons, { employeeId: '', name: '', email: '', isOther: false }]);
+
+  const updatePerson = (idx, patch) => {
+    const updated = persons.map((p, i) => i === idx ? { ...p, ...patch } : p);
+    onChange(updated);
+  };
+
+  const removePerson = (idx) => onChange(persons.filter((_, i) => i !== idx));
+
+  const handleSelect = (idx, value) => {
+    if (value === '__other__') {
+      updatePerson(idx, { employeeId: '__other__', name: '', email: '', isOther: true });
+    } else {
+      const emp = employees.find(e => String(e.id) === String(value));
+      updatePerson(idx, {
+        employeeId: value,
+        name: emp ? `${emp.firstName} ${emp.lastName}`.trim() : '',
+        email: emp?.email || '',
+        isOther: false,
+      });
+    }
+  };
+
+  return (
+    <Box>
+      {persons.map((person, idx) => (
+        <Box key={idx} sx={{ mb: 1.5, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <Grid container spacing={1.5} alignItems="flex-start">
+            {/* Employee dropdown */}
+            <Grid item xs={12} sm={person.isOther ? 12 : 6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Select Person</InputLabel>
+                <Select
+                  value={person.employeeId || ''}
+                  label="Select Person"
+                  onChange={(e) => handleSelect(idx, e.target.value)}
+                >
+                  <MenuItem value=""><em>— Select —</em></MenuItem>
+                  {employees.map(emp => (
+                    <MenuItem key={emp.id} value={String(emp.id)}>
+                      {emp.firstName} {emp.lastName}
+                      <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                        ({emp.email})
+                      </Typography>
+                    </MenuItem>
+                  ))}
+                  <MenuItem value="__other__">
+                    <em>Other (enter manually)</em>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Auto-filled email for employee selection */}
+            {!person.isOther && person.employeeId && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth size="small"
+                  label="Email"
+                  value={person.email}
+                  InputProps={{ readOnly: true }}
+                  sx={{ bgcolor: 'action.hover' }}
+                  helperText="Auto-filled from employee profile"
+                />
+              </Grid>
+            )}
+
+            {/* Manual name + email for "Other" */}
+            {person.isOther && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth size="small"
+                    label="Full Name *"
+                    value={person.name}
+                    onChange={(e) => updatePerson(idx, { name: e.target.value })}
+                    placeholder="e.g. John Smith"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth size="small"
+                    label="Email Address"
+                    type="email"
+                    value={person.email}
+                    onChange={(e) => updatePerson(idx, { email: e.target.value })}
+                    placeholder="e.g. john@example.com"
+                  />
+                </Grid>
+              </>
+            )}
+
+            {/* Remove button */}
+            <Grid item xs="auto" sx={{ display: 'flex', alignItems: 'center' }}>
+              <IconButton size="small" color="error" onClick={() => removePerson(idx)} title="Remove person">
+                <RemoveIcon fontSize="small" />
+              </IconButton>
+            </Grid>
+          </Grid>
+        </Box>
+      ))}
+
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<AddIcon />}
+        onClick={addPerson}
+        sx={{ mt: 0.5 }}
+      >
+        Add Person
+      </Button>
+
+      {persons.length === 0 && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+          Click "Add Person" to add someone accompanying on this trip.
+        </Typography>
+      )}
+    </Box>
+  );
+};
+
 const TravelRequestForm = ({ formData, onChange, initialData }) => {
   // Always show the user's own profile company, not the top-level dropdown selection
   const profileCompany = (() => {
@@ -50,6 +176,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   const [baggageRequired, setBaggageRequired] = useState(initialData?.baggageRequired || 'no');
   const [accompanying, setAccompanying] = useState(initialData?.accompanying || 'no');
   const [accompanyingNames, setAccompanyingNames] = useState(initialData?.accompanyingNames || '');
+  // New: structured list of accompanying persons
+  const [accompanyingPersons, setAccompanyingPersons] = useState(
+    initialData?.accompanyingPersons?.length ? initialData.accompanyingPersons : []
+  );
+  const [allEmployees, setAllEmployees] = useState([]);
   const [domesticHotel, setDomesticHotel] = useState(initialData?.domesticHotel || { needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
   const [domesticDateFlex, setDomesticDateFlex] = useState(false);
   const [domesticDateFlexFrom, setDomesticDateFlexFrom] = useState('');
@@ -77,6 +208,13 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     axiosClient.get('/visa-types')
       .then(res => setVisaTypes(res.data || []))
       .catch(err => console.error('Failed to fetch visa types:', err));
+  }, []);
+
+  // Fetch all employees for the accompanying persons dropdown
+  useEffect(() => {
+    axiosClient.get('/users/managers')
+      .then(res => setAllEmployees(res.data || []))
+      .catch(() => setAllEmployees([]));
   }, []);
 
   const fetchPassportInfo = () => {
@@ -170,7 +308,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
       carParkRequired, carParkDuration, carParkVehicleNumber, carParkCarColor,
       rentedVehicleRequired, rentedVehicleLegs,
       domesticHotel, domesticDateFlex, domesticDateFlexFrom, domesticDateFlexTo,
-      accompanying, accompanyingNames,
+      accompanying, accompanyingNames, accompanyingPersons,
       ...overrides,
     });
   };
@@ -1109,28 +1247,17 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                   {internationalRequirements.accompanying && (
                     <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'grey.400' }}>
                       <Typography variant="subtitle2" fontWeight={600} gutterBottom>7. Anyone Accompanying?</Typography>
-                      <Box sx={{ mb: accompanying === 'yes' ? 2 : 0 }}>
-                        <FormControl>
-                          <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Is anyone accompanying?</FormLabel>
-                          <RadioGroup row value={accompanying} onChange={(e) => {
-                            setAccompanying(e.target.value);
-                            if (e.target.value === 'no') { setAccompanyingNames(''); emit({ accompanying: 'no', accompanyingNames: '' }); }
-                            else emit({ accompanying: 'yes', accompanyingNames });
-                          }}>
-                            <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
-                            <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
-                          </RadioGroup>
-                        </FormControl>
-                      </Box>
-                      {accompanying === 'yes' && (
-                        <Grid container spacing={2}>
-                          <Grid item xs={12}>
-                            <TextField fullWidth label="Name(s)" value={accompanyingNames}
-                              onChange={(e) => { setAccompanyingNames(e.target.value); emit({ accompanying, accompanyingNames: e.target.value }); }}
-                              size="small" placeholder="e.g. John Smith, Jane Doe" />
-                          </Grid>
-                        </Grid>
-                      )}
+                      <AccompanyingPersonsPicker
+                        persons={accompanyingPersons}
+                        employees={allEmployees}
+                        onChange={(persons) => {
+                          setAccompanyingPersons(persons);
+                          // Keep legacy accompanyingNames in sync for backward compat
+                          const names = persons.map(p => p.name).filter(Boolean).join(', ');
+                          setAccompanyingNames(names);
+                          emit({ accompanying: persons.length > 0 ? 'yes' : 'no', accompanyingNames: names, accompanyingPersons: persons });
+                        }}
+                      />
                     </Box>
                   )}
                 </Box>
@@ -1468,28 +1595,16 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                   {domesticRequirements.accompanying && (
                     <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'grey.400' }}>
                       <Typography variant="subtitle2" fontWeight={600} gutterBottom>7. Anyone Accompanying?</Typography>
-                      <Box sx={{ mb: accompanying === 'yes' ? 2 : 0 }}>
-                        <FormControl>
-                          <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Is anyone accompanying?</FormLabel>
-                          <RadioGroup row value={accompanying} onChange={(e) => {
-                            setAccompanying(e.target.value);
-                            if (e.target.value === 'no') { setAccompanyingNames(''); emit({ accompanying: 'no', accompanyingNames: '' }); }
-                            else emit({ accompanying: 'yes', accompanyingNames });
-                          }}>
-                            <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
-                            <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
-                          </RadioGroup>
-                        </FormControl>
-                      </Box>
-                      {accompanying === 'yes' && (
-                        <Grid container spacing={2}>
-                          <Grid item xs={12}>
-                            <TextField fullWidth label="Name(s)" value={accompanyingNames}
-                              onChange={(e) => { setAccompanyingNames(e.target.value); emit({ accompanying, accompanyingNames: e.target.value }); }}
-                              size="small" placeholder="e.g. John Smith, Jane Doe" />
-                          </Grid>
-                        </Grid>
-                      )}
+                      <AccompanyingPersonsPicker
+                        persons={accompanyingPersons}
+                        employees={allEmployees}
+                        onChange={(persons) => {
+                          setAccompanyingPersons(persons);
+                          const names = persons.map(p => p.name).filter(Boolean).join(', ');
+                          setAccompanyingNames(names);
+                          emit({ accompanying: persons.length > 0 ? 'yes' : 'no', accompanyingNames: names, accompanyingPersons: persons });
+                        }}
+                      />
                     </Box>
                   )}
                 </Box>

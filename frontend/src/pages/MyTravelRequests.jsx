@@ -1,12 +1,99 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axiosClient, { getFileUrl } from '../api/axiosClient';
 import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Button, CircularProgress,
   Alert, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Tooltip,
+  Tooltip, Grid, FormControl, InputLabel, Select, MenuItem, IconButton,
 } from '@mui/material';
-import { Visibility, CheckCircle, InsertDriveFile, Cancel, FlightTakeoff } from '@mui/icons-material';
+import { Visibility, CheckCircle, InsertDriveFile, Cancel, FlightTakeoff, Edit, Add, Remove } from '@mui/icons-material';
+
+// ── Accompanying Persons Picker (inline) ─────────────────────────────────────
+const AccompanyingPersonsPicker = ({ persons, employees, onChange, disabled }) => {
+  const addPerson = () => onChange([...persons, { employeeId: '', name: '', email: '', isOther: false }]);
+  const updatePerson = (idx, patch) => onChange(persons.map((p, i) => i === idx ? { ...p, ...patch } : p));
+  const removePerson = (idx) => onChange(persons.filter((_, i) => i !== idx));
+
+  const handleSelect = (idx, value) => {
+    if (value === '__other__') {
+      updatePerson(idx, { employeeId: '__other__', name: '', email: '', isOther: true });
+    } else {
+      const emp = employees.find(e => String(e.id) === String(value));
+      updatePerson(idx, {
+        employeeId: value,
+        name: emp ? `${emp.firstName} ${emp.lastName}`.trim() : '',
+        email: emp?.email || '',
+        isOther: false,
+      });
+    }
+  };
+
+  return (
+    <Box>
+      {persons.map((person, idx) => (
+        <Box key={idx} sx={{ mb: 1.5, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <Grid container spacing={1.5} alignItems="flex-start">
+            <Grid item xs={12} sm={person.isOther ? 12 : 6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Select Person</InputLabel>
+                <Select
+                  value={person.employeeId || ''}
+                  label="Select Person"
+                  onChange={(e) => handleSelect(idx, e.target.value)}
+                  disabled={disabled}
+                >
+                  <MenuItem value=""><em>— Select —</em></MenuItem>
+                  {employees.map(emp => (
+                    <MenuItem key={emp.id} value={String(emp.id)}>
+                      {emp.firstName} {emp.lastName}
+                      <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>({emp.email})</Typography>
+                    </MenuItem>
+                  ))}
+                  <MenuItem value="__other__"><em>Other (enter manually)</em></MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            {!person.isOther && person.employeeId && (
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth size="small" label="Email" value={person.email}
+                  InputProps={{ readOnly: true }} sx={{ bgcolor: 'action.hover' }}
+                  helperText="Auto-filled from employee profile" />
+              </Grid>
+            )}
+            {person.isOther && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth size="small" label="Full Name *" value={person.name}
+                    onChange={(e) => updatePerson(idx, { name: e.target.value })}
+                    disabled={disabled} placeholder="e.g. John Smith" />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth size="small" label="Email Address" type="email" value={person.email}
+                    onChange={(e) => updatePerson(idx, { email: e.target.value })}
+                    disabled={disabled} placeholder="e.g. john@example.com" />
+                </Grid>
+              </>
+            )}
+            <Grid item xs="auto" sx={{ display: 'flex', alignItems: 'center' }}>
+              <IconButton size="small" color="error" onClick={() => removePerson(idx)} disabled={disabled}>
+                <Remove fontSize="small" />
+              </IconButton>
+            </Grid>
+          </Grid>
+        </Box>
+      ))}
+      <Button size="small" variant="outlined" startIcon={<Add />} onClick={addPerson} disabled={disabled} sx={{ mt: 0.5 }}>
+        Add Person
+      </Button>
+      {persons.length === 0 && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+          Click "Add Person" to add someone accompanying on this trip.
+        </Typography>
+      )}
+    </Box>
+  );
+};
 
 const MyTravelRequests = () => {
   const [requests, setRequests] = useState([]);
@@ -21,7 +108,19 @@ const MyTravelRequests = () => {
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelAlert, setCancelAlert] = useState(null);
 
+  // Edit request dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [editSaving, setEditSaving] = useState(false);
+  const [editAlert, setEditAlert] = useState(null);
+  const [editAccompanyingPersons, setEditAccompanyingPersons] = useState([]);
+
+  // Employee list for accompanying persons picker
+  const [allEmployees, setAllEmployees] = useState([]);
+
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const navigate = useNavigate();
 
   const fetchRequests = () => {
     if (!currentUser.email) return;
@@ -31,7 +130,13 @@ const MyTravelRequests = () => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchRequests(); }, []);
+  useEffect(() => {
+    fetchRequests();
+    // Fetch employees for accompanying persons picker
+    axiosClient.get('/users/managers')
+      .then(res => setAllEmployees(res.data || []))
+      .catch(() => setAllEmployees([]));
+  }, []);
 
   const handleView = async (id) => {
     try {
@@ -48,6 +153,85 @@ const MyTravelRequests = () => {
     setCancelReason('');
     setCancelAlert(null);
     setCancelDialogOpen(true);
+  };
+
+  const openEditDialog = (req) => {
+    const td = req.travel_form_data || {};
+    setEditTarget(req);
+    setEditAlert(null);
+    setEditAccompanyingPersons(td.accompanyingPersons?.length ? td.accompanyingPersons : []);
+    setEditFormData({
+      reasonOfTravel: td.reasonOfTravel || '',
+      remarks: td.remarks || '',
+      // International round trip / one-way
+      countryOfTravel: td.countryOfTravel || '',
+      fromCity: td.roundTrip?.fromCity || '',
+      toCity: td.roundTrip?.toCity || '',
+      departureDate: td.roundTrip?.departureDate || '',
+      arrivalDate: td.roundTrip?.arrivalDate || '',
+      // Domestic
+      cityOfTravelDomestic: td.cityOfTravelDomestic || '',
+      dateOfTravel: td.dateOfTravel || '',
+      domesticDateFlexFrom: td.domesticDateFlexFrom || '',
+      domesticDateFlexTo: td.domesticDateFlexTo || '',
+      // Client info
+      clientName: td.clientName || '',
+      clientCompany: td.clientCompany || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    setEditSaving(true);
+    setEditAlert(null);
+    try {
+      const td = editTarget.travel_form_data || {};
+      const isIntl = td.travelType === 'international';
+      const isMultiCity = td.tripType === 'multiCity';
+
+      // Merge edited fields back into the full travel_form_data
+      let updatedFormData = { ...td };
+      updatedFormData.reasonOfTravel = editFormData.reasonOfTravel;
+      updatedFormData.remarks = editFormData.remarks;
+      updatedFormData.clientName = editFormData.clientName;
+      updatedFormData.clientCompany = editFormData.clientCompany;
+      // Accompanying persons
+      updatedFormData.accompanyingPersons = editAccompanyingPersons;
+      updatedFormData.accompanyingNames = editAccompanyingPersons.map(p => p.name).filter(Boolean).join(', ');
+      updatedFormData.accompanying = editAccompanyingPersons.length > 0 ? 'yes' : (updatedFormData.accompanying || 'no');
+
+      if (isIntl && !isMultiCity) {
+        updatedFormData.countryOfTravel = editFormData.countryOfTravel;
+        updatedFormData.roundTrip = {
+          ...(td.roundTrip || {}),
+          fromCity: editFormData.fromCity,
+          toCity: editFormData.toCity,
+          departureDate: editFormData.departureDate,
+          arrivalDate: editFormData.arrivalDate,
+        };
+      } else if (!isIntl) {
+        updatedFormData.cityOfTravelDomestic = editFormData.cityOfTravelDomestic;
+        updatedFormData.dateOfTravel = editFormData.dateOfTravel;
+        updatedFormData.domesticDateFlexFrom = editFormData.domesticDateFlexFrom;
+        updatedFormData.domesticDateFlexTo = editFormData.domesticDateFlexTo;
+      }
+
+      await axiosClient.put(`/l1-approvals/${editTarget.id}/user-edit-request`, {
+        travelFormData: updatedFormData,
+        editedBy: currentUser.email,
+      });
+
+      setEditAlert({ type: 'success', msg: 'Travel request updated successfully.' });
+      setTimeout(() => {
+        setEditDialogOpen(false);
+        fetchRequests();
+      }, 1500);
+    } catch (err) {
+      setEditAlert({ type: 'error', msg: err.response?.data?.message || 'Failed to update request.' });
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const handleSubmitCancellation = async () => {
@@ -301,7 +485,20 @@ const MyTravelRequests = () => {
           <>
             <SectionTitle>Anyone Accompanying</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
-              <Row label="Name(s)" value={tf.accompanyingNames} />
+              {tf.accompanyingPersons?.length > 0
+                ? tf.accompanyingPersons.map((p, i) => (
+                    <TableRow key={i}>
+                      <TableCell sx={{ fontWeight: 600, width: '38%', bgcolor: 'action.hover', py: 1, fontSize: '0.8rem' }}>
+                        Person {i + 1}
+                      </TableCell>
+                      <TableCell sx={{ py: 1, fontSize: '0.8rem' }}>
+                        {p.name || '—'}
+                        {p.email && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{p.email}</Typography>}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : <Row label="Name(s)" value={tf.accompanyingNames} />
+              }
             </TableBody></Table></TableContainer>
           </>
         )}
@@ -374,6 +571,42 @@ const MyTravelRequests = () => {
                             >
                               View
                             </Button>
+                            {/* Edit button — only before L1 approval */}
+                            {req.l1_approval_status !== 'approved' && req.l1_approval_status !== 'rejected' && req.status !== 'rejected' && req.status !== 'cancelled' && (
+                              <Tooltip title="Edit your request before L1 approval" arrow>
+                                <Button
+                                  size="small"
+                                  startIcon={<Edit />}
+                                  variant="outlined"
+                                  color="secondary"
+                                  onClick={() => navigate('/new-travel-request', {
+                                    state: {
+                                      editMode: true,
+                                      requestId: req.id,
+                                      existingData: {
+                                        travelFormData: req.travel_form_data,
+                                        company: req.company_name || '',
+                                        location: req.location || '',
+                                        dateOfPurchase: req.created_at,
+                                        currency: req.currency || 'GBP',
+                                      },
+                                    },
+                                  })}
+                                >
+                                  Edit
+                                </Button>
+                              </Tooltip>
+                            )}
+                            {/* Disabled edit — after L1 approval */}
+                            {req.l1_approval_status === 'approved' && req.status !== 'cancelled' && (
+                              <Tooltip title="Locked — your L1 manager has approved this request. Only your L1 can edit it now." arrow>
+                                <span>
+                                  <Button size="small" startIcon={<Edit />} variant="outlined" color="inherit" disabled>
+                                    Edit
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                            )}
                             {cancelState.show && (
                               <Tooltip
                                 title={
@@ -507,6 +740,8 @@ const MyTravelRequests = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Edit Request Dialog removed — Edit button now navigates to the full New Travel Request form in edit mode ── */}
     </Box>
   );
 };
