@@ -14,7 +14,7 @@ const { exec } = require('child_process');
 const path = require('path');
 
 const PORT = process.env.WEBHOOK_PORT || 9000;
-const SECRET = process.env.WEBHOOK_SECRET || 'e358d9ebf3ec94b5ae59a956b13f0628878a92119893431568de32a741c1cf69';
+const SECRET = process.env.WEBHOOK_SECRET || '523bbcd190f0c1f0b6eaa1f142da2020b48e5a513f795ac35e9a843593ebbb5f';
 const REPO_DIR = '/var/www/pettycash.astutehealthcare.co.uk/html';
 const LOG_FILE = path.join(REPO_DIR, 'deploy.log');
 
