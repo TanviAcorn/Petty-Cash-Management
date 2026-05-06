@@ -11,19 +11,22 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout latest code
-        uses: actions/checkout@v4
+      - name: Pull latest code on server
+        run: |
+          cd /var/www/pettycash.astutehealthcare.co.uk/html
+          git pull origin main
 
       - name: Install backend dependencies
-        run: npm install --production
-        working-directory: /var/www/pettycash.astutehealthcare.co.uk/html/backend
+        run: |
+          cd /var/www/pettycash.astutehealthcare.co.uk/html/backend
+          npm install --production
 
       - name: Build frontend
         run: |
+          cd /var/www/pettycash.astutehealthcare.co.uk/html/frontend
           npm install
           rm -rf dist
           npm run build
-        working-directory: /var/www/pettycash.astutehealthcare.co.uk/html/frontend
 
       - name: Restart backend
         run: pm2 restart pettycash-backend --update-env
@@ -32,5 +35,4 @@ jobs:
         run: |
           sleep 2
           pm2 list
-          curl -s http://127.0.0.1:5177/ | grep -o 'index-[^"]*\.js' | head -1
           echo "Deploy complete at $(date)"
