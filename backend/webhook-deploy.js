@@ -87,7 +87,7 @@ const server = http.createServer((req, res) => {
     const signature = req.headers['x-hub-signature-256'];
 
     if (!verifySignature(body, signature)) {
-      log('Webhook rejected — invalid signature');
+      log(`Webhook rejected — invalid signature. Body length: ${body.length}, Body preview: ${body.slice(0,100)}`);
       res.writeHead(401);
       res.end('Unauthorized');
       return;
