@@ -17,7 +17,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -26,23 +26,30 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
-          timeout: 120s
+          timeout: 300s
           script: |
+            set -e
+
+            REPO_DIR="/var/www/pettycash.astutehealthcare.co.uk/html"
+
             echo "=== Pulling latest code ==="
-            cd /home/azureadmin/Petty-Cash-Management
+            cd "$REPO_DIR"
             git pull origin main
 
             echo "=== Installing backend dependencies ==="
-            cd /home/azureadmin/Petty-Cash-Management/backend
+            cd "$REPO_DIR/backend"
             npm install --production
 
             echo "=== Building frontend ==="
-            cd /home/azureadmin/Petty-Cash-Management/frontend
+            cd "$REPO_DIR/frontend"
             npm install
+            rm -rf dist
             npm run build
 
             echo "=== Restarting backend ==="
             pm2 restart pettycash-backend --update-env
 
-            echo "=== Deploy complete ==="
+            echo "=== Verifying deployment ==="
+            sleep 2
             pm2 list
+            echo "=== Deploy complete ==="
