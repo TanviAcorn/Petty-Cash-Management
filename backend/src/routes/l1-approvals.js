@@ -90,8 +90,9 @@ router.get('/my-travel-requests', async (req, res) => {
       .input('email', sql.NVarChar(320), email)
       .query(`
         SELECT id, employee_name, employee_email, category_name, status,
-               l1_approval_status, created_at, travel_form_data, travel_docs_sent_at,
-               cancellation_status, cancellation_reason, cancellation_requested_at
+               l1_approval_status, created_at, travel_form_data, travel_details, travel_docs_sent_at,
+               cancellation_status, cancellation_reason, cancellation_requested_at,
+               company_name, location, currency, amount
         FROM petty_cash_requests
         WHERE employee_email = @email
           AND (category_name = 'Travel Request' OR category_name = 'Travel')
@@ -101,6 +102,8 @@ router.get('/my-travel-requests', async (req, res) => {
     const rows = result.recordset.map(row => {
       let travelData = null;
       try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+      // Fallback to travel_details if travel_form_data is null (older requests)
+      if (!travelData) { try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {} }
       return { ...row, travel_form_data: travelData };
     });
 
@@ -292,18 +295,11 @@ router.put('/:id/approve', async (req, res) => {
       request.attachments = [];
     }
     
-    // Send notification to employee (+ CC accompanying persons)
+    // Send notification to employee
     try {
       const { subject, html } = buildL1ApprovalNotificationEmail(request, true);
-      // Extract accompanying person emails from travel_form_data
-      let travelDataForCC = null;
-      try { travelDataForCC = request.travel_form_data ? JSON.parse(request.travel_form_data) : null; } catch {}
-      const accompanyingCC = (travelDataForCC?.accompanyingPersons || [])
-        .map(p => p.email).filter(e => e && e.includes('@'));
-
       await sendEmail({ 
-        to: request.employee_email,
-        cc: accompanyingCC.length ? accompanyingCC : undefined,
+        to: request.employee_email, 
         subject, 
         html,
         replyTo: managerEmail

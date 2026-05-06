@@ -182,9 +182,9 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
   );
   const [allEmployees, setAllEmployees] = useState([]);
   const [domesticHotel, setDomesticHotel] = useState(initialData?.domesticHotel || { needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
-  const [domesticDateFlex, setDomesticDateFlex] = useState(false);
-  const [domesticDateFlexFrom, setDomesticDateFlexFrom] = useState('');
-  const [domesticDateFlexTo, setDomesticDateFlexTo] = useState('');
+  const [domesticDateFlex, setDomesticDateFlex] = useState(initialData?.domesticDateFlex || false);
+  const [domesticDateFlexFrom, setDomesticDateFlexFrom] = useState(initialData?.domesticDateFlexFrom || '');
+  const [domesticDateFlexTo, setDomesticDateFlexTo] = useState(initialData?.domesticDateFlexTo || '');
 
   const [visaTypes, setVisaTypes] = useState([]);
   const [passportInfo, setPassportInfo] = useState({ passport_number: '', nationality: '', passport_expiry: '', passport_name: '', passport_issue_date: '' });
@@ -240,8 +240,12 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     arrivalDateFlexFrom: '', arrivalDateFlexTo: '',
     needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: ''
   });
-  const [rtDepartureFlex, setRtDepartureFlex] = useState(false);
-  const [rtArrivalFlex, setRtArrivalFlex] = useState(false);
+  const [rtDepartureFlex, setRtDepartureFlex] = useState(
+    !!(initialData?.roundTrip?.departureDateFlexFrom)
+  );
+  const [rtArrivalFlex, setRtArrivalFlex] = useState(
+    !!(initialData?.roundTrip?.arrivalDateFlexFrom)
+  );
 
   const [multiCityLegs, setMultiCityLegs] = useState(
     initialData?.multiCityLegs?.length ? initialData.multiCityLegs : [defaultLeg(), defaultLeg()]
@@ -280,13 +284,15 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     foodNumberOfDays: initialData?.foodNumberOfDays || '',
     carParkRequired: initialData?.carParkRequired || 'no',
     carParkDuration: initialData?.carParkDuration || '',
-    reasonOfTravel: '',  // always start fresh — reason is trip-specific
-    remarks: '',
+    reasonOfTravel: initialData?.reasonOfTravel || '',  // pre-populated in edit mode
+    remarks: initialData?.remarks || '',
     baggageCount: initialData?.baggageCount || '',
     baggageNotes: initialData?.baggageNotes || '',
     baggageWeight: initialData?.baggageWeight || '',
     baggageCabinBag: initialData?.baggageCabinBag || false,
     baggageCheckIn: initialData?.baggageCheckIn || false,
+    clientName: initialData?.clientName || '',
+    clientCompany: initialData?.clientCompany || '',
   });
 
   useEffect(() => {

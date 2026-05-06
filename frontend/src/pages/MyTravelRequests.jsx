@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axiosClient, { getFileUrl } from '../api/axiosClient';
 import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell,
@@ -120,7 +119,6 @@ const MyTravelRequests = () => {
   const [allEmployees, setAllEmployees] = useState([]);
 
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-  const navigate = useNavigate();
 
   const fetchRequests = () => {
     if (!currentUser.email) return;
@@ -741,7 +739,171 @@ const MyTravelRequests = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ── Edit Request Dialog removed — Edit button now navigates to the full New Travel Request form in edit mode ── */}
+      {/* ── Edit Request Dialog ─────────────────────────────────────────── */}
+      <Dialog open={editDialogOpen} onClose={() => !editSaving && setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Edit color="secondary" />
+          <Box>
+            <Typography variant="h6" fontWeight={700}>Edit Travel Request</Typography>
+            {editTarget && (
+              <Typography variant="caption" color="text.secondary">
+                Trip #{editTarget.id} — {getTripSummary(editTarget.travel_form_data)}
+              </Typography>
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3 }}>
+          {editAlert && <Alert severity={editAlert.type} sx={{ mb: 2 }}>{editAlert.msg}</Alert>}
+          <Alert severity="info" sx={{ mb: 2 }}>
+            You can edit your request details below. Once your L1 manager approves it, editing will be locked.
+          </Alert>
+
+          {editTarget && (() => {
+            const td = editTarget.travel_form_data || {};
+            const isIntl = td.travelType === 'international';
+            const isMultiCity = td.tripType === 'multiCity';
+            return (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Reason for Travel */}
+                <TextField
+                  fullWidth label="Reason for Travel *" multiline rows={3}
+                  value={editFormData.reasonOfTravel || ''}
+                  onChange={(e) => setEditFormData(p => ({ ...p, reasonOfTravel: e.target.value }))}
+                  disabled={editSaving}
+                  helperText="Minimum 20 words required"
+                />
+
+                {/* International round trip / one-way */}
+                {isIntl && !isMultiCity && (
+                  <>
+                    <TextField
+                      fullWidth label="Country of Travel"
+                      value={editFormData.countryOfTravel || ''}
+                      onChange={(e) => setEditFormData(p => ({ ...p, countryOfTravel: e.target.value }))}
+                      disabled={editSaving}
+                    />
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <TextField fullWidth label="From City"
+                          value={editFormData.fromCity || ''}
+                          onChange={(e) => setEditFormData(p => ({ ...p, fromCity: e.target.value }))}
+                          disabled={editSaving} />
+                      </Grid>
+                      <Grid item xs={6}>
+                        <TextField fullWidth label="To City"
+                          value={editFormData.toCity || ''}
+                          onChange={(e) => setEditFormData(p => ({ ...p, toCity: e.target.value }))}
+                          disabled={editSaving} />
+                      </Grid>
+                      <Grid item xs={6}>
+                        <TextField fullWidth label="Departure Date" type="date"
+                          value={editFormData.departureDate || ''}
+                          onChange={(e) => setEditFormData(p => ({ ...p, departureDate: e.target.value }))}
+                          disabled={editSaving} InputLabelProps={{ shrink: true }} />
+                      </Grid>
+                      {td.tripType === 'roundTrip' && (
+                        <Grid item xs={6}>
+                          <TextField fullWidth label="Return Date" type="date"
+                            value={editFormData.arrivalDate || ''}
+                            onChange={(e) => setEditFormData(p => ({ ...p, arrivalDate: e.target.value }))}
+                            disabled={editSaving} InputLabelProps={{ shrink: true }} />
+                        </Grid>
+                      )}
+                    </Grid>
+                  </>
+                )}
+
+                {/* Domestic */}
+                {!isIntl && (
+                  <>
+                    <TextField fullWidth label="City of Travel"
+                      value={editFormData.cityOfTravelDomestic || ''}
+                      onChange={(e) => setEditFormData(p => ({ ...p, cityOfTravelDomestic: e.target.value }))}
+                      disabled={editSaving} />
+                    {td.domesticDateFlex ? (
+                      <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                          <TextField fullWidth label="Travel Date From" type="date"
+                            value={editFormData.domesticDateFlexFrom || ''}
+                            onChange={(e) => setEditFormData(p => ({ ...p, domesticDateFlexFrom: e.target.value }))}
+                            disabled={editSaving} InputLabelProps={{ shrink: true }} />
+                        </Grid>
+                        <Grid item xs={6}>
+                          <TextField fullWidth label="Travel Date To" type="date"
+                            value={editFormData.domesticDateFlexTo || ''}
+                            onChange={(e) => setEditFormData(p => ({ ...p, domesticDateFlexTo: e.target.value }))}
+                            disabled={editSaving} InputLabelProps={{ shrink: true }} />
+                        </Grid>
+                      </Grid>
+                    ) : (
+                      <TextField fullWidth label="Date of Travel" type="date"
+                        value={editFormData.dateOfTravel || ''}
+                        onChange={(e) => setEditFormData(p => ({ ...p, dateOfTravel: e.target.value }))}
+                        disabled={editSaving} InputLabelProps={{ shrink: true }} />
+                    )}
+                  </>
+                )}
+
+                {/* Multi-city note */}
+                {isMultiCity && (
+                  <Alert severity="warning">
+                    Multi-city leg dates cannot be edited here. Please submit a new request if dates need to change.
+                  </Alert>
+                )}
+
+                {/* Client info */}
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <TextField fullWidth label="Client Name"
+                      value={editFormData.clientName || ''}
+                      onChange={(e) => setEditFormData(p => ({ ...p, clientName: e.target.value }))}
+                      disabled={editSaving} />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField fullWidth label="Client Company"
+                      value={editFormData.clientCompany || ''}
+                      onChange={(e) => setEditFormData(p => ({ ...p, clientCompany: e.target.value }))}
+                      disabled={editSaving} />
+                  </Grid>
+                </Grid>
+
+                {/* Remarks */}
+                <TextField fullWidth label="Remarks / Notes" multiline rows={2}
+                  value={editFormData.remarks || ''}
+                  onChange={(e) => setEditFormData(p => ({ ...p, remarks: e.target.value }))}
+                  disabled={editSaving} />
+
+                {/* Accompanying Persons — only shown if the request has accompanying requirement */}
+                {(editTarget?.travel_form_data?.requirements?.accompanying || editAccompanyingPersons.length > 0) && (
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                      Anyone Accompanying?
+                    </Typography>
+                    <AccompanyingPersonsPicker
+                      persons={editAccompanyingPersons}
+                      employees={allEmployees}
+                      onChange={setEditAccompanyingPersons}
+                      disabled={editSaving}
+                    />
+                  </Box>
+                )}
+              </Box>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button onClick={() => setEditDialogOpen(false)} disabled={editSaving}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<Edit />}
+            onClick={handleSaveEdit}
+            disabled={editSaving || !editFormData.reasonOfTravel?.trim()}
+          >
+            {editSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
