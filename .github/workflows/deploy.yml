@@ -8,7 +8,8 @@ on:
 jobs:
   deploy:
     name: Build & Deploy
-    runs-on: ubuntu-latest
+    # Runs directly on the production server — no SSH needed
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
@@ -17,39 +18,24 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
 
-      - name: Deploy to server via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 22
-          timeout: 300s
-          script: |
-            set -e
+      - name: Install backend dependencies
+        run: npm install --production
+        working-directory: backend
 
-            REPO_DIR="/var/www/pettycash.astutehealthcare.co.uk/html"
+      - name: Build frontend
+        run: |
+          npm install
+          rm -rf dist
+          npm run build
+        working-directory: frontend
 
-            echo "=== Pulling latest code ==="
-            cd "$REPO_DIR"
-            git pull origin main
+      - name: Restart backend
+        run: pm2 restart pettycash-backend --update-env
 
-            echo "=== Installing backend dependencies ==="
-            cd "$REPO_DIR/backend"
-            npm install --production
-
-            echo "=== Building frontend ==="
-            cd "$REPO_DIR/frontend"
-            npm install
-            rm -rf dist
-            npm run build
-
-            echo "=== Restarting backend ==="
-            pm2 restart pettycash-backend --update-env
-
-            echo "=== Verifying deployment ==="
-            sleep 2
-            pm2 list
-            echo "=== Deploy complete ==="
+      - name: Verify deployment
+        run: |
+          sleep 2
+          pm2 list
+          echo "Deploy complete at $(date)"
