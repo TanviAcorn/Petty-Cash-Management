@@ -25,10 +25,14 @@ function log(msg) {
 }
 
 function verifySignature(payload, signature) {
-  if (!signature) return false;
+  if (!signature) {
+    log('Webhook rejected — no signature header');
+    return false;
+  }
   const hmac = crypto.createHmac('sha256', SECRET);
   hmac.update(payload);
   const digest = 'sha256=' + hmac.digest('hex');
+  log(`Expected: ${digest.slice(0, 20)}... Received: ${signature.slice(0, 20)}...`);
   try {
     return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
   } catch {

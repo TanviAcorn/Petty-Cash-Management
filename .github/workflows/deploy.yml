@@ -11,25 +11,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Notify production server to deploy
+      - name: Trigger webhook deploy on production server
+        env:
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
         run: |
-          # Build the HMAC-SHA256 signature for the webhook payload
-          PAYLOAD='{"ref":"refs/heads/main","pusher":{"name":"github-actions"},"after":"${{ github.sha }}"}'
-          SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "${{ secrets.WEBHOOK_SECRET }}" | awk '{print "sha256="$2}')
+          python3 - << 'PYEOF'
+          import hmac, hashlib, urllib.request, json, os, sys
 
-          HTTP_STATUS=$(curl -s -o /tmp/webhook_response.txt -w "%{http_code}" \
-            -X POST \
-            -H "Content-Type: application/json" \
-            -H "X-Hub-Signature-256: $SIGNATURE" \
-            -d "$PAYLOAD" \
-            https://pettycash.astutehealthcare.co.uk/deploy-webhook)
+          secret = os.environ.get('WEBHOOK_SECRET', '').encode()
+          payload = json.dumps({
+            "ref": "refs/heads/main",
+            "pusher": {"name": "github-actions"},
+            "after": "${{ github.sha }}"
+          }).encode()
 
-          echo "Response: $(cat /tmp/webhook_response.txt)"
-          echo "HTTP Status: $HTTP_STATUS"
+          sig = 'sha256=' + hmac.new(secret, payload, hashlib.sha256).hexdigest()
 
-          if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "202" ]; then
-            echo "Webhook call failed with status $HTTP_STATUS"
-            exit 1
-          fi
+          req = urllib.request.Request(
+            'https://pettycash.astutehealthcare.co.uk/deploy-webhook',
+            data=payload,
+            headers={
+              'Content-Type': 'application/json',
+              'X-Hub-Signature-256': sig,
+            },
+            method='POST'
+          )
 
-          echo "Deploy triggered successfully on production server"
+          try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+              body = resp.read().decode()
+              print(f'Status: {resp.status}')
+              print(f'Response: {body}')
+              if resp.status not in (200, 202):
+                sys.exit(1)
+          except urllib.error.HTTPError as e:
+            print(f'HTTP Error: {e.code} {e.reason}')
+            print(e.read().decode())
+            sys.exit(1)
+          except Exception as e:
+            print(f'Error: {e}')
+            sys.exit(1)
+
+          print('Deploy triggered successfully')
+          PYEOF
