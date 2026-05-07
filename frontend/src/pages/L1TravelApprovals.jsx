@@ -654,6 +654,23 @@ const L1TravelApprovals = () => {
           errors.push(`${sectionLabel}: "${config.costField.label}" is required`);
         }
       }
+
+      // ✅ NEW: For cancelled flights, validate Total Flight Cost = Cancellation Charges + Refund Initiated
+      if (baseKey === 'flights' && (uploadRequest?.status === 'cancelled' || uploadRequest?.cancellation_status === 'approved')) {
+        const totalFlightCost = parseFloat(costDetails[sectionKey] || 0);
+        const cancellationCharges = parseFloat(costDetails.cancellationCharges || 0);
+        const refundInitiated = parseFloat(costDetails.refundInitiated || 0);
+        
+        // Check if the equation holds: Total Flight Cost = Cancellation Charges + Refund Initiated
+        const expectedTotal = cancellationCharges + refundInitiated;
+        const tolerance = 0.01; // Allow 1 cent tolerance for floating point precision
+        
+        if (Math.abs(totalFlightCost - expectedTotal) > tolerance) {
+          errors.push(
+            `${sectionLabel}: Total Flight Cost (${currency}${totalFlightCost.toFixed(2)}) must equal Cancellation Charges (${currency}${cancellationCharges.toFixed(2)}) + Refund Initiated (${currency}${refundInitiated.toFixed(2)}) = ${currency}${expectedTotal.toFixed(2)}`
+          );
+        }
+      }
     });
 
     return errors;
