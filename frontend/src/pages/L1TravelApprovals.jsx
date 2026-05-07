@@ -1659,30 +1659,7 @@ const L1TravelApprovals = () => {
           })()}
         </DialogContent>
 
-        {/* ── Validation summary (Admin only) — shown when Send is blocked ── */}
-        {currentUser.role === 'Admin' && uploadRequest && (() => {
-          const errors = getValidationErrors();
-          if (errors.length === 0) return null;
-          return (
-            <Box sx={{ px: 3, pt: 1.5, pb: 0 }}>
-              <Alert
-                severity="warning"
-                sx={{ '& .MuiAlert-message': { width: '100%' } }}
-              >
-                <Typography variant="body2" fontWeight={700} sx={{ mb: 0.5 }}>
-                  Complete the following before sending ({errors.length} item{errors.length !== 1 ? 's' : ''}):
-                </Typography>
-                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                  {errors.map((e, i) => (
-                    <Typography key={i} component="li" variant="caption" sx={{ lineHeight: 1.8 }}>
-                      {e}
-                    </Typography>
-                  ))}
-                </Box>
-              </Alert>
-            </Box>
-          );
-        })()}
+        {/* Validation summary removed — errors only shown on Send attempt via uploadAlert */}
 
         <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
           <Button onClick={() => setUploadOpen(false)} disabled={uploadSending}>
@@ -1699,45 +1676,26 @@ const L1TravelApprovals = () => {
             const errors = getValidationErrors();
             const isReady = errors.length === 0;
             return (
-              <Tooltip
-                title={
-                  !isReady
-                    ? (
-                      <Box sx={{ p: 0.5 }}>
-                        <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>
-                          Complete the following before sending:
-                        </Typography>
-                        {errors.slice(0, 8).map((e, i) => (
-                          <Typography key={i} variant="caption" sx={{ display: 'block', lineHeight: 1.6 }}>
-                            • {e}
-                          </Typography>
-                        ))}
-                        {errors.length > 8 && (
-                          <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.8 }}>
-                            …and {errors.length - 8} more
-                          </Typography>
-                        )}
-                      </Box>
-                    )
-                    : ''
-                }
-                arrow
-                placement="top"
-                disableHoverListener={isReady}
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<CloudUpload />}
+                onClick={() => {
+                  const errs = getValidationErrors();
+                  if (errs.length > 0) {
+                    // Show the first few errors in the alert so the admin knows what to fix
+                    setUploadAlert({
+                      type: 'error',
+                      msg: `Please complete the following before sending: ${errs.slice(0, 5).map(e => `• ${e}`).join(' | ')}${errs.length > 5 ? ` | …and ${errs.length - 5} more` : ''}`,
+                    });
+                    return;
+                  }
+                  handleSendTravelDetails();
+                }}
+                disabled={uploadSending}
               >
-                {/* Wrap in span so Tooltip works on a disabled button */}
-                <span>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<CloudUpload />}
-                    onClick={handleSendTravelDetails}
-                    disabled={uploadSending || !isReady}
-                  >
-                    {uploadSending ? 'Sending...' : `Save & Send to ${uploadRequest?.employeeFirstName || 'Employee'}`}
-                  </Button>
-                </span>
-              </Tooltip>
+                {uploadSending ? 'Sending...' : `Save & Send to ${uploadRequest?.employeeFirstName || 'Employee'}`}
+              </Button>
             );
           })()}
           {currentUser.role !== 'Admin' && (
