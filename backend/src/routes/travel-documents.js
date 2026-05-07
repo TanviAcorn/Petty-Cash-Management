@@ -7,6 +7,7 @@ const fs = require('fs');
 const { poolPromise } = require('../config/db');
 const { sendEmail } = require('../utils/mailer');
 const { bookTravelCalendarEvent, buildTripSummary, extractTravelDates } = require('../utils/teamsCalendar');
+const { markRefundClosed } = require('../utils/feedbackScheduler');
 
 const UPLOADS_DIR = path.join(__dirname, '../../uploads');
 
@@ -456,6 +457,16 @@ router.post('/:requestId/send', async (req, res) => {
           ALTER TABLE dbo.petty_cash_requests ADD travel_docs_sent_at DATETIME2 NULL;
         UPDATE petty_cash_requests SET travel_docs_sent_at = SYSUTCDATETIME() WHERE id = @id;
       `);
+
+    // If this is a cancelled trip and the admin has sent the Edit & Resend details,
+    // mark the refund as closed so the bi-daily reminder emails stop.
+    if (request.status === 'cancelled' || request.cancellation_status === 'approved') {
+      try {
+        await markRefundClosed(requestId);
+      } catch (refundErr) {
+        console.error('[RefundReminder] markRefundClosed non-fatal error:', refundErr.message);
+      }
+    }
 
     res.json({ message: 'Travel documents emailed to user successfully' });
   } catch (err) {

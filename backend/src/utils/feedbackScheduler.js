@@ -561,6 +561,249 @@ async function sendVisaExpiryAlerts() {
   }
 }
 
+// ── Alert: Cancelled Trip Refund Reminders (every 2 days until closure) ──
+async function sendCancelledTripRefundReminders() {
+  try {
+    const pool = await poolPromise;
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!adminEmail) {
+      console.warn('[RefundReminder] ADMIN_EMAIL not set — skipping');
+      return;
+    }
+
+    // Ensure the reminder tracking table exists
+    await pool.request().query(`
+      IF OBJECT_ID('dbo.petty_refund_reminders','U') IS NULL
+      BEGIN
+        CREATE TABLE dbo.petty_refund_reminders (
+          id              INT IDENTITY(1,1) PRIMARY KEY,
+          request_id      INT NOT NULL,
+          reminder_count  INT NOT NULL DEFAULT 1,
+          last_sent_at    DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+          closed_at       DATETIME2 NULL,
+          CONSTRAINT UQ_refund_reminder_request UNIQUE (request_id)
+        );
+      END;
+    `);
+
+    // Find all cancelled travel requests that have NOT been marked as refund-closed.
+    // A trip is considered "refund closed" when:
+    //   - The admin has sent the Edit & Resend details (travel_docs_sent_at IS NOT NULL
+    //     after cancellation_approved_at), OR
+    //   - The refund_closed_at column is set (future-proof explicit closure)
+    // We query trips where cancellation was approved and no closure has been recorded.
+    const result = await pool.request().query(`
+      SELECT
+        r.id,
+        r.employee_name,
+        r.employee_email,
+        r.company_name,
+        r.cancellation_reason,
+        r.cancellation_approved_at,
+        r.travel_form_data,
+        r.travel_details,
+        rr.reminder_count,
+        rr.last_sent_at,
+        rr.closed_at
+      FROM petty_cash_requests r
+      LEFT JOIN petty_refund_reminders rr ON rr.request_id = r.id
+      WHERE (r.category_name = 'Travel Request' OR r.category_name = 'Travel')
+        AND r.status = 'cancelled'
+        AND r.cancellation_status = 'approved'
+        AND r.cancellation_approved_at IS NOT NULL
+        -- Not yet closed
+        AND (rr.closed_at IS NULL OR rr.id IS NULL)
+        -- Either never reminded, or last reminder was >= 2 days ago
+        AND (
+          rr.id IS NULL
+          OR CAST(rr.last_sent_at AS DATE) <= CAST(DATEADD(day, -2, GETUTCDATE()) AS DATE)
+        )
+    `);
+
+    console.log(`[RefundReminder] Found ${result.recordset.length} cancelled trip(s) needing refund reminder`);
+
+    for (const row of result.recordset) {
+      try {
+        let travelData = null;
+        try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+        if (!travelData) { try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {} }
+
+        const reminderCount = (row.reminder_count || 0) + 1;
+        const cancelledDate = row.cancellation_approved_at
+          ? new Date(row.cancellation_approved_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+          : 'N/A';
+
+        const destination =
+          travelData?.roundTrip?.toCity ||
+          travelData?.multiCityLegs?.[0]?.toCity ||
+          travelData?.cityOfTravelDomestic ||
+          travelData?.countryOfTravel ||
+          'N/A';
+
+        const departureDate =
+          travelData?.roundTrip?.departureDate ||
+          travelData?.dateOfTravel ||
+          travelData?.multiCityLegs?.[0]?.date || 'N/A';
+
+        const subject = `🔔 Refund Reminder #${reminderCount} — Cancelled Trip for ${row.employee_name} (Trip #${row.id})`;
+
+        const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+
+    <!-- Header -->
+    <div style="background:#DC2626;padding:32px 28px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:40px;margin-bottom:10px;">🔔</div>
+      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">Refund Closure Reminder</h1>
+      <p style="margin:8px 0 0;color:#fecaca;font-size:14px;">Reminder #${reminderCount} — Action Required</p>
+    </div>
+
+    <!-- Body -->
+    <div style="background:#fff;padding:32px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="margin:0 0 16px;color:#111827;font-size:15px;line-height:1.6;">
+        This is an automated reminder that a cancelled travel request is <strong>pending refund closure</strong>.
+        Please process the refund and update the travel details to close this case.
+      </p>
+
+      <!-- Trip details box -->
+      <div style="background:#FEF2F2;border-left:4px solid #DC2626;border-radius:6px;padding:18px 20px;margin:20px 0;">
+        <p style="margin:0 0 12px;color:#991B1B;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Cancelled Trip Details</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;width:160px;">Trip Reference</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:700;">#${row.id}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Employee</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">${row.employee_name}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Employee Email</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${row.employee_email}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Company</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${row.company_name || '—'}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Destination</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${destination}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Original Departure</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${departureDate}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Cancellation Date</td>
+            <td style="padding:6px 0;color:#DC2626;font-size:14px;font-weight:600;">${cancelledDate}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Cancellation Reason</td>
+            <td style="padding:6px 0;color:#374151;font-size:14px;">${row.cancellation_reason || '—'}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Reminder Count</td>
+            <td style="padding:6px 0;color:#DC2626;font-size:14px;font-weight:700;">#${reminderCount}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Action required box -->
+      <div style="background:#FFF7ED;border-left:4px solid #F59E0B;border-radius:6px;padding:16px 20px;margin:20px 0;">
+        <p style="margin:0 0 8px;color:#92400E;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">⚡ Action Required</p>
+        <ul style="margin:0;padding-left:18px;color:#374151;font-size:14px;line-height:1.8;">
+          <li>Log in to PocketPro HR and open Trip #${row.id}</li>
+          <li>Go to <strong>Travel Request Approvals → Edit &amp; Resend</strong></li>
+          <li>Enter the <strong>Cancellation Charges</strong> and <strong>Refund Initiated</strong> amounts</li>
+          <li>Send the updated details to the employee</li>
+          <li>Once the refund is processed, the reminders will stop automatically</li>
+        </ul>
+      </div>
+
+      <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;text-align:center;line-height:1.5;">
+        This reminder is sent every 2 days until the refund is closed.<br>
+        PocketPro HR — Automated Refund Reminder · Trip #${row.id}
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+        await sendEmail({ to: adminEmail, subject, html });
+        console.log(`[RefundReminder] Sent reminder #${reminderCount} for cancelled trip #${row.id} to ${adminEmail}`);
+
+        // Upsert the reminder tracking record
+        if (row.reminder_count === null || row.reminder_count === undefined) {
+          // First reminder — insert
+          await pool.request()
+            .input('requestId', sql.Int, row.id)
+            .query(`
+              INSERT INTO petty_refund_reminders (request_id, reminder_count, last_sent_at)
+              VALUES (@requestId, 1, SYSUTCDATETIME())
+            `);
+        } else {
+          // Subsequent reminder — update count and timestamp
+          await pool.request()
+            .input('requestId', sql.Int, row.id)
+            .input('count', sql.Int, reminderCount)
+            .query(`
+              UPDATE petty_refund_reminders
+              SET reminder_count = @count,
+                  last_sent_at   = SYSUTCDATETIME()
+              WHERE request_id = @requestId
+            `);
+        }
+      } catch (err) {
+        console.error(`[RefundReminder] Failed for trip #${row.id}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[RefundReminder] Error:', err);
+  }
+}
+
+// ── Mark a cancelled trip's refund as closed (stops reminders) ────────────
+// Called when admin sends the Edit & Resend details with refund amounts filled in.
+async function markRefundClosed(requestId) {
+  try {
+    const pool = await poolPromise;
+
+    // Ensure table exists
+    await pool.request().query(`
+      IF OBJECT_ID('dbo.petty_refund_reminders','U') IS NULL
+      BEGIN
+        CREATE TABLE dbo.petty_refund_reminders (
+          id              INT IDENTITY(1,1) PRIMARY KEY,
+          request_id      INT NOT NULL,
+          reminder_count  INT NOT NULL DEFAULT 1,
+          last_sent_at    DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+          closed_at       DATETIME2 NULL,
+          CONSTRAINT UQ_refund_reminder_request UNIQUE (request_id)
+        );
+      END;
+    `);
+
+    // Upsert: mark closed
+    await pool.request()
+      .input('requestId', sql.Int, requestId)
+      .query(`
+        IF EXISTS (SELECT 1 FROM petty_refund_reminders WHERE request_id = @requestId)
+          UPDATE petty_refund_reminders
+          SET closed_at = SYSUTCDATETIME()
+          WHERE request_id = @requestId
+        ELSE
+          INSERT INTO petty_refund_reminders (request_id, reminder_count, last_sent_at, closed_at)
+          VALUES (@requestId, 0, SYSUTCDATETIME(), SYSUTCDATETIME())
+      `);
+
+    console.log(`[RefundReminder] Marked refund as closed for trip #${requestId}`);
+  } catch (err) {
+    console.error(`[RefundReminder] Failed to mark closed for trip #${requestId}:`, err.message);
+  }
+}
+
 // ── Alert 2: Passport Expiry ──────────────────────────────────────────────
 async function sendPassportExpiryAlerts() {
   try {
@@ -671,11 +914,12 @@ function startFeedbackScheduler() {
   // Run every day at 9:00 AM UTC
   cron.schedule('0 9 * * *', async () => {
     console.log('[FeedbackScheduler] ── Daily run started ──', new Date().toISOString());
-    try { await sendPendingFeedbackEmails(); }   catch (e) { console.error('[FeedbackScheduler] sendPendingFeedbackEmails crashed:', e.message); }
-    try { await sendPreTravelReminders(); }       catch (e) { console.error('[FeedbackScheduler] sendPreTravelReminders crashed:', e.message); }
-    try { await sendJourneyStartsTomorrow(); }    catch (e) { console.error('[FeedbackScheduler] sendJourneyStartsTomorrow crashed:', e.message); }
-    try { await sendVisaExpiryAlerts(); }         catch (e) { console.error('[FeedbackScheduler] sendVisaExpiryAlerts crashed:', e.message); }
-    try { await sendPassportExpiryAlerts(); }     catch (e) { console.error('[FeedbackScheduler] sendPassportExpiryAlerts crashed:', e.message); }
+    try { await sendPendingFeedbackEmails(); }          catch (e) { console.error('[FeedbackScheduler] sendPendingFeedbackEmails crashed:', e.message); }
+    try { await sendPreTravelReminders(); }              catch (e) { console.error('[FeedbackScheduler] sendPreTravelReminders crashed:', e.message); }
+    try { await sendJourneyStartsTomorrow(); }           catch (e) { console.error('[FeedbackScheduler] sendJourneyStartsTomorrow crashed:', e.message); }
+    try { await sendVisaExpiryAlerts(); }                catch (e) { console.error('[FeedbackScheduler] sendVisaExpiryAlerts crashed:', e.message); }
+    try { await sendPassportExpiryAlerts(); }            catch (e) { console.error('[FeedbackScheduler] sendPassportExpiryAlerts crashed:', e.message); }
+    try { await sendCancelledTripRefundReminders(); }    catch (e) { console.error('[FeedbackScheduler] sendCancelledTripRefundReminders crashed:', e.message); }
     console.log('[FeedbackScheduler] ── Daily run complete ──', new Date().toISOString());
   });
 
@@ -690,5 +934,7 @@ module.exports = {
   sendJourneyStartsTomorrow,
   sendVisaExpiryAlerts,
   sendPassportExpiryAlerts,
+  sendCancelledTripRefundReminders,
+  markRefundClosed,
 };
 
