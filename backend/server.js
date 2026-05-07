@@ -61,7 +61,7 @@ const travelFeedbackRoutes = require("./src/routes/travel-feedback");
 const visaTypesRoutes = require("./src/routes/visa-types");
 const travelDocumentsRoutes = require("./src/routes/travel-documents");
 const travelCostsRoutes = require("./src/routes/travel-costs");
-const { startFeedbackScheduler, sendPendingFeedbackEmails, sendPreTravelReminders, sendJourneyStartsTomorrow, sendVisaExpiryAlerts, sendPassportExpiryAlerts, sendCancelledTripRefundReminders } = require("./src/utils/feedbackScheduler");
+const { startFeedbackScheduler, sendPendingFeedbackEmails, sendPreTravelReminders, sendJourneyStartsTomorrow, sendVisaExpiryAlerts, sendPassportExpiryAlerts, sendCancelledTripRefundReminders, sendBoardingPassReminders } = require("./src/utils/feedbackScheduler");
 
 // ✅ use it once
 app.use("/api/users", userRoutes);
@@ -115,6 +115,11 @@ app.post('/api/admin/run-scheduler', async (req, res) => {
       console.log('[ManualTrigger] Running sendCancelledTripRefundReminders...');
       await sendCancelledTripRefundReminders();
       results.refundReminders = 'done';
+    }
+    if (job === 'boarding-pass' || job === 'all') {
+      console.log('[ManualTrigger] Running sendBoardingPassReminders...');
+      await sendBoardingPassReminders();
+      results.boardingPassReminders = 'done';
     }
     res.json({ message: 'Scheduler jobs triggered', results });
   } catch (err) {

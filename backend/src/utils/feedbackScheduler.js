@@ -567,6 +567,219 @@ async function sendVisaExpiryAlerts() {
   }
 }
 
+// ── Boarding Pass Reminder (24 hours before departure) ───────────────────
+// Runs hourly. Sends admin a reminder to collect the boarding pass from
+// the employee 24 hours before their flight departure.
+// Deduplication: one reminder per request, tracked in petty_boarding_pass_reminders.
+async function sendBoardingPassReminders() {
+  try {
+    const pool = await poolPromise;
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!adminEmail) {
+      console.warn('[BoardingPassReminder] ADMIN_EMAIL not set — skipping');
+      return;
+    }
+
+    // Ensure deduplication table exists
+    await pool.request().query(`
+      IF OBJECT_ID('dbo.petty_boarding_pass_reminders','U') IS NULL
+      BEGIN
+        CREATE TABLE dbo.petty_boarding_pass_reminders (
+          id          INT IDENTITY(1,1) PRIMARY KEY,
+          request_id  INT NOT NULL,
+          sent_at     DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+          CONSTRAINT UQ_boarding_pass_reminder UNIQUE (request_id)
+        );
+      END;
+    `);
+
+    // Find approved travel requests where:
+    //   - The trip is a FLIGHT (not ferry): flightOrFerry != 'ferry' or not set
+    //   - Departure is between NOW and NOW+25h (25h window catches hourly runs cleanly)
+    //   - No boarding pass reminder has been sent yet
+    const result = await pool.request().query(`
+      SELECT
+        r.id,
+        r.employee_name,
+        r.employee_email,
+        r.company_name,
+        r.travel_form_data,
+        r.travel_details
+      FROM petty_cash_requests r
+      LEFT JOIN petty_boarding_pass_reminders bpr ON bpr.request_id = r.id
+      WHERE (r.category_name = 'Travel Request' OR r.category_name = 'Travel')
+        AND r.l1_approval_status = 'approved'
+        AND r.status NOT IN ('rejected', 'cancelled')
+        AND bpr.id IS NULL
+        -- Only flights, not ferries
+        AND (
+          JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.flightOrFerry') != 'ferry'
+          OR JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.flightOrFerry') IS NULL
+        )
+        -- Departure within the next 24–25 hours
+        AND (
+          (
+            TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.roundTrip.departureDate') AS DATETIME2)
+              BETWEEN SYSUTCDATETIME() AND DATEADD(hour, 25, SYSUTCDATETIME())
+          )
+          OR (
+            TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.dateOfTravel') AS DATETIME2)
+              BETWEEN SYSUTCDATETIME() AND DATEADD(hour, 25, SYSUTCDATETIME())
+          )
+          OR (
+            TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[0].date') AS DATETIME2)
+              BETWEEN SYSUTCDATETIME() AND DATEADD(hour, 25, SYSUTCDATETIME())
+          )
+        )
+    `);
+
+    console.log(`[BoardingPassReminder] Found ${result.recordset.length} flight(s) departing in ~24h`);
+
+    for (const row of result.recordset) {
+      try {
+        let travelData = null;
+        try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
+        if (!travelData) { try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {} }
+
+        // Extract departure details
+        const departureDate =
+          travelData?.roundTrip?.departureDate ||
+          travelData?.dateOfTravel ||
+          travelData?.multiCityLegs?.[0]?.date || 'N/A';
+
+        const formattedDeparture = departureDate !== 'N/A'
+          ? new Date(departureDate).toLocaleString('en-GB', {
+              weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+              hour: '2-digit', minute: '2-digit', timeZone: 'UTC'
+            }) + ' UTC'
+          : 'N/A';
+
+        const destination =
+          travelData?.roundTrip?.toCity ||
+          travelData?.multiCityLegs?.[0]?.toCity ||
+          travelData?.cityOfTravelDomestic ||
+          travelData?.countryOfTravel ||
+          'N/A';
+
+        const preferredDepartureAirport = travelData?.preferredDepartureAirport || '—';
+        const preferredSeat = travelData?.preferredSeat || '—';
+        const frequentFlyerNumber = travelData?.frequentFlyerNumber || '—';
+
+        const frontendBase = getFrontendBaseUrl();
+        const tripUrl = `${frontendBase}/l1-approvals`;
+
+        const subject = `🎫 Boarding Pass Reminder — ${row.employee_name} departs in ~24h (Trip #${row.id})`;
+
+        const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+
+    <!-- Header -->
+    <div style="background:#7C3AED;padding:32px 28px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:40px;margin-bottom:10px;">🎫</div>
+      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">Boarding Pass Reminder</h1>
+      <p style="margin:8px 0 0;color:#ede9fe;font-size:14px;">Action required — flight departs in approximately 24 hours</p>
+    </div>
+
+    <!-- Body -->
+    <div style="background:#fff;padding:32px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="margin:0 0 16px;color:#111827;font-size:15px;line-height:1.6;">
+        This is an automated reminder that <strong>${row.employee_name}</strong>'s flight departs in approximately <strong>24 hours</strong>.
+        Please ensure the boarding pass has been collected and confirmed.
+      </p>
+
+      <!-- Trip details -->
+      <div style="background:#F5F3FF;border-left:4px solid #7C3AED;border-radius:6px;padding:18px 20px;margin:20px 0;">
+        <p style="margin:0 0 12px;color:#5B21B6;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Flight Details</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;width:180px;">Trip Reference</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:700;">#${row.id}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Employee</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;font-weight:600;">${row.employee_name}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Employee Email</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${row.employee_email}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Company</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${row.company_name || '—'}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Destination</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${destination}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Departure</td>
+            <td style="padding:6px 0;color:#7C3AED;font-size:14px;font-weight:700;">${formattedDeparture}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Departure Airport</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${preferredDepartureAirport}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Preferred Seat</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${preferredSeat}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Frequent Flyer No.</td>
+            <td style="padding:6px 0;color:#111827;font-size:14px;">${frequentFlyerNumber}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Action required -->
+      <div style="background:#FFF7ED;border-left:4px solid #F59E0B;border-radius:6px;padding:16px 20px;margin:20px 0;">
+        <p style="margin:0 0 8px;color:#92400E;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">⚡ Action Required</p>
+        <ul style="margin:0;padding-left:18px;color:#374151;font-size:14px;line-height:1.8;">
+          <li>Contact <strong>${row.employee_name}</strong> to confirm boarding pass has been issued</li>
+          <li>Verify the boarding pass matches the booked flight details</li>
+          <li>Ensure the employee has all required travel documents</li>
+          <li>Log in to PocketPro HR to view the full trip details</li>
+        </ul>
+      </div>
+
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${tripUrl}"
+           style="display:inline-block;background:#7C3AED;color:#ffffff;padding:12px 32px;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px;">
+          View Trip in PocketPro HR
+        </a>
+      </div>
+
+      <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;text-align:center;line-height:1.5;">
+        This reminder is sent once, 24 hours before the scheduled departure.<br>
+        PocketPro HR — Automated Boarding Pass Reminder · Trip #${row.id}
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+        await sendEmail({ to: adminEmail, subject, html });
+        console.log(`[BoardingPassReminder] Sent boarding pass reminder for trip #${row.id} to ${adminEmail}`);
+
+        // Record that we've sent the reminder — prevents duplicate sends
+        await pool.request()
+          .input('requestId', sql.Int, row.id)
+          .query(`
+            INSERT INTO petty_boarding_pass_reminders (request_id, sent_at)
+            VALUES (@requestId, SYSUTCDATETIME())
+          `);
+
+      } catch (err) {
+        console.error(`[BoardingPassReminder] Failed for trip #${row.id}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[BoardingPassReminder] Error:', err);
+  }
+}
+
 // ── Alert: Cancelled Trip Refund Reminders (every 2 days until closure) ──
 async function sendCancelledTripRefundReminders() {
   try {
@@ -917,7 +1130,7 @@ async function sendPassportExpiryAlerts() {
 }
 
 function startFeedbackScheduler() {
-  // Run every day at 9:00 AM UTC
+  // ── Daily jobs at 09:00 UTC ──────────────────────────────────────────
   cron.schedule('0 9 * * *', async () => {
     console.log('[FeedbackScheduler] ── Daily run started ──', new Date().toISOString());
     try { await sendPendingFeedbackEmails(); }          catch (e) { console.error('[FeedbackScheduler] sendPendingFeedbackEmails crashed:', e.message); }
@@ -929,7 +1142,16 @@ function startFeedbackScheduler() {
     console.log('[FeedbackScheduler] ── Daily run complete ──', new Date().toISOString());
   });
 
+  // ── Hourly job: boarding pass reminders (24h before departure) ───────
+  // Runs every hour so we catch any departure time within the 24–25h window.
+  // Deduplication table prevents sending more than once per trip.
+  cron.schedule('0 * * * *', async () => {
+    try { await sendBoardingPassReminders(); }
+    catch (e) { console.error('[BoardingPassReminder] Hourly job crashed:', e.message); }
+  });
+
   console.log('[FeedbackScheduler] Scheduled daily jobs at 09:00 UTC');
+  console.log('[BoardingPassReminder] Scheduled hourly boarding pass check');
 }
 
 module.exports = {
@@ -942,5 +1164,6 @@ module.exports = {
   sendPassportExpiryAlerts,
   sendCancelledTripRefundReminders,
   markRefundClosed,
+  sendBoardingPassReminders,
 };
 
