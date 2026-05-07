@@ -58,6 +58,7 @@ const healthRoutes = require("./src/routes/health");
 const locationRoutes = require("./src/routes/locations");
 const l1ApprovalsRoutes = require("./src/routes/l1-approvals");
 const travelFeedbackRoutes = require("./src/routes/travel-feedback");
+const travelRecommendationsRoutes = require("./src/routes/travel-recommendations");
 const visaTypesRoutes = require("./src/routes/visa-types");
 const travelDocumentsRoutes = require("./src/routes/travel-documents");
 const travelCostsRoutes = require("./src/routes/travel-costs");
@@ -72,6 +73,7 @@ app.use("/api/health", healthRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/l1-approvals", l1ApprovalsRoutes);
 app.use("/api/travel-feedback", travelFeedbackRoutes);
+app.use("/api/travel-recommendations", travelRecommendationsRoutes);
 app.use("/api/visa-types", visaTypesRoutes);
 
 app.use("/api/travel-documents", travelDocumentsRoutes);

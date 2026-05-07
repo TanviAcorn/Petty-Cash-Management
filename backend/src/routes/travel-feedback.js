@@ -3,6 +3,7 @@ const router = express.Router();
 const sql = require('mssql');
 const crypto = require('crypto');
 const { poolPromise } = require('../config/db');
+const { ingestFeedbackRecommendation, ensureRecommendationsTable } = require('./travel-recommendations');
 
 // Ensure petty_travel_feedback table exists
 async function ensureFeedbackTable(pool) {
@@ -220,6 +221,17 @@ router.post('/:token', async (req, res) => {
           sub_ratings = @subRatings
         WHERE token = @token
       `);
+
+    // ── Trigger recommendation ingestion (fire-and-forget) ───────────────
+    // Runs after the DB update but doesn't block the response.
+    const requestId = check.recordset[0]?.request_id;
+    if (requestId) {
+      poolPromise.then(pool => {
+        ensureRecommendationsTable(pool)
+          .then(() => ingestFeedbackRecommendation(pool, requestId))
+          .catch(e => console.error('[Recommendations] Post-feedback ingest error:', e.message));
+      }).catch(() => {});
+    }
 
     return res.json({ message: 'Feedback submitted successfully' });
   } catch (err) {

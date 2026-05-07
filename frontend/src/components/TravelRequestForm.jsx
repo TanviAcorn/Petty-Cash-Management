@@ -12,6 +12,7 @@ import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
+import TravelRecommendations from './TravelRecommendations';
 
 const defaultLeg = () => ({ fromCity: '', toCity: '', date: '', dateFlex: false, dateFlexFrom: '', dateFlexTo: '' , needsHotel: false, hotelFrom: '', hotelTo: '', hotelDays: '' });
 
@@ -770,6 +771,16 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                 </Grid>
               )}
 
+              {/* ── Recommendations for Round Trip / One-Way destination ── */}
+              {(tripType === 'roundTrip' || tripType === 'oneWay') && roundTrip.toCity && (
+                <Grid item xs={12}>
+                  <TravelRecommendations
+                    toCity={roundTrip.toCity}
+                    activeReqs={travelType === 'international' ? internationalRequirements : domesticRequirements}
+                  />
+                </Grid>
+              )}
+
               {/* One-Way */}
               {tripType === 'oneWay' && (
                 <Grid item xs={12}>
@@ -1022,6 +1033,16 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                       Add Leg
                     </Button>
                   </Box>
+                </Grid>
+              )}
+
+              {/* ── Recommendations for Multi-City — use last leg's toCity ── */}
+              {tripType === 'multiCity' && multiCityLegs.length > 0 && multiCityLegs[multiCityLegs.length - 1]?.toCity && (
+                <Grid item xs={12}>
+                  <TravelRecommendations
+                    toCity={multiCityLegs[multiCityLegs.length - 1].toCity}
+                    activeReqs={internationalRequirements}
+                  />
                 </Grid>
               )}
 
@@ -1401,6 +1422,15 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                 <TextField fullWidth label="City of Travel *" name="cityOfTravelDomestic" value={travelData.cityOfTravelDomestic}
                   onChange={handleFieldChange} size="small" required />
               </Grid>
+              {/* ── Recommendations for Domestic destination ── */}
+              {travelData.cityOfTravelDomestic && (
+                <Grid item xs={12}>
+                  <TravelRecommendations
+                    toCity={travelData.cityOfTravelDomestic}
+                    activeReqs={domesticRequirements}
+                  />
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <Box>
                   <Grid container spacing={2}>
