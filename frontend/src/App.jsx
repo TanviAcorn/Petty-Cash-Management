@@ -51,6 +51,7 @@ import TravelCalendar from "./pages/TravelCalendar";
 import TravelCostAudit from "./pages/TravelCostAudit";
 import TravelFeedbackAdmin from "./pages/TravelFeedbackAdmin";
 import MyTravelRequests from "./pages/MyTravelRequests";
+import MissingAttachments from "./pages/MissingAttachments";
 import { menuItems, getMenuItemsByRole } from "./components/Sidebar";
 
 const drawerWidth = 260;
@@ -436,6 +437,12 @@ const App = () => {
           <Route path="/travel-feedback-report" element={
             hasAdminAccess(userInfo?.role) ?
             <TravelFeedbackAdmin /> :
+            <Navigate to="/user-dashboard" replace />
+          } />
+
+          <Route path="/missing-attachments" element={
+            hasAdminAccess(userInfo?.role) ?
+            <MissingAttachments /> :
             <Navigate to="/user-dashboard" replace />
           } />
           

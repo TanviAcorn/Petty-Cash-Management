@@ -453,6 +453,135 @@ router.put('/:id/intercompany', async (req, res) => {
   }
 });
 
+// ── GET /api/requests/missing-attachments ─────────────────────────────────
+// Admin-only: returns all requests that have attachment metadata in the DB
+// but whose files are missing from disk. Used for the admin report page.
+router.get('/missing-attachments', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT id, employee_name, employee_email, company_name, category_name,
+             amount, currency, status, created_at, attachments
+      FROM petty_cash_requests
+      WHERE attachments IS NOT NULL
+        AND attachments != '[]'
+        AND attachments != ''
+      ORDER BY id DESC
+    `);
+
+    const missing = [];
+    for (const row of result.recordset) {
+      let atts = [];
+      try { atts = JSON.parse(row.attachments); } catch {}
+      if (!Array.isArray(atts)) continue;
+
+      const missingAtts = atts.filter(a => {
+        if (!a.filename) return false;
+        const filePath = path.join(UPLOADS_DIR, path.basename(a.filename));
+        return !fs.existsSync(filePath);
+      });
+
+      if (missingAtts.length > 0) {
+        missing.push({
+          id: row.id,
+          employeeName: row.employee_name,
+          employeeEmail: row.employee_email,
+          company: row.company_name,
+          category: row.category_name,
+          amount: row.amount,
+          currency: row.currency,
+          status: row.status,
+          submittedAt: row.created_at,
+          missingFiles: missingAtts.map(a => ({
+            originalName: a.originalName || a.filename,
+            filename: a.filename,
+            size: a.size,
+            mimetype: a.mimetype,
+          })),
+          totalAttachments: atts.length,
+          missingCount: missingAtts.length,
+        });
+      }
+    }
+
+    return res.json({
+      data: missing,
+      summary: {
+        affectedRequests: missing.length,
+        totalMissingFiles: missing.reduce((s, r) => s + r.missingCount, 0),
+      },
+    });
+  } catch (err) {
+    console.error('Error fetching missing attachments report:', err);
+    return res.status(500).json({ message: 'Failed to generate report' });
+  }
+});
+
+// ── POST /api/requests/send-reupload-reminder ─────────────────────────────
+// Admin sends a re-upload reminder email to an employee for a specific request.
+router.post('/send-reupload-reminder', async (req, res) => {
+  try {
+    const { requestId, employeeEmail, employeeName, missingFiles } = req.body;
+    if (!requestId || !employeeEmail) {
+      return res.status(400).json({ message: 'requestId and employeeEmail are required' });
+    }
+
+    const frontendBase = (process.env.FRONTEND_URL || '').split(',')[0].trim().replace(/\/$/, '');
+    const requestUrl = `${frontendBase}/my-requests/${requestId}`;
+
+    const fileList = Array.isArray(missingFiles) && missingFiles.length > 0
+      ? missingFiles.map(f => `<li style="margin:6px 0;color:#374151;font-size:14px;">📄 ${f}</li>`).join('')
+      : '<li style="color:#374151;font-size:14px;">One or more attachments</li>';
+
+    const subject = `Action Required: Please Re-upload Attachments for Request #${requestId}`;
+    const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;background:#f3f4f6;">
+  <div style="max-width:600px;margin:0 auto;padding:20px;">
+    <div style="background:#2563EB;padding:32px 28px;border-radius:12px 12px 0 0;text-align:center;">
+      <div style="font-size:40px;margin-bottom:10px;">📎</div>
+      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">Attachment Re-upload Required</h1>
+      <p style="margin:8px 0 0;color:#dbeafe;font-size:14px;">Request #${requestId}</p>
+    </div>
+    <div style="background:#fff;padding:32px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+      <p style="margin:0 0 16px;color:#111827;font-size:15px;line-height:1.6;">
+        Hi <strong>${employeeName || employeeEmail.split('@')[0]}</strong>,
+      </p>
+      <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
+        We noticed that the following attachment(s) for your expense request <strong>#${requestId}</strong> are no longer available on our server due to a system migration. We kindly ask you to re-upload them at your earliest convenience.
+      </p>
+      <div style="background:#FEF2F2;border-left:4px solid #DC2626;border-radius:6px;padding:16px 20px;margin:20px 0;">
+        <p style="margin:0 0 10px;color:#991B1B;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Missing Files</p>
+        <ul style="margin:0;padding-left:20px;">${fileList}</ul>
+      </div>
+      <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
+        Please log in to PocketPro HR and re-upload the files directly on your request page.
+      </p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="${requestUrl}"
+           style="display:inline-block;background:#2563EB;color:#ffffff;padding:14px 36px;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">
+          Re-upload Attachments
+        </a>
+      </div>
+      <p style="margin:20px 0 0;color:#9ca3af;font-size:12px;text-align:center;line-height:1.5;">
+        If you have any questions, please contact your HR administrator.<br>
+        PocketPro HR — Automated Notification · Request #${requestId}
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    await sendEmail({ to: employeeEmail, subject, html });
+
+    return res.json({ message: `Reminder sent to ${employeeEmail}` });
+  } catch (err) {
+    console.error('Error sending re-upload reminder:', err);
+    return res.status(500).json({ message: 'Failed to send reminder email' });
+  }
+});
+
 // GET /api/requests/:id - get single request by ID with full details
 router.get('/:id', async (req, res) => {
   try {

@@ -9,9 +9,10 @@ import {
   Divider,
   Grid,
   Stack,
-  Avatar,
   CircularProgress,
   Button,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
@@ -20,18 +21,11 @@ import AttachmentButton from '../components/AttachmentButton';
 
 const fmtMoney = (n, currency) => {
   try {
-    // Default to USD if currency is not provided or invalid
-    const safeCurrency = currency && typeof currency === 'string' && /^[A-Z]{3}$/.test(currency.trim()) 
-      ? currency.trim() 
+    const safeCurrency = currency && typeof currency === 'string' && /^[A-Z]{3}$/.test(currency.trim())
+      ? currency.trim()
       : 'USD';
-      
-    return new Intl.NumberFormat(undefined, { 
-      style: 'currency', 
-      currency: safeCurrency 
-    }).format(Number(n || 0));
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: safeCurrency }).format(Number(n || 0));
   } catch (error) {
-    console.error('Error formatting currency:', { amount: n, currency, error });
-    // Fallback to basic formatting
     return `$${(Number(n) || 0).toFixed(2)}`;
   }
 };
@@ -53,6 +47,7 @@ export default function UserRequestDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [req, setReq] = useState(null);
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -71,6 +66,19 @@ export default function UserRequestDetails() {
     })();
     return () => controller.abort();
   }, [id]);
+
+  // Re-upload a single missing attachment
+  const handleReplace = async (attachmentIndex, file) => {
+    const formData = new FormData();
+    formData.append('attachments', file);
+    const { data } = await axiosClient.post(`/requests/${id}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    // Refresh request data so the new fileUrl is reflected
+    const refreshed = await axiosClient.get(`/requests/${id}`);
+    setReq(refreshed.data?.data || refreshed.data);
+    setToast({ open: true, message: `"${file.name}" uploaded successfully`, severity: 'success' });
+  };
 
   const sc = useMemo(() => statusChip(req?.status), [req]);
 
@@ -285,6 +293,7 @@ export default function UserRequestDetails() {
                       key={idx}
                       fileUrl={f.fileUrl || getFileUrl(f.filename || '')}
                       label={f.originalName || f.filename || `file-${idx+1}`}
+                      onReplace={(file) => handleReplace(idx, file)}
                     />
                   ))}
                 </Stack>
@@ -295,6 +304,17 @@ export default function UserRequestDetails() {
           </Card>
         </Grid>
       </Grid>
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={4000}
+        onClose={() => setToast(p => ({ ...p, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert severity={toast.severity} variant="filled" onClose={() => setToast(p => ({ ...p, open: false }))}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
