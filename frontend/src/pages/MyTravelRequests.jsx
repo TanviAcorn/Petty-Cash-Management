@@ -452,6 +452,8 @@ const MyTravelRequests = () => {
             <SectionTitle>Airport Car Park</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
               <Row label="Vehicle Number" value={tf.carParkVehicleNumber} />
+              <Row label="Vehicle Make" value={tf.carParkVehicleMake} />
+              <Row label="Car Model" value={tf.carParkCarModel} />
               <Row label="Car Color" value={tf.carParkCarColor} />
               <Row label="Duration" value={tf.carParkDuration} />
             </TableBody></Table></TableContainer>

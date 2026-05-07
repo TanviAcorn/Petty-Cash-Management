@@ -951,6 +951,8 @@ const L1TravelApprovals = () => {
             <SectionTitle>Airport Car Park</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
               <InfoRow label="Vehicle Number" value={tf.carParkVehicleNumber} />
+              <InfoRow label="Vehicle Make" value={tf.carParkVehicleMake} />
+              <InfoRow label="Car Model" value={tf.carParkCarModel} />
               <InfoRow label="Car Color" value={tf.carParkCarColor} />
               <InfoRow label="Duration" value={tf.carParkDuration} />
             </TableBody></Table></TableContainer>

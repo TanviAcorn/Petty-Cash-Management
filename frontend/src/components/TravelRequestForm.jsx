@@ -166,8 +166,10 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
 
   const [carParkRequired, setCarParkRequired] = useState(initialData?.carParkRequired || 'no');
   const [carParkDuration, setCarParkDuration] = useState(initialData?.carParkDuration || '');
-  const [carParkVehicleNumber, setCarParkVehicleNumber] = useState(initialData?.carParkVehicleNumber || '');
+  const [carParkVehicleNumber, setCarParkVehicleNumber] = useState((initialData?.carParkVehicleNumber || '').toUpperCase());
   const [carParkCarColor, setCarParkCarColor] = useState(initialData?.carParkCarColor || '');
+  const [carParkVehicleMake, setCarParkVehicleMake] = useState(initialData?.carParkVehicleMake || '');
+  const [carParkCarModel, setCarParkCarModel] = useState(initialData?.carParkCarModel || '');
   const [rentedVehicleRequired, setRentedVehicleRequired] = useState(initialData?.rentedVehicleRequired || 'no');
   const [rentedVehicleLegs, setRentedVehicleLegs] = useState(
     initialData?.rentedVehicleLegs?.length ? initialData.rentedVehicleLegs : [{ pickupPoint: '', dropOffPoint: '', vehicleType: 'Automatic' }, { pickupPoint: '', dropOffPoint: '', vehicleType: 'Automatic' }]
@@ -312,6 +314,7 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
       ...travelData,
       requirements: reqs, tripType: currentTripType, roundTrip, multiCityLegs, foodOptions,
       carParkRequired, carParkDuration, carParkVehicleNumber, carParkCarColor,
+      carParkVehicleMake, carParkCarModel,
       rentedVehicleRequired, rentedVehicleLegs,
       domesticHotel, domesticDateFlex, domesticDateFlexFrom, domesticDateFlexTo,
       accompanying, accompanyingNames, accompanyingPersons,
@@ -1177,8 +1180,9 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                         <Grid container spacing={2}>
                           <Grid item xs={12} md={6}>
                             <TextField fullWidth label="Vehicle Number *" value={carParkVehicleNumber}
-                              onChange={(e) => { setCarParkVehicleNumber(e.target.value); emit(); }}
+                              onChange={(e) => { setCarParkVehicleNumber(e.target.value.toUpperCase()); emit(); }}
                               size="small" required placeholder="e.g. AB12 CDE"
+                              inputProps={{ style: { textTransform: 'uppercase' } }}
                               error={!carParkVehicleNumber.trim()}
                               helperText={!carParkVehicleNumber.trim() ? 'Vehicle number is required' : ''} />
                           </Grid>
@@ -1188,6 +1192,20 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                               size="small" required placeholder="e.g. Silver"
                               error={!carParkCarColor.trim()}
                               helperText={!carParkCarColor.trim() ? 'Car color is required' : ''} />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="Vehicle Make *" value={carParkVehicleMake}
+                              onChange={(e) => { setCarParkVehicleMake(e.target.value); emit(); }}
+                              size="small" required placeholder="e.g. Toyota"
+                              error={!carParkVehicleMake.trim()}
+                              helperText={!carParkVehicleMake.trim() ? 'Vehicle make is required' : 'e.g. Toyota, Ford, BMW'} />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="Car Model *" value={carParkCarModel}
+                              onChange={(e) => { setCarParkCarModel(e.target.value); emit(); }}
+                              size="small" required placeholder="e.g. Corolla"
+                              error={!carParkCarModel.trim()}
+                              helperText={!carParkCarModel.trim() ? 'Car model is required' : 'e.g. Corolla, Focus, 3 Series'} />
                           </Grid>
                         </Grid>
                       )}
@@ -1501,8 +1519,9 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                         <Grid container spacing={2}>
                           <Grid item xs={12} md={6}>
                             <TextField fullWidth label="Vehicle Number *" value={carParkVehicleNumber}
-                              onChange={(e) => { setCarParkVehicleNumber(e.target.value); emit(); }}
+                              onChange={(e) => { setCarParkVehicleNumber(e.target.value.toUpperCase()); emit(); }}
                               size="small" required placeholder="e.g. AB12 CDE"
+                              inputProps={{ style: { textTransform: 'uppercase' } }}
                               error={!carParkVehicleNumber.trim()}
                               helperText={!carParkVehicleNumber.trim() ? 'Vehicle number is required' : ''} />
                           </Grid>
@@ -1512,6 +1531,20 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                               size="small" required placeholder="e.g. Silver"
                               error={!carParkCarColor.trim()}
                               helperText={!carParkCarColor.trim() ? 'Car color is required' : ''} />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="Vehicle Make *" value={carParkVehicleMake}
+                              onChange={(e) => { setCarParkVehicleMake(e.target.value); emit(); }}
+                              size="small" required placeholder="e.g. Toyota"
+                              error={!carParkVehicleMake.trim()}
+                              helperText={!carParkVehicleMake.trim() ? 'Vehicle make is required' : 'e.g. Toyota, Ford, BMW'} />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="Car Model *" value={carParkCarModel}
+                              onChange={(e) => { setCarParkCarModel(e.target.value); emit(); }}
+                              size="small" required placeholder="e.g. Corolla"
+                              error={!carParkCarModel.trim()}
+                              helperText={!carParkCarModel.trim() ? 'Car model is required' : 'e.g. Corolla, Focus, 3 Series'} />
                           </Grid>
                         </Grid>
                       )}
