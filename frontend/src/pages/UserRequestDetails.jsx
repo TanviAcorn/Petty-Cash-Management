@@ -16,6 +16,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import axiosClient, { getFileUrl } from '../api/axiosClient';
+import AttachmentButton from '../components/AttachmentButton';
 
 const fmtMoney = (n, currency) => {
   try {
@@ -280,17 +281,11 @@ export default function UserRequestDetails() {
               {Array.isArray(req.attachments) && req.attachments.length > 0 ? (
                 <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                   {req.attachments.map((f, idx) => (
-                    <Button
+                    <AttachmentButton
                       key={idx}
-                      component="a"
-                      href={f.fileUrl || getFileUrl(f.filename || '')}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      variant="outlined"
-                      size="small"
-                    >
-                      {f.originalName || f.filename || `file-${idx+1}`}
-                    </Button>
+                      fileUrl={f.fileUrl || getFileUrl(f.filename || '')}
+                      label={f.originalName || f.filename || `file-${idx+1}`}
+                    />
                   ))}
                 </Stack>
               ) : (

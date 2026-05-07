@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axiosClient, { getFileUrl } from '../api/axiosClient';
+import AttachmentButton from '../components/AttachmentButton';
 import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Button, Chip,
@@ -474,16 +475,11 @@ export default function TravelCostAudit() {
                           {doc.uploaded_by && <> · {doc.uploaded_by}</>}
                         </Typography>
                       </Box>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        href={getFileUrl(`/uploads/${doc.filename}`)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        startIcon={<OpenInNew />}
-                      >
-                        Open
-                      </Button>
+                      <AttachmentButton
+                        fileUrl={getFileUrl(`/uploads/${doc.filename}`)}
+                        label="Open"
+                        sx={{ flexShrink: 0 }}
+                      />
                     </Box>
                   ))}
                 </Box>

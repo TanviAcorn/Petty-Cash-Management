@@ -45,6 +45,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import axiosClient from '../api/axiosClient';
 import { getFileUrl } from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import AttachmentButton from '../components/AttachmentButton';
 
 // Use getFileUrl from axiosClient for all file URLs
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -1006,30 +1007,14 @@ export default function RequestReview() {
                       <Stack spacing={1}>
                         {req.attachments.map((f, idx) => {
                           const name = f.originalName || f.filename || `file-${idx+1}`;
-                          // Use server-provided fileUrl if available, otherwise build it
                           const fileUrl = f.fileUrl || getFileUrl(f.filename || '');
                           return (
-                            <Box key={`req-${idx}`} sx={{ display: 'flex', gap: 1 }}>
-                              <Button 
-                                component="a"
-                                href={fileUrl}
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                variant="outlined" 
-                                size="small"
-                                sx={{ 
-                                  flex: 1, 
-                                  justifyContent: 'flex-start', 
-                                  textAlign: 'left', 
-                                  textTransform: 'none', 
-                                  overflow: 'hidden', 
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                {name}
-                              </Button>
-                            </Box>
+                            <AttachmentButton
+                              key={`req-${idx}`}
+                              fileUrl={fileUrl}
+                              label={name}
+                              sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            />
                           );
                         })}
                       </Stack>
@@ -1051,30 +1036,14 @@ export default function RequestReview() {
                           .filter(p => p.receipt_filename)
                           .map((p, idx) => {
                             const name = p.receipt_originalname || p.receipt_filename || `receipt-${idx+1}`;
-                            // Construct the file URL using the getFileUrl helper
                             const fileUrl = getFileUrl(`/uploads/${p.receipt_filename}`);
                             return (
-                              <Box key={`receipt-${idx}`} sx={{ display: 'flex', gap: 1 }}>
-                                <Button
-                                  component="a"
-                                  href={fileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  variant="outlined"
-                                  size="small"
-                                  sx={{ 
-                                    flex: 1, 
-                                    justifyContent: 'flex-start', 
-                                    textAlign: 'left', 
-                                    textTransform: 'none', 
-                                    overflow: 'hidden', 
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap'
-                                  }}
-                                >
-                                  {name}
-                                </Button>
-                              </Box>
+                              <AttachmentButton
+                                key={`receipt-${idx}`}
+                                fileUrl={fileUrl}
+                                label={name}
+                                sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              />
                             );
                           })}
                       </Stack>

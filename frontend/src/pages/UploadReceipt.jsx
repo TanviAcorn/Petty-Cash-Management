@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { getFileUrl } from '../api/axiosClient';
+import AttachmentButton from '../components/AttachmentButton';
 import {
   Button,
   Typography,
@@ -331,13 +332,10 @@ const UploadReceipt = () => {
                           </TableCell>
                           <TableCell>
                             {pay.receiptFilename ? (
-                              <Button
-                                size="small"
-                                startIcon={<ReceiptLongOutlinedIcon />}
-                                onClick={() => window.open(getFileUrl(pay.receiptFilename), '_blank')}
-                              >
-                                View
-                              </Button>
+                              <AttachmentButton
+                                fileUrl={getFileUrl(pay.receiptFilename)}
+                                label="View"
+                              />
                             ) : (
                               <Typography variant="body2" color="text.secondary">No receipt</Typography>
                             )}

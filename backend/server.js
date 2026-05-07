@@ -129,7 +129,39 @@ app.get('/api/file/:filename', (req, res) => {
   const filename = path.basename(req.params.filename); // strip any path traversal
   const filePath = path.join(__dirname, 'uploads', filename);
   if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ message: 'File not found' });
+    // Return a human-readable HTML page so the browser tab shows something
+    // useful instead of raw JSON when a file is missing.
+    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    return res.status(404).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Not Found – PocketPro HR</title>
+  <style>
+    body { font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f3f4f6; }
+    .card { background: #fff; border-radius: 12px; padding: 40px 48px; text-align: center; box-shadow: 0 2px 16px rgba(0,0,0,0.10); max-width: 420px; }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+    h1 { color: #1f2937; font-size: 22px; margin: 0 0 8px; }
+    p { color: #6b7280; font-size: 15px; margin: 0 0 24px; line-height: 1.6; }
+    .filename { font-family: monospace; font-size: 13px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 12px; color: #374151; word-break: break-all; margin-bottom: 24px; display: inline-block; }
+    a { display: inline-block; background: #2563eb; color: #fff; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; }
+    a:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📄</div>
+    <h1>File Not Available</h1>
+    <p>This attachment could not be found on the server. It may have been uploaded before a server migration and was not retained.</p>
+    <div class="filename">${filename}</div>
+    <br>
+    <a href="javascript:window.close()">Close Tab</a>
+  </div>
+</body>
+</html>`);
   }
   // Set Content-Disposition to inline so images/PDFs open in the browser
   res.setHeader('Access-Control-Allow-Origin', '*');

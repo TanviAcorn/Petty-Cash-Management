@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axiosClient, { getFileUrl } from '../api/axiosClient';
+import AttachmentButton from '../components/AttachmentButton';
 import {
   Box, Card, CardContent, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Button, Dialog, DialogTitle,
@@ -1283,16 +1284,11 @@ const L1TravelApprovals = () => {
                             <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all', fontSize: '0.8125rem' }}>
                               {displayName}
                             </Typography>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              href={fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              sx={{ flexShrink: 0, textTransform: 'none', fontSize: '0.75rem' }}
-                            >
-                              {isImage ? 'View' : 'Open'}
-                            </Button>
+                            <AttachmentButton
+                              fileUrl={fileUrl}
+                              label={isImage ? 'View' : 'Open'}
+                              sx={{ flexShrink: 0, fontSize: '0.75rem' }}
+                            />
                           </Box>
                         );
                       })}
@@ -1986,16 +1982,11 @@ const L1TravelApprovals = () => {
                             {doc.uploaded_by && <> by {doc.uploaded_by}</>}
                           </Typography>
                         </Box>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          href={getFileUrl(`/uploads/${doc.filename}`)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          startIcon={<Visibility />}
-                        >
-                          View
-                        </Button>
+                        <AttachmentButton
+                          fileUrl={getFileUrl(`/uploads/${doc.filename}`)}
+                          label="View"
+                          sx={{ flexShrink: 0 }}
+                        />
                       </Box>
                     ))}
                   </Box>

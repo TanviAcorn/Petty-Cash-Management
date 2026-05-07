@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosClient, { getFileUrl } from '../api/axiosClient';
+import AttachmentButton from '../components/AttachmentButton';
 import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Button, CircularProgress,
@@ -669,9 +670,11 @@ const MyTravelRequests = () => {
                           <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, bgcolor: 'action.hover', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                             <InsertDriveFile sx={{ color: isPdf ? 'error.main' : isImage ? 'primary.main' : 'text.secondary', fontSize: 20, flexShrink: 0 }} />
                             <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all', fontSize: '0.8125rem' }}>{displayName}</Typography>
-                            <Button size="small" variant="outlined" href={fileUrl} target="_blank" rel="noopener noreferrer" sx={{ flexShrink: 0, textTransform: 'none', fontSize: '0.75rem' }}>
-                              {isImage ? 'View' : 'Open'}
-                            </Button>
+                            <AttachmentButton
+                              fileUrl={fileUrl}
+                              label={isImage ? 'View' : 'Open'}
+                              sx={{ flexShrink: 0, fontSize: '0.75rem' }}
+                            />
                           </Box>
                         );
                       })}
