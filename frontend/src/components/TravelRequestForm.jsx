@@ -267,6 +267,11 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
     countryOfTravel: initialData?.countryOfTravel || '',
     preferredDepartureAirport: initialData?.preferredDepartureAirport || '',
     destinationAirport: initialData?.destinationAirport || '',
+    flightOrFerry: initialData?.flightOrFerry || 'flight',
+    preferredSeat: initialData?.preferredSeat || '',
+    frequentFlyerNumber: initialData?.frequentFlyerNumber || '',
+    ferryFromTerminal: initialData?.ferryFromTerminal || '',
+    ferryToTerminal: initialData?.ferryToTerminal || '',
     nationality: initialData?.nationality || '',
     visaType: initialData?.visaType || '',
     lengthOfVisa: initialData?.lengthOfVisa || '',
@@ -1041,13 +1046,56 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {internationalRequirements.flights && (
                     <Box sx={{ bgcolor: 'primary.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'primary.main' }}>
-                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>1. Flights</Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                          <TextField fullWidth label="a. Preferred Departure Airport" name="preferredDepartureAirport"
-                            value={travelData.preferredDepartureAirport} onChange={handleFieldChange} size="small" placeholder="e.g., LHR" />
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>1. Flights / Ferry</Typography>
+
+                      {/* Flight or Ferry toggle */}
+                      <Box sx={{ mb: 2 }}>
+                        <FormControl>
+                          <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Travel by</FormLabel>
+                          <RadioGroup row value={travelData.flightOrFerry || 'flight'}
+                            onChange={(e) => { setTravelData(p => ({ ...p, flightOrFerry: e.target.value })); emit(); }}>
+                            <FormControlLabel value="flight" control={<Radio size="small" />} label="✈️ Flight" />
+                            <FormControlLabel value="ferry"  control={<Radio size="small" />} label="⛴️ Ferry" />
+                          </RadioGroup>
+                        </FormControl>
+                      </Box>
+
+                      {/* Flight fields */}
+                      {(travelData.flightOrFerry || 'flight') === 'flight' && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={4}>
+                            <TextField fullWidth label="a. Preferred Departure Airport" name="preferredDepartureAirport"
+                              value={travelData.preferredDepartureAirport} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., LHR" />
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <TextField fullWidth label="b. Preferred Seat" name="preferredSeat"
+                              value={travelData.preferredSeat} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., Window, Aisle, Extra Legroom" />
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <TextField fullWidth label="c. Frequent Flyer Number" name="frequentFlyerNumber"
+                              value={travelData.frequentFlyerNumber} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., BA123456789" />
+                          </Grid>
                         </Grid>
-                      </Grid>
+                      )}
+
+                      {/* Ferry fields */}
+                      {travelData.flightOrFerry === 'ferry' && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="a. From Terminal" name="ferryFromTerminal"
+                              value={travelData.ferryFromTerminal} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., Dover" />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="b. To Terminal" name="ferryToTerminal"
+                              value={travelData.ferryToTerminal} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., Calais" />
+                          </Grid>
+                        </Grid>
+                      )}
                     </Box>
                   )}
 
@@ -1454,13 +1502,56 @@ const TravelRequestForm = ({ formData, onChange, initialData }) => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {domesticRequirements.flights && (
                     <Box sx={{ bgcolor: 'primary.50', p: 2, borderRadius: 1, border: '1px solid', borderColor: 'primary.main' }}>
-                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>1. Flights</Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                          <TextField fullWidth label="a. Preferred Departure Airport" name="preferredDepartureAirport"
-                            value={travelData.preferredDepartureAirport} onChange={handleFieldChange} size="small" placeholder="e.g., LHR" />
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>1. Flights / Ferry</Typography>
+
+                      {/* Flight or Ferry toggle */}
+                      <Box sx={{ mb: 2 }}>
+                        <FormControl>
+                          <FormLabel sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 1 }}>Travel by</FormLabel>
+                          <RadioGroup row value={travelData.flightOrFerry || 'flight'}
+                            onChange={(e) => { setTravelData(p => ({ ...p, flightOrFerry: e.target.value })); emit(); }}>
+                            <FormControlLabel value="flight" control={<Radio size="small" />} label="✈️ Flight" />
+                            <FormControlLabel value="ferry"  control={<Radio size="small" />} label="⛴️ Ferry" />
+                          </RadioGroup>
+                        </FormControl>
+                      </Box>
+
+                      {/* Flight fields */}
+                      {(travelData.flightOrFerry || 'flight') === 'flight' && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={4}>
+                            <TextField fullWidth label="a. Preferred Departure Airport" name="preferredDepartureAirport"
+                              value={travelData.preferredDepartureAirport} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., LHR" />
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <TextField fullWidth label="b. Preferred Seat" name="preferredSeat"
+                              value={travelData.preferredSeat} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., Window, Aisle, Extra Legroom" />
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <TextField fullWidth label="c. Frequent Flyer Number" name="frequentFlyerNumber"
+                              value={travelData.frequentFlyerNumber} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., BA123456789" />
+                          </Grid>
                         </Grid>
-                      </Grid>
+                      )}
+
+                      {/* Ferry fields */}
+                      {travelData.flightOrFerry === 'ferry' && (
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="a. From Terminal" name="ferryFromTerminal"
+                              value={travelData.ferryFromTerminal} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., Dover" />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField fullWidth label="b. To Terminal" name="ferryToTerminal"
+                              value={travelData.ferryToTerminal} onChange={handleFieldChange}
+                              size="small" placeholder="e.g., Calais" />
+                          </Grid>
+                        </Grid>
+                      )}
                     </Box>
                   )}
 

@@ -907,11 +907,26 @@ const L1TravelApprovals = () => {
           </>
         )}
 
-        {reqs.flights && tf.preferredDepartureAirport && (
+        {reqs.flights && (
           <>
-            <SectionTitle>Flight Details</SectionTitle>
+            <SectionTitle>Flight / Ferry Details</SectionTitle>
             <TableContainer component={Box}><Table size="small"><TableBody>
-              <InfoRow label="Preferred Departure Airport" value={tf.preferredDepartureAirport} />
+              <InfoRow label="Travel By" value={tf.flightOrFerry === 'ferry' ? '⛴️ Ferry' : '✈️ Flight'} />
+              {/* Flight fields */}
+              {(tf.flightOrFerry || 'flight') === 'flight' && (
+                <>
+                  <InfoRow label="Preferred Departure Airport" value={tf.preferredDepartureAirport} />
+                  <InfoRow label="Preferred Seat" value={tf.preferredSeat} />
+                  <InfoRow label="Frequent Flyer Number" value={tf.frequentFlyerNumber} />
+                </>
+              )}
+              {/* Ferry fields */}
+              {tf.flightOrFerry === 'ferry' && (
+                <>
+                  <InfoRow label="From Terminal" value={tf.ferryFromTerminal} />
+                  <InfoRow label="To Terminal" value={tf.ferryToTerminal} />
+                </>
+              )}
             </TableBody></Table></TableContainer>
           </>
         )}

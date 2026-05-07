@@ -417,6 +417,28 @@ const MyTravelRequests = () => {
           </>
         )}
 
+        {reqs.flights && (
+          <>
+            <SectionTitle>Flight / Ferry Details</SectionTitle>
+            <TableContainer component={Box}><Table size="small"><TableBody>
+              <Row label="Travel By" value={tf.flightOrFerry === 'ferry' ? '⛴️ Ferry' : '✈️ Flight'} />
+              {(tf.flightOrFerry || 'flight') === 'flight' && (
+                <>
+                  <Row label="Preferred Departure Airport" value={tf.preferredDepartureAirport} />
+                  <Row label="Preferred Seat" value={tf.preferredSeat} />
+                  <Row label="Frequent Flyer Number" value={tf.frequentFlyerNumber} />
+                </>
+              )}
+              {tf.flightOrFerry === 'ferry' && (
+                <>
+                  <Row label="From Terminal" value={tf.ferryFromTerminal} />
+                  <Row label="To Terminal" value={tf.ferryToTerminal} />
+                </>
+              )}
+            </TableBody></Table></TableContainer>
+          </>
+        )}
+
         {reqs.visa && (
           <>
             <SectionTitle>Visa Details</SectionTitle>
