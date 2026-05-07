@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axiosClient, { getFileUrl } from '../api/axiosClient';
 import AttachmentButton from '../components/AttachmentButton';
 import {
@@ -96,6 +97,7 @@ const AccompanyingPersonsPicker = ({ persons, employees, onChange, disabled }) =
 };
 
 const MyTravelRequests = () => {
+  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
