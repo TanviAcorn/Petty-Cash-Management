@@ -4,9 +4,13 @@ const { getUserEmail } = require("./userUtils");
 // Normalize FRONTEND_URL: support comma-separated values and pick the first valid URL
 function getFrontendBaseUrl() {
   const raw = process.env.FRONTEND_URL || "http://localhost:5174";
-  // If multiple URLs are provided, separated by commas, pick the first one
-  const first = String(raw).split(",")[0].trim();
-  return first || "http://localhost:5174";
+  const first = String(raw).split(",")[0].trim().replace(/\/$/, '');
+  const url = first || "http://localhost:5174";
+  if (/^https?:\/\/\d+\.\d+\.\d+\.\d+/.test(url) || url.includes('localhost')) {
+    console.warn('[Mailer] WARNING: FRONTEND_URL is a local/IP address:', url,
+      '— email links will not work for external recipients. Set FRONTEND_URL to the production domain.');
+  }
+  return url;
 }
 
 // Return all configured frontend URLs (first assumed public, second internal if present)

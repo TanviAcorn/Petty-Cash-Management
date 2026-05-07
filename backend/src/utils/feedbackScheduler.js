@@ -7,7 +7,13 @@ const { ensureFeedbackTable } = require('../routes/travel-feedback');
 
 function getFrontendBaseUrl() {
   const raw = process.env.FRONTEND_URL || 'http://localhost:5174';
-  return String(raw).split(',')[0].trim();
+  const url = String(raw).split(',')[0].trim().replace(/\/$/, '');
+  // Warn loudly if the URL looks like a raw IP or localhost — emails would have broken links
+  if (/^https?:\/\/\d+\.\d+\.\d+\.\d+/.test(url) || url.includes('localhost')) {
+    console.warn('[Scheduler] WARNING: FRONTEND_URL appears to be a local/IP address:', url,
+      '— emails will contain broken links. Set FRONTEND_URL to the production domain.');
+  }
+  return url;
 }
 
 function buildFeedbackEmail({ employeeName, requestId, token, travelData }) {
