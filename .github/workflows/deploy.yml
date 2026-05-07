@@ -19,7 +19,7 @@ jobs:
       - name: Install backend dependencies
         run: |
           cd /var/www/pettycash.astutehealthcare.co.uk/html/backend
-          npm install --production
+          npm install --omit=dev
 
       - name: Build frontend
         run: |
@@ -33,6 +33,6 @@ jobs:
 
       - name: Verify
         run: |
-          sleep 2
+          sleep 3
           pm2 list
           echo "Deploy complete at $(date)"

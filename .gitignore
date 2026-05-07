@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Build output
+frontend/dist/
+
+# Environment files (contain secrets — never commit)
+.env
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# Uploaded files (runtime data — not source code)
+backend/uploads/
+
+# Logs
+*.log
+deploy.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+# PM2
+.pm2/
+
+# Misc scripts (one-off migration/debug scripts)
+backend/add-travel-data-to-request.js
+backend/add-travel-to-226.js
+backend/direct-db-update.js
+backend/manual-update-l1.js
+backend/run-migration.js
+backend/test-emails.js
+backend/test-feedback-email.js
+backend/test-proceed-payment.js
