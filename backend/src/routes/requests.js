@@ -1016,13 +1016,18 @@ router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments',
       // Send email to payment team with specified recipients
       try {
         // Company-specific accounts email mapping
+        // Keys MUST match company_name exactly as stored in petty_cash_requests
         const companyAccountsEmails = {
-          'Docpharm GmbH': 'account@docpharm.de',
-          'Lifexa BV': 'accounts@lifexa.eu',
-          'Acme Pharma': 'accounts@acmepharma.co.uk',
-          'Jambo BV NL': 'accounts@jambobv.nl',
-          'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com',
-          'Astute Healthcare Ltd': null // Will use default payment team
+          'Docpharm GmbH':                        'account@docpharm.de',
+          'Lifexa BV':                            'accounts@lifexa.eu',
+          'Acme Pharma Ltd':                      'accounts@acmepharma.co.uk',
+          'Jambo BV':                             'accounts@jambobv.nl',
+          'Jambo Supplies Ltd':                   'accounts@jambobv.nl',
+          'Beauty Care Global Sp Zoo':            'accounts.bcg@beautycareglobal.com',
+          'Beauty Magasin Ltd':                   'accounts.bcg@beautycareglobal.com',
+          'Astute Healthcare Ltd':                null, // uses default payment team
+          'Future Centre Storage and Distribution': null,
+          'Global Brand Storage and Distribution': null,
         };
 
         // Get company name from request
@@ -1171,13 +1176,18 @@ router.post('/bulk-payment', async (req, res) => {
     }, {});
     
     // Company-specific accounts email mapping
+    // Keys MUST match company_name exactly as stored in petty_cash_requests
     const companyAccountsEmails = {
-      'Docpharm GmbH': 'account@docpharm.de',
-      'Lifexa BV': 'accounts@lifexa.eu',
-      'Acme Pharma': 'accounts@acmepharma.co.uk',
-      'Jambo BV NL': 'accounts@jambobv.nl',
-      'Beautycare Global Sp zoo': 'accounts.bcg@beautycareglobal.com',
-      'Astute Healthcare Ltd': null // Will use default payment team
+      'Docpharm GmbH':                        'account@docpharm.de',
+      'Lifexa BV':                            'accounts@lifexa.eu',
+      'Acme Pharma Ltd':                      'accounts@acmepharma.co.uk',
+      'Jambo BV':                             'accounts@jambobv.nl',
+      'Jambo Supplies Ltd':                   'accounts@jambobv.nl',
+      'Beauty Care Global Sp Zoo':            'accounts.bcg@beautycareglobal.com',
+      'Beauty Magasin Ltd':                   'accounts.bcg@beautycareglobal.com',
+      'Astute Healthcare Ltd':                null, // uses default payment team
+      'Future Centre Storage and Distribution': null,
+      'Global Brand Storage and Distribution': null,
     };
     
     // Determine recipients based on companies involved
