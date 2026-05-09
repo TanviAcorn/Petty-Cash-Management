@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosClient, { getFileUrl } from '../api/axiosClient';
 import { useAuth } from '../contexts/AuthContext';
-import { getFileUrl } from '../api/axiosClient';
 import AttachmentButton from '../components/AttachmentButton';
 import {
   Button,
@@ -89,8 +88,8 @@ const UploadReceipt = () => {
       try {
         setLoading(true);
         const [requestRes, paymentRes] = await Promise.all([
-          axios.get(`${API_BASE}/requests/${id}`),
-          axios.get(`${API_BASE}/requests/${id}/payments`)
+          axiosClient.get(`/requests/${id}`),
+          axiosClient.get(`/requests/${id}/payments`)
         ]);
 
         const reqData = Array.isArray(requestRes.data) ? requestRes.data[0] : requestRes.data?.data || requestRes.data;
@@ -170,8 +169,8 @@ const UploadReceipt = () => {
         formDataToSend.append('paidAmount', paidAmount);
       }
 
-      const response = await axios.post(
-        `${API_BASE}/requests/${id}/payment-done`,
+      const response = await axiosClient.post(
+        `/requests/${id}/payment-done`,
         formDataToSend,
         {
           headers: {

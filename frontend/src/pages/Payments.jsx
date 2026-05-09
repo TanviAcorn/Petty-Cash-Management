@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useSnackbar } from 'notistack';
@@ -211,6 +212,19 @@ export default function Payments() {
                                 onClick={() => handleProceedToPayment(p.requestId)}
                               >
                                 {processingPayments[p.requestId] ? 'Processing...' : 'Proceed to Payment'}
+                              </Button>
+                            </Tooltip>
+                          )}
+                          {p.status === 'processed' && (
+                            <Tooltip title="Upload payment receipt to mark as done">
+                              <Button
+                                size="small"
+                                color="success"
+                                variant="contained"
+                                startIcon={<ReceiptLongOutlinedIcon />}
+                                onClick={() => navigate(`/requests/${p.requestId}/upload-receipt`)}
+                              >
+                                Upload Receipt
                               </Button>
                             </Tooltip>
                           )}
