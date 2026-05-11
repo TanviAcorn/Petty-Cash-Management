@@ -266,6 +266,30 @@ router.put('/:id/approve', async (req, res) => {
     const { managerEmail, note } = req.body;
     
     const pool = await poolPromise;
+
+    // ── Authorization guard ──────────────────────────────────────────────────
+    // If the request has an L1 manager assigned, only that L1 manager may approve.
+    // If no L1 manager is assigned, any admin may approve.
+    const reqCheck = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT l1_manager_id FROM petty_cash_requests WHERE id = @id');
+    if (!reqCheck.recordset.length) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+    const assignedL1Id = reqCheck.recordset[0].l1_manager_id;
+    if (assignedL1Id) {
+      // Resolve the caller's user ID from their email
+      const callerResult = await pool.request()
+        .input('email', sql.NVarChar(320), managerEmail || '')
+        .query('SELECT id, role FROM petty_Users WHERE LOWER(LTRIM(RTRIM(email))) = LOWER(LTRIM(RTRIM(@email)))');
+      const caller = callerResult.recordset[0];
+      if (!caller || String(caller.id) !== String(assignedL1Id)) {
+        return res.status(403).json({
+          message: 'This request has an L1 manager assigned. Only the assigned L1 manager can approve it.'
+        });
+      }
+    }
+    // ── End authorization guard ──────────────────────────────────────────────
     
     // Update request status
     await pool.request()
@@ -419,6 +443,27 @@ router.put('/:id/reject', async (req, res) => {
     }
     
     const pool = await poolPromise;
+
+    // ── Authorization guard ──────────────────────────────────────────────────
+    const reqCheck = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT l1_manager_id FROM petty_cash_requests WHERE id = @id');
+    if (!reqCheck.recordset.length) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+    const assignedL1Id = reqCheck.recordset[0].l1_manager_id;
+    if (assignedL1Id) {
+      const callerResult = await pool.request()
+        .input('email', sql.NVarChar(320), managerEmail || '')
+        .query('SELECT id, role FROM petty_Users WHERE LOWER(LTRIM(RTRIM(email))) = LOWER(LTRIM(RTRIM(@email)))');
+      const caller = callerResult.recordset[0];
+      if (!caller || String(caller.id) !== String(assignedL1Id)) {
+        return res.status(403).json({
+          message: 'This request has an L1 manager assigned. Only the assigned L1 manager can reject it.'
+        });
+      }
+    }
+    // ── End authorization guard ──────────────────────────────────────────────
     
     // Update request status
     await pool.request()

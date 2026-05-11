@@ -1347,10 +1347,26 @@ const L1TravelApprovals = () => {
                 </Box>
               ) : (
                 <>
-                  {!actionType && currentUser.role === 'Admin' && (
+                  {!actionType && (
+                    // If request has an L1 manager assigned: only that L1 manager can approve/reject
+                    // If no L1 manager assigned: only Admin can approve/reject
+                    selectedRequest?.l1_manager_id
+                      ? String(selectedRequest.l1_manager_id) === String(currentUser.id)
+                      : currentUser.role === 'Admin'
+                  ) && (
                     <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
                       <Button variant="contained" color="success" startIcon={<CheckCircle />} onClick={handleApprove}>Approve</Button>
                       <Button variant="contained" color="error" startIcon={<Cancel />} onClick={handleReject}>Reject</Button>
+                    </Box>
+                  )}
+
+                  {/* Admin info banner when L1 is assigned — they can view but not approve */}
+                  {!actionType && currentUser.role === 'Admin' && selectedRequest?.l1_manager_id &&
+                    String(selectedRequest.l1_manager_id) !== String(currentUser.id) && (
+                    <Box sx={{ mt: 3, p: 1.5, borderRadius: 1, bgcolor: 'info.50', border: '1px solid', borderColor: 'info.light', textAlign: 'center' }}>
+                      <Typography variant="caption" color="info.dark">
+                        This request has an L1 manager assigned. Approval/rejection is handled by the L1 manager only.
+                      </Typography>
                     </Box>
                   )}
 
