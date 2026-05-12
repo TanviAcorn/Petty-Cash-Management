@@ -12,6 +12,8 @@ import {
   Typography,
   Avatar,
   Divider,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -95,50 +97,10 @@ const menuItems = [
 
 export { menuItems, getMenuItemsByRole };
 
-export default function Sidebar() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user } = useAuth?.() || { user: null };
-  const [active, setActive] = useState('');
-  const [currentMenuItems, setCurrentMenuItems] = useState(menuItems);
-
-  // Update menu items based on user role
-  useEffect(() => {
-    if (user) {
-      const roleBasedMenuItems = getMenuItemsByRole(user.role);
-      setCurrentMenuItems(roleBasedMenuItems);
-    } else {
-      setCurrentMenuItems(menuItems);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    const currentPage = currentMenuItems.find(item => location.pathname === item.path);
-    if (currentPage) {
-      setActive(currentPage.text);
-    } else if (location.pathname === '/') {
-      navigate('/dashboard');
-      setActive('Dashboard');
-    }
-  }, [location.pathname, navigate, currentMenuItems]);
-
+// Shared drawer content — used by both mobile (temporary) and desktop (permanent)
+function DrawerContent({ currentMenuItems, active, user, onItemClick }) {
   return (
-    <Drawer
-      variant="permanent"
-      sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: drawerWidth,
-          boxSizing: "border-box",
-          borderRight: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-          display: 'flex',
-          flexDirection: 'column',
-        },
-      }}
-    >
+    <>
       {/* Header */}
       <Box sx={{ p: 2.25, display: "flex", alignItems: "center", gap: 1.25 }}>
         <Box
@@ -153,12 +115,13 @@ export default function Sidebar() {
             color: "white",
             fontWeight: "bold",
             fontSize: "18px",
+            flexShrink: 0,
           }}
         >
           HR
         </Box>
-        <Box>
-          <Typography fontWeight="bold">PocketPro HR</Typography>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography fontWeight="bold" noWrap>PocketPro HR</Typography>
           <Typography
             sx={{
               fontSize: "11px",
@@ -176,20 +139,17 @@ export default function Sidebar() {
         </Box>
       </Box>
 
+      <Divider />
+
       {/* Menu */}
-      <List sx={{ flexGrow: 1, px: 0.5 }}>
+      <List sx={{ flexGrow: 1, px: 0.5, overflowY: 'auto' }}>
         {currentMenuItems.map((item) => (
-          <ListItem
-            key={item.text}
-            disablePadding
-            sx={{
-              mb: 0.25,
-            }}
-          >
+          <ListItem key={item.text} disablePadding sx={{ mb: 0.25 }}>
             <ListItemButton
               component={Link}
               to={item.path}
               selected={active === item.text}
+              onClick={onItemClick}
               sx={{
                 borderRadius: 2,
                 mx: 0.75,
@@ -205,11 +165,9 @@ export default function Sidebar() {
                 '&:hover': {
                   textDecoration: 'none',
                   bgcolor: 'action.hover',
-                  transform: 'translateY(-1px)'
                 },
                 '&.Mui-selected:hover': {
                   bgcolor: (theme) => theme.palette.mode === 'light' ? 'primary.main' : 'primary.dark',
-                  transform: 'translateY(-1px)'
                 },
               }}
             >
@@ -223,35 +181,118 @@ export default function Sidebar() {
               </ListItemIcon>
               <ListItemText
                 primary={item.text}
-                primaryTypographyProps={{ fontSize: "0.95rem" }}
+                primaryTypographyProps={{ fontSize: "0.9rem", noWrap: true }}
               />
             </ListItemButton>
           </ListItem>
         ))}
       </List>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography fontSize="0.8rem" color="text.secondary" noWrap sx={{ lineHeight: 1.8 }}>
+
+      <Box sx={{ px: 2, pb: 0.5 }}>
+        <Typography fontSize="0.75rem" color="text.secondary" noWrap>
           © Acorn Universal Consultancy LLP, {new Date().getFullYear()}.
         </Typography>
       </Box>
 
       <Divider />
-        
+
       {/* Footer with User */}
       <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1 }}>
-        <Avatar sx={{ bgcolor: "primary.main" }}>
+        <Avatar sx={{ bgcolor: "primary.main", flexShrink: 0 }}>
           {(user?.firstName?.[0] || user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
         </Avatar>
         <Box sx={{ minWidth: 0 }}>
           <Typography fontSize="0.9rem" noWrap title={user?.firstName ? `${user.firstName} ${user?.lastName || ''}`.trim() : (user?.name || 'User')}>
             {user?.firstName ? `${user.firstName} ${user?.lastName || ''}`.trim() : (user?.name || 'User')}
-          </Typography> 
+          </Typography>
           <Typography fontSize="0.75rem" color="text.secondary" noWrap title={user?.email || ''}>
             {user?.email || ''}
           </Typography>
         </Box>
       </Box>
+    </>
+  );
+}
 
-    </Drawer>
+export default function Sidebar({ mobileOpen, onClose }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const theme = useTheme();
+  // md = 900px — sidebar is permanent above this, temporary below
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const { user } = useAuth?.() || { user: null };
+  const [active, setActive] = useState('');
+  const [currentMenuItems, setCurrentMenuItems] = useState(menuItems);
+
+  useEffect(() => {
+    if (user) {
+      setCurrentMenuItems(getMenuItemsByRole(user.role));
+    } else {
+      setCurrentMenuItems(menuItems);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const currentPage = currentMenuItems.find(item => location.pathname === item.path);
+    if (currentPage) {
+      setActive(currentPage.text);
+    } else if (location.pathname === '/') {
+      navigate('/dashboard');
+      setActive('Dashboard');
+    }
+  }, [location.pathname, navigate, currentMenuItems]);
+
+  const drawerSx = {
+    width: drawerWidth,
+    flexShrink: 0,
+    "& .MuiDrawer-paper": {
+      width: drawerWidth,
+      boxSizing: "border-box",
+      borderRight: 1,
+      borderColor: 'divider',
+      bgcolor: 'background.paper',
+      display: 'flex',
+      flexDirection: 'column',
+    },
+  };
+
+  const content = (
+    <DrawerContent
+      currentMenuItems={currentMenuItems}
+      active={active}
+      user={user}
+      // Close mobile drawer when a nav item is tapped
+      onItemClick={isMobile ? onClose : undefined}
+    />
+  );
+
+  return (
+    <>
+      {/* ── Mobile: temporary drawer (slides in from left) ── */}
+      <Drawer
+        variant="temporary"
+        open={isMobile ? (mobileOpen ?? false) : false}
+        onClose={onClose}
+        ModalProps={{ keepMounted: true }} // Better mobile performance
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          ...drawerSx,
+        }}
+      >
+        {content}
+      </Drawer>
+
+      {/* ── Desktop: permanent drawer ── */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          display: { xs: 'none', md: 'block' },
+          ...drawerSx,
+        }}
+        open
+      >
+        {content}
+      </Drawer>
+    </>
   );
 }

@@ -18,13 +18,13 @@ import {
   TableCell,
   TableBody,
   TableContainer,
-  Checkbox,
   Chip,
-  Avatar,
   IconButton,
   CircularProgress,
   Button,
   Stack,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -35,8 +35,6 @@ import AccessTimeOutlinedIcon from '@mui/icons-material/AccessTimeOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
-import CheckOutlinedIcon from '@mui/icons-material/CheckOutlined';
-import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import axiosClient from '../api/axiosClient';
 import { alpha } from '@mui/material/styles';
 import Pagination from '../components/Pagination';
@@ -69,6 +67,8 @@ const statusColor = (s) => {
 
 const AllRequests = () => {
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -313,18 +313,18 @@ const AllRequests = () => {
         <StatCard icon={<CancelOutlinedIcon />} label="Rejected" value={stats.rejected} color="error" />
       </Box>
 
-      {/* Filters Card - compact like Approved */}
+      {/* Filters Card */}
       <Card variant="outlined">
-        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', p: { xs: 1.5, sm: 2 } }}>
           <TextField
-            placeholder="Search requests..."
+            placeholder="Search by name, email, company or #ID..."
             size="small"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon color="action"/></InputAdornment>) }}
-            sx={{ width: 320, maxWidth: '100%' }}
+            sx={{ width: { xs: '100%', sm: 300 } }}
           />
-          <FormControl size="small" sx={{ minWidth: 140 }}>
+          <FormControl size="small" sx={{ minWidth: 140, width: { xs: '100%', sm: 'auto' } }}>
             <Select input={<OutlinedInput />} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <MenuItem value="all">All Status</MenuItem>
               <MenuItem value="pending">Pending</MenuItem>
@@ -336,58 +336,88 @@ const AllRequests = () => {
             </Select>
           </FormControl>
           
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <DatePicker
-                label="Export From Date"
-                value={dateRange.startDate}
-                onChange={(date) => handleDateChange(date, 'startDate')}
-                renderInput={(params) => (
-                  <TextField 
-                    {...params} 
-                    size="small" 
-                    sx={{ width: 150 }} 
-                    InputLabelProps={{ shrink: true }}
-                  />
+          {/* Date pickers — hidden on mobile to save space, shown on sm+ */}
+          <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1 }}>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <DatePicker
+                  label="Export From"
+                  value={dateRange.startDate}
+                  onChange={(date) => handleDateChange(date, 'startDate')}
+                  renderInput={(params) => (
+                    <TextField {...params} size="small" sx={{ width: 140 }} InputLabelProps={{ shrink: true }} />
+                  )}
+                />
+                <Typography variant="caption">to</Typography>
+                <DatePicker
+                  label="Export To"
+                  value={dateRange.endDate}
+                  onChange={(date) => handleDateChange(date, 'endDate')}
+                  renderInput={(params) => (
+                    <TextField {...params} size="small" sx={{ width: 140 }} InputLabelProps={{ shrink: true }} />
+                  )}
+                  minDate={dateRange.startDate}
+                />
+                {(dateRange.startDate || dateRange.endDate) && (
+                  <Button size="small" onClick={clearDateRange} sx={{ minWidth: 'auto', px: 1 }}>Clear</Button>
                 )}
-              />
-              <Typography>to</Typography>
-              <DatePicker
-                label="Export To Date"
-                value={dateRange.endDate}
-                onChange={(date) => handleDateChange(date, 'endDate')}
-                renderInput={(params) => (
-                  <TextField 
-                    {...params} 
-                    size="small" 
-                    sx={{ width: 150 }} 
-                    InputLabelProps={{ shrink: true }}
-                  />
-                )}
-                minDate={dateRange.startDate}
-              />
-              {(dateRange.startDate || dateRange.endDate) && (
-                <Button 
-                  size="small" 
-                  onClick={clearDateRange}
-                  sx={{ minWidth: 'auto', padding: '6px 8px' }}
-                >
-                  Clear
-                </Button>
-              )}
-            </Stack>
-          </LocalizationProvider>
+              </Stack>
+            </LocalizationProvider>
+          </Box>
         </CardContent>
       </Card>
 
-      {/* Table Card */}
+      {/* Table Card — desktop table / mobile cards */}
       <Card variant="outlined">
         <CardContent sx={{ p: 0 }}>
           {loading ? (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 6 }}>
               <CircularProgress size={28} />
             </Box>
+          ) : isMobile ? (
+            /* ── Mobile: card list ── */
+            <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {filteredRows.length === 0 ? (
+                <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+                  {error || 'No requests found'}
+                </Typography>
+              ) : filteredRows.map((r) => {
+                const sc = statusColor(r.status);
+                return (
+                  <Card key={r.id} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Box>
+                          <Typography variant="caption" color="primary.main" fontWeight={700}>#{r.id}</Typography>
+                          <Typography fontWeight={600} variant="body2" lineHeight={1.3}>{r.employeeName}</Typography>
+                          <Typography variant="caption" color="text.secondary">{r.employeeEmail}</Typography>
+                        </Box>
+                        <Chip size="small" label={sc.label} color={sc.color} variant="outlined" sx={{ textTransform: 'lowercase', ml: 1, flexShrink: 0 }} />
+                      </Box>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1 }}>
+                        {r.category && <Chip label={r.category} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />}
+                        {r.company && <Typography variant="caption" color="text.secondary">{r.company}</Typography>}
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" fontWeight={700} color="success.main">
+                          {formatCurrency(r.amount, r.currency)}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {r.date ? new Date(r.date).toLocaleDateString('en-GB') : '-'}
+                          </Typography>
+                          <IconButton size="small" onClick={() => navigate(`/requests/${r.id}`)}>
+                            <VisibilityOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Box>
           ) : (
+            /* ── Desktop: full table ── */
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -416,32 +446,23 @@ const AllRequests = () => {
                       return (
                         <TableRow key={r.id || `${r.employeeName}-${r.createdAt}`} hover>
                           <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                            <Typography variant="body2" fontWeight={700} color="primary.main">
-                              #{r.id}
-                            </Typography>
+                            <Typography variant="body2" fontWeight={700} color="primary.main">#{r.id}</Typography>
                           </TableCell>
-                          <TableCell sx={{ minWidth: 260 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                              <Box>
-                                <Typography fontWeight={600} lineHeight={1.2}>{r.employeeName}</Typography>
-                                <Typography variant="caption" color="text.secondary">{r.employeeEmail || ''}</Typography>
-                              </Box>
-                            </Box>
+                          <TableCell sx={{ minWidth: 200 }}>
+                            <Typography fontWeight={600} lineHeight={1.2} variant="body2">{r.employeeName}</Typography>
+                            <Typography variant="caption" color="text.secondary">{r.employeeEmail || ''}</Typography>
                           </TableCell>
                           <TableCell sx={{ whiteSpace: 'nowrap' }}>
                             {r.date ? new Date(r.date).toLocaleDateString() : '-'}
-                            <Typography variant="caption" color="text.secondary" display="block">Requested: {r.date ? new Date(r.date).toLocaleDateString() : '-'}</Typography>
                           </TableCell>
                           <TableCell>{r.category}</TableCell>
                           <TableCell>{r.company}</TableCell>
                           <TableCell>{r.location}</TableCell>
-                          <TableCell align="right">
-                            {formatCurrency(r.amount, r.currency)}
-                          </TableCell>
+                          <TableCell align="right">{formatCurrency(r.amount, r.currency)}</TableCell>
                           <TableCell>
                             <Chip size="small" label={sc.label} color={sc.color} variant="outlined" sx={{ textTransform: 'lowercase' }} />
                           </TableCell>
-                          <TableCell align="center" sx={{ minWidth: 120 }}>
+                          <TableCell align="center" sx={{ minWidth: 80 }}>
                             <IconButton size="small" aria-label="view details" onClick={() => navigate(`/requests/${r.id}`)}>
                               <VisibilityOutlinedIcon fontSize="small" />
                             </IconButton>

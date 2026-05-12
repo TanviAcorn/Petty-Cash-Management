@@ -161,7 +161,6 @@ const App = () => {
           ml: { md: `${drawerWidth}px` },
           boxShadow: "none",
           borderBottom: `1px solid ${theme.palette.divider}`,
-          // Let theme control background & blur via overrides
           backgroundColor: 'transparent',
           color: theme.palette.text.primary,
         }}
@@ -181,6 +180,7 @@ const App = () => {
             {pageTitle}
           </Typography>
 
+          {/* Desktop: dark mode toggle + avatar */}
           {!isSmallScreen && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Chip
@@ -217,12 +217,7 @@ const App = () => {
                     overflow: "visible",
                     filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.12))",
                     mt: 1.5,
-                    "& .MuiAvatar-root": {
-                      width: 32,
-                      height: 32,
-                      ml: -0.5,
-                      mr: 1,
-                    },
+                    "& .MuiAvatar-root": { width: 32, height: 32, ml: -0.5, mr: 1 },
                     "&:before": {
                       content: '""',
                       display: "block",
@@ -242,43 +237,50 @@ const App = () => {
               >
                 {userInfo?.role === 'Admin' ? (
                   <MenuItem onClick={() => handleNavigation("/settings", "Settings")}>
-                    <ListItemIcon>
-                      <SettingsIcon fontSize="small" />
-                    </ListItemIcon>
+                    <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
                     Settings
                   </MenuItem>
                 ) : (
                   <MenuItem onClick={() => handleNavigation("/profile", "Profile")}>
-                    <ListItemIcon>
-                      <Person fontSize="small" />
-                    </ListItemIcon>
+                    <ListItemIcon><Person fontSize="small" /></ListItemIcon>
                     Profile
                   </MenuItem>
                 )}
                 <Divider />
                 <MenuItem onClick={handleLogout}>
-                  <ListItemIcon>
-                    <LogoutIcon fontSize="small" />
-                  </ListItemIcon>
+                  <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
                   Log out
                 </MenuItem>
               </Menu>
+            </Box>
+          )}
+
+          {/* Mobile: dark mode toggle + logout icon */}
+          {isSmallScreen && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton color="inherit" size="small" onClick={toggle} aria-label="toggle theme">
+                <Brightness6Icon fontSize="small" />
+              </IconButton>
+              <IconButton color="inherit" size="small" onClick={handleLogout} aria-label="log out">
+                <LogoutIcon fontSize="small" />
+              </IconButton>
             </Box>
           )}
         </Toolbar>
       </AppBar>
 
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       {/* Main Content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          // On desktop (md+) subtract the sidebar width; on mobile use full width
+          width: { xs: '100%', md: `calc(100% - ${drawerWidth}px)` },
           mt: { xs: "56px", sm: "64px" },
-          p: { xs: 2, sm: 3 },
+          p: { xs: 1.5, sm: 2, md: 3 },
           overflowY: "auto",
           overflowX: "hidden",
           backgroundColor: theme.palette.background.default,

@@ -263,139 +263,94 @@ const Dashboard = () => {
       .map(([name, value]) => ({ name, value, pct: (value / total) * 100 }));
   }, [rows, travelCostSummary]);
 
-  // Enhanced SVG line chart with live data features
-  const LineChart = ({ data, width=520, height=260, stroke='#1976d2' }) => {
+  // Responsive SVG line chart
+  const LineChart = ({ data, height=260, stroke='#1976d2' }) => {
     const theme = useTheme();
+    const containerRef = React.useRef(null);
+    const [width, setWidth] = React.useState(520);
+
+    React.useEffect(() => {
+      if (!containerRef.current) return;
+      const ro = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          setWidth(entry.contentRect.width || 520);
+        }
+      });
+      ro.observe(containerRef.current);
+      setWidth(containerRef.current.offsetWidth || 520);
+      return () => ro.disconnect();
+    }, []);
+
     const max = Math.max(...data, 1);
-    const pad = 40; // Increased padding for better labels
-    const w = width - pad*2;
-    const h = height - pad*2;
-    
-    // Generate points for the line
-    const points = data.map((v,i)=>{
-      const x = pad + (i*(w/(data.length-1 || 1)));
-      const y = pad + (h - (v/max)*h);
+    const pad = 36;
+    const w = width - pad * 2;
+    const h = height - pad * 2;
+
+    const points = data.map((v, i) => {
+      const x = pad + (i * (w / (data.length - 1 || 1)));
+      const y = pad + (h - (v / max) * h);
       return `${x},${y}`;
     }).join(' ');
-    
-    // Generate points for area fill
+
     const areaPoints = points + ` ${pad + w},${height - pad} ${pad},${height - pad}`;
-    
+
     const bg = theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fff';
     const axis = theme.palette.divider;
     const grid = theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)';
     const gradientId = 'chart-gradient';
-    
+
     return (
-      <svg width={width} height={height} role="img" aria-label="Monthly Trends">
-        <defs>
-          <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={stroke} stopOpacity="0.3" />
-            <stop offset="100%" stopColor={stroke} stopOpacity="0.05" />
-          </linearGradient>
-        </defs>
-        <rect x={0} y={0} width={width} height={height} fill={bg} stroke={axis} />
-        
-        {/* Grid lines */}
-        {[0,0.25,0.5,0.75,1].map((t,idx)=>{
-          const y = pad + (h*(1-t));
-          return (
-            <g key={idx}>
-              <line x1={pad} y1={y} x2={width-pad} y2={y} stroke={grid} strokeDasharray="2,2" />
-              <text x={pad-5} y={y+3} textAnchor="end" fill={theme.palette.text.secondary} fontSize="10">
-                {Math.round(max * t)}
-              </text>
-            </g>
-          );
-        })}
-        
-        {/* Area fill under the line */}
-        <polygon 
-          points={areaPoints} 
-          fill={`url(#${gradientId})`}
-          opacity={0.8}
-        />
-        
-        {/* Main line */}
-        <polyline 
-          fill="none" 
-          stroke={stroke} 
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points} 
-        />
-        
-        {/* Data points with hover effect */}
-        {data.map((v,i)=>{
-          const x = pad + (i*(w/(data.length-1 || 1)));
-          const y = pad + (h - (v/Math.max(max,1))*h);
-          const hasData = v > 0;
-          
-          return (
-            <g key={i}>
-              {/* Outer glow for data points */}
-              {hasData && (
-                <circle 
-                  cx={x} 
-                  cy={y} 
-                  r={6} 
-                  fill={stroke} 
-                  opacity={0.2}
-                />
-              )}
-              {/* Main data point */}
-              <circle 
-                cx={x} 
-                cy={y} 
-                r={hasData ? 4 : 2} 
-                fill={hasData ? stroke : theme.palette.text.disabled}
-                stroke={bg}
-                strokeWidth={2}
-              />
-              {/* Value label for non-zero points */}
-              {hasData && (
-                <text 
-                  x={x} 
-                  y={y-10} 
-                  textAnchor="middle" 
-                  fill={stroke} 
-                  fontSize="10" 
-                  fontWeight="600"
-                >
-                  {Math.round(v)}
+      <Box ref={containerRef} sx={{ width: '100%' }}>
+        <svg width={width} height={height} role="img" aria-label="Monthly Trends" style={{ display: 'block' }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={stroke} stopOpacity="0.3" />
+              <stop offset="100%" stopColor={stroke} stopOpacity="0.05" />
+            </linearGradient>
+          </defs>
+          <rect x={0} y={0} width={width} height={height} fill={bg} stroke={axis} />
+          {[0, 0.25, 0.5, 0.75, 1].map((t, idx) => {
+            const y = pad + (h * (1 - t));
+            return (
+              <g key={idx}>
+                <line x1={pad} y1={y} x2={width - pad} y2={y} stroke={grid} strokeDasharray="2,2" />
+                <text x={pad - 4} y={y + 3} textAnchor="end" fill={theme.palette.text.secondary} fontSize="9">
+                  {Math.round(max * t)}
                 </text>
-              )}
-            </g>
-          );
-        })}
-        
-        {/* Axes */}
-        <line x1={pad} y1={pad} x2={pad} y2={height-pad} stroke={axis} strokeWidth={2} />
-        <line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} stroke={axis} strokeWidth={2} />
-      </svg>
+              </g>
+            );
+          })}
+          <polygon points={areaPoints} fill={`url(#${gradientId})`} opacity={0.8} />
+          <polyline fill="none" stroke={stroke} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" points={points} />
+          {data.map((v, i) => {
+            const x = pad + (i * (w / (data.length - 1 || 1)));
+            const y = pad + (h - (v / Math.max(max, 1)) * h);
+            const hasData = v > 0;
+            return (
+              <g key={i}>
+                {hasData && <circle cx={x} cy={y} r={5} fill={stroke} opacity={0.2} />}
+                <circle cx={x} cy={y} r={hasData ? 3.5 : 2} fill={hasData ? stroke : theme.palette.text.disabled} stroke={bg} strokeWidth={1.5} />
+              </g>
+            );
+          })}
+          <line x1={pad} y1={pad} x2={pad} y2={height - pad} stroke={axis} strokeWidth={1.5} />
+          <line x1={pad} y1={height - pad} x2={width - pad} y2={height - pad} stroke={axis} strokeWidth={1.5} />
+        </svg>
+      </Box>
     );
   };
 
-  const PieChart = ({ series, width=360, height=260 }) => {
+  const PieChart = ({ series, size = 220 }) => {
     const theme = useTheme();
-    const cx = width/2, cy = height/2, r = Math.min(width,height)/3;
-    let startAngle = -Math.PI/2;
+    const width = size, height = size;
+    const cx = width / 2, cy = height / 2, r = Math.min(width, height) / 2.8;
+    let startAngle = -Math.PI / 2;
     const SLICE_COLORS = {
-      'Flights':              '#1976d2',
-      'Hotel':                '#2e7d32',
-      'Transport':            '#ed6c02',
-      'Food (Travel)':        '#00acc1',
-      'Car Park':             '#7cb342',
-      'Visa':                 '#9c27b0',
-      'Baggage':              '#f57c00',
-      'Other (Travel)':       '#607d8b',
-      'Cancellation Charges': '#ef5350',
+      'Flights': '#1976d2', 'Hotel': '#2e7d32', 'Transport': '#ed6c02',
+      'Food (Travel)': '#00acc1', 'Car Park': '#7cb342', 'Visa': '#9c27b0',
+      'Baggage': '#f57c00', 'Other (Travel)': '#607d8b', 'Cancellation Charges': '#ef5350',
     };
-    const fallbackColors = [
-      '#1976d2', '#2e7d32', '#ed6c02', '#9c27b0',
-      '#607d8b', '#00acc1', '#7cb342', '#f57c00', '#5e35b1', '#0288d1',
-    ];
+    const fallbackColors = ['#1976d2','#2e7d32','#ed6c02','#9c27b0','#607d8b','#00acc1','#7cb342','#f57c00','#5e35b1','#0288d1'];
     const arcs = series.map((s, idx) => {
       const color = SLICE_COLORS[s.name] || fallbackColors[idx % fallbackColors.length];
       const angle = (s.pct / 100) * 2 * Math.PI;
@@ -411,10 +366,9 @@ const Dashboard = () => {
       return path;
     });
     const bg = theme.palette.mode === 'dark' ? theme.palette.background.paper : '#fff';
-    const axis = theme.palette.divider;
     return (
-      <svg width={width} height={height} role="img" aria-label="Current Spending Overview">
-        <rect x={0} y={0} width={width} height={height} fill={bg} stroke={axis} />
+      <svg width={width} height={height} role="img" aria-label="Current Spending Overview" style={{ flexShrink: 0 }}>
+        <rect x={0} y={0} width={width} height={height} fill={bg} />
         {arcs}
       </svg>
     );
@@ -523,34 +477,23 @@ const Dashboard = () => {
                 </Box>
               </Box>
               
-              <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center', mb: 2 }}>
+              <Box sx={{ position: 'relative', width: '100%', mb: 1 }}>
                 <LineChart data={monthlySeries} />
               </Box>
               
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2, mx: 4 }}>
-                {months.map((m,i)=> {
+              {/* Month labels — show abbreviated on mobile */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, px: { xs: 0.5, sm: 2 } }}>
+                {months.map((m, i) => {
                   const hasData = monthlySeries[i] > 0;
                   return (
-                    <Box key={i} sx={{ textAlign: 'center' }}>
-                      <Typography 
-                        variant="caption" 
+                    <Box key={i} sx={{ textAlign: 'center', flex: 1 }}>
+                      <Typography
+                        variant="caption"
                         color={hasData ? 'text.primary' : 'text.disabled'}
-                        sx={{ 
-                          fontWeight: hasData ? 600 : 400,
-                          display: 'block'
-                        }}
+                        sx={{ fontWeight: hasData ? 600 : 400, display: 'block', fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
                       >
                         {m}
                       </Typography>
-                      {hasData && (
-                        <Typography 
-                          variant="caption" 
-                          color="primary.main"
-                          sx={{ fontSize: '0.7rem', fontWeight: 500 }}
-                        >
-                          {Math.round(monthlySeries[i])}
-                        </Typography>
-                      )}
                     </Box>
                   );
                 })}
@@ -564,7 +507,7 @@ const Dashboard = () => {
               <Typography variant="subtitle1" fontWeight={800} gutterBottom>Current Spending Overview</Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>Expenses by category — including cancellation charges</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
-                <PieChart series={categorySeries} />
+                <PieChart series={categorySeries} size={200} />
                 <Box sx={{ display: 'grid', gap: 1, maxHeight: 300, overflowY: 'auto', flex: 1, minWidth: 140 }}>
                   {categorySeries.map((c, idx) => {
                     const LEGEND_COLORS = {
