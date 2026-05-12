@@ -74,8 +74,15 @@ router.get('/payments/list', async (req, res) => {
   }
   
   if (search) {
-    whereClauses.push("(LOWER(r.employee_name) LIKE @search OR LOWER(r.employee_email) LIKE @search OR LOWER(r.company_name) LIKE @search OR LOWER(r.category_name) LIKE @search OR LOWER(p.status) LIKE @search)");
-    params.search = `%${search.toLowerCase()}%`;
+    // If search starts with '#' or is a pure integer, search by request ID
+    const idSearch = String(search).replace(/^#/, '').trim();
+    if (/^\d+$/.test(idSearch)) {
+      whereClauses.push('r.id = @searchId');
+      params.searchId = parseInt(idSearch, 10);
+    } else {
+      whereClauses.push("(LOWER(r.employee_name) LIKE @search OR LOWER(r.employee_email) LIKE @search OR LOWER(r.company_name) LIKE @search OR LOWER(r.category_name) LIKE @search OR LOWER(p.status) LIKE @search)");
+      params.search = `%${search.toLowerCase()}%`;
+    }
   }
   
   const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : "";
@@ -95,7 +102,9 @@ router.get('/payments/list', async (req, res) => {
     if (params.assignedCompany) {
       countRequest.input('assignedCompany', sql.NVarChar, params.assignedCompany);
     }
-    if (search) {
+    if (params.searchId !== undefined) {
+      countRequest.input('searchId', sql.Int, params.searchId);
+    } else if (params.search) {
       countRequest.input('search', sql.NVarChar, params.search);
     }
     const countResult = await countRequest.query(countQuery);
@@ -135,7 +144,9 @@ router.get('/payments/list', async (req, res) => {
     if (params.assignedCompany) {
       dataRequest.input('assignedCompany', sql.NVarChar, params.assignedCompany);
     }
-    if (search) {
+    if (params.searchId !== undefined) {
+      dataRequest.input('searchId', sql.Int, params.searchId);
+    } else if (params.search) {
       dataRequest.input('search', sql.NVarChar, params.search);
     }
     dataRequest.input('offset', sql.Int, offset);
@@ -825,8 +836,15 @@ router.get('/', async (req, res) => {
     params.email = { type: sql.NVarChar(320), value: String(email) };
   }
   if (q) {
-    where.push("(LOWER(r.employee_name) LIKE @q OR LOWER(r.employee_email) LIKE @q OR LOWER(r.company_name) LIKE @q OR LOWER(r.category_name) LIKE @q OR LOWER(ISNULL(r.reason, '')) LIKE @q)");
-    params.q = { type: sql.NVarChar(400), value: `%${String(q).toLowerCase()}%` };
+    // If query starts with '#' or is a pure integer, search by request ID
+    const idSearch = String(q).replace(/^#/, '').trim();
+    if (/^\d+$/.test(idSearch)) {
+      where.push('r.id = @requestId');
+      params.requestId = { type: sql.Int, value: parseInt(idSearch, 10) };
+    } else {
+      where.push("(LOWER(r.employee_name) LIKE @q OR LOWER(r.employee_email) LIKE @q OR LOWER(r.company_name) LIKE @q OR LOWER(r.category_name) LIKE @q OR LOWER(ISNULL(r.reason, '')) LIKE @q)");
+      params.q = { type: sql.NVarChar(400), value: `%${String(q).toLowerCase()}%` };
+    }
   }
   // pick date column for date range and ordering
   const dateCol = status === 'rejected' ? 'r.rejected_at' : status === 'approved' ? 'r.approved_at' : 'r.created_at';
