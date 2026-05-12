@@ -759,7 +759,7 @@ const NewRequest = () => {
                   sx={{
                     border: `2px dashed ${errors.attachments ? 'error.main' : dragActive ? 'primary.main' : 'divider'}`,
                     borderRadius: 3,
-                    p: 4,
+                    p: { xs: 2.5, sm: 4 },
                     textAlign: 'center',
                     bgcolor: dragActive ? 'action.hover' : 'background.default',
                     cursor: 'pointer',
@@ -769,7 +769,6 @@ const NewRequest = () => {
                       borderColor: errors.attachments ? 'error.main' : 'primary.light',
                     }
                   }}
-                  onClick={() => document.getElementById('file-input').click()}
                 >
                   <input
                     id="file-input"
@@ -779,11 +778,18 @@ const NewRequest = () => {
                     onChange={handleFileInput}
                     style={{ display: 'none' }}
                   />
-                  <CloudUpload sx={{ fontSize: 48, color: '#1976d2', mb: 2 }} />
-                  <Typography variant="body1" sx={{ mb: 1, color: '#666' }}>
-                    Drag and drop files here, or click to select
+                  <CloudUpload sx={{ fontSize: { xs: 36, sm: 48 }, color: '#1976d2', mb: 1.5 }} />
+                  <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
+                    Tap to select files (or drag & drop on desktop)
                   </Typography>
-                  <Button variant="outlined" component="span" size="small">
+                  {/* Use label+htmlFor so the button works natively on iOS/Android */}
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    htmlFor="file-input"
+                    size="small"
+                    sx={{ minHeight: 44 }}
+                  >
                     Choose Files
                   </Button>
                 </Box>

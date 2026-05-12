@@ -233,7 +233,7 @@ const UploadReceipt = () => {
   const paymentSc = payment ? statusChip(payment.status) : { color: 'default', label: 'N/A' };
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', width: '100%', p: 3 }}>
+    <Box sx={{ maxWidth: 1200, mx: 'auto', width: '100%', p: { xs: 1.5, sm: 2, md: 3 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={handleBackNavigation} size="small" color="inherit">
           Back
@@ -301,8 +301,8 @@ const UploadReceipt = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
               {payments.length > 0 ? (
-                <TableContainer>
-                  <Table size="small">
+                <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <Table size="small" sx={{ minWidth: 500 }}>
                     <TableHead>
                       <TableRow>
                         <TableCell>Payment ID</TableCell>

@@ -1257,8 +1257,9 @@ export default function RequestReview() {
                         </ListItemIcon>
                         <ListItemText 
                           primary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="body2" component="span">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                              <Typography variant="body2" component="span"
+                                sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                                 {file.name}
                               </Typography>
                               {file.isExisting && (
@@ -1267,7 +1268,7 @@ export default function RequestReview() {
                                   size="small" 
                                   color="primary" 
                                   variant="outlined"
-                                  sx={{ height: 18, fontSize: '0.65rem' }}
+                                  sx={{ height: 18, fontSize: '0.65rem', flexShrink: 0 }}
                                 />
                               )}
                             </Box>

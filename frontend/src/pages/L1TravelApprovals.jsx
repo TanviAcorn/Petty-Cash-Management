@@ -1591,6 +1591,7 @@ const L1TravelApprovals = () => {
                             id={fileInputId}
                             type="file"
                             multiple
+                            accept="image/*,.pdf,.doc,.docx,.jpg,.jpeg,.png"
                             style={{ display: 'none' }}
                             onChange={(e) => handleSectionFileAdd(sectionKey, e.target.files)}
                           />
@@ -1631,7 +1632,7 @@ const L1TravelApprovals = () => {
                     value={costDetails.otherCost || ''}
                     onChange={(e) => setCostDetails(p => ({ ...p, otherCost: e.target.value }))}
                     disabled={uploadSending}
-                    sx={{ mb: 2, width: 220 }}
+                    sx={{ mb: 2, width: '100%', maxWidth: 220 }}
                     InputProps={{ startAdornment: <Typography variant="caption" sx={{ mr: 0.5, color: 'text.secondary' }}>{currency}</Typography> }}
                   />
 
@@ -1651,6 +1652,7 @@ const L1TravelApprovals = () => {
                     ref={globalFileRef}
                     type="file"
                     multiple
+                    accept="image/*,.pdf,.doc,.docx,.jpg,.jpeg,.png"
                     style={{ display: 'none' }}
                     onChange={(e) => handleGlobalFileAdd(e.target.files)}
                   />

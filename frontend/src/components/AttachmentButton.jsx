@@ -19,31 +19,19 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
  *   fileUrl    {string}    Full URL to the file
  *   label      {string}    Display label (original filename)
  *   onReplace  {function}  Called with (File) when user picks a replacement file.
- *                          If omitted, no re-upload button is shown.
  *   sx         {object}    Optional MUI sx overrides for the main button
  */
 export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} }) {
-  // 'checking' | 'available' | 'missing'
   const [status, setStatus] = useState('checking');
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    if (!fileUrl) {
-      setStatus('missing');
-      return;
-    }
-
+    if (!fileUrl) { setStatus('missing'); return; }
     let cancelled = false;
-
     fetch(fileUrl, { method: 'HEAD' })
-      .then((res) => {
-        if (!cancelled) setStatus(res.ok ? 'available' : 'missing');
-      })
-      .catch(() => {
-        if (!cancelled) setStatus('missing');
-      });
-
+      .then((res) => { if (!cancelled) setStatus(res.ok ? 'available' : 'missing'); })
+      .catch(() => { if (!cancelled) setStatus('missing'); });
     return () => { cancelled = true; };
   }, [fileUrl]);
 
@@ -54,24 +42,29 @@ export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} })
     if (!file || !onReplace) return;
     e.target.value = '';
     setUploading(true);
-    try {
-      await onReplace(file);
-      setStatus('available');
-    } catch {
-      // parent handles error toast
-    } finally {
-      setUploading(false);
-    }
+    try { await onReplace(file); setStatus('available'); }
+    catch { /* parent handles error toast */ }
+    finally { setUploading(false); }
+  };
+
+  // Shared sx for all button states — ensures minimum 44px touch target on mobile
+  const baseSx = {
+    justifyContent: 'flex-start',
+    textTransform: 'none',
+    minHeight: 44,           // iOS HIG minimum touch target
+    maxWidth: '100%',        // never overflow parent on mobile
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    display: 'inline-flex',
+    ...sx,
   };
 
   if (status === 'checking') {
     return (
-      <Button
-        variant="outlined"
-        size="small"
-        disabled
-        startIcon={<CircularProgress size={12} />}
-        sx={{ justifyContent: 'flex-start', textTransform: 'none', ...sx }}
+      <Button variant="outlined" size="small" disabled
+        startIcon={<CircularProgress size={14} />}
+        sx={baseSx}
       >
         {displayLabel}
       </Button>
@@ -80,21 +73,19 @@ export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} })
 
   if (status === 'missing') {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-        <Tooltip title="This file is no longer available on the server (lost during a server migration). Please re-upload using the button on the right.">
-          <span>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', maxWidth: '100%' }}>
+        <Tooltip title="This file is no longer available on the server. Please re-upload using the button on the right.">
+          <span style={{ maxWidth: '100%', overflow: 'hidden' }}>
             <Button
               variant="outlined"
               size="small"
               disabled
               startIcon={<BrokenImageIcon fontSize="small" />}
               sx={{
-                justifyContent: 'flex-start',
-                textTransform: 'none',
+                ...baseSx,
                 color: 'text.disabled',
                 borderColor: 'divider',
                 textDecoration: 'line-through',
-                ...sx,
               }}
             >
               {displayLabel}
@@ -102,7 +93,6 @@ export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} })
           </span>
         </Tooltip>
 
-        {/* Re-upload button — only shown when the parent provides onReplace */}
         {onReplace && (
           <>
             <input
@@ -112,28 +102,24 @@ export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} })
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
-            <Tooltip title={`Re-upload "${displayLabel}"`}>
-              <span>
-                <Button
-                  variant="contained"
-                  size="small"
-                  color="warning"
-                  startIcon={uploading ? <CircularProgress size={12} color="inherit" /> : <UploadFileIcon fontSize="small" />}
-                  disabled={uploading}
-                  onClick={() => fileInputRef.current?.click()}
-                  sx={{ textTransform: 'none', fontSize: '0.72rem', py: 0.5 }}
-                >
-                  {uploading ? 'Uploading…' : 'Re-upload'}
-                </Button>
-              </span>
-            </Tooltip>
+            <Button
+              variant="contained"
+              size="small"
+              color="warning"
+              startIcon={uploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileIcon fontSize="small" />}
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              sx={{ textTransform: 'none', minHeight: 44 }}
+            >
+              {uploading ? 'Uploading…' : 'Re-upload'}
+            </Button>
           </>
         )}
       </Box>
     );
   }
 
-  // available
+  // available — opens file in new tab
   return (
     <Button
       component="a"
@@ -143,7 +129,7 @@ export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} })
       variant="outlined"
       size="small"
       startIcon={<InsertDriveFileIcon fontSize="small" />}
-      sx={{ justifyContent: 'flex-start', textTransform: 'none', ...sx }}
+      sx={baseSx}
     >
       {displayLabel}
     </Button>
