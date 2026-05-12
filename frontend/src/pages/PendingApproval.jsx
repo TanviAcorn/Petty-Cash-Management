@@ -309,6 +309,7 @@ const PendingApproval = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Request ID</TableCell>
                     <TableCell>User</TableCell>
                     <TableCell>Date</TableCell>
                     <TableCell>Category</TableCell>
@@ -322,7 +323,7 @@ const PendingApproval = () => {
                 <TableBody>
                   {filteredRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                      <TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                         {error || 'No requests found'}
                       </TableCell>
                     </TableRow>
@@ -331,6 +332,11 @@ const PendingApproval = () => {
                       const sc = statusColor(r.status);
                       return (
                         <TableRow key={r.id || `${r.employeeName}-${r.createdAt}`} hover>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            <Typography variant="body2" fontWeight={700} color="primary.main">
+                              #{r.id}
+                            </Typography>
+                          </TableCell>
                           <TableCell sx={{ minWidth: 260 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                               <Box>
