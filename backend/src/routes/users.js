@@ -401,6 +401,42 @@ router.put("/:id", async (req, res) => {
       console.error('PUT /users/:id — no rows updated for id:', id);
     }
 
+    // ── Auto-reroute pending travel requests when L1 manager is assigned ──
+    // If an L1 manager was just assigned (or changed), find any pending travel
+    // requests from this user that have no L1 assigned yet and route them now.
+    if (l1ManagerValue) {
+      try {
+        const userEmailResult = await pool.request()
+          .input('uid', sql.Int, parseInt(id, 10))
+          .query('SELECT email FROM petty_Users WHERE id = @uid');
+        const userEmail = userEmailResult.recordset[0]?.email;
+
+        if (userEmail) {
+          const rerouteResult = await pool.request()
+            .input('email', sql.NVarChar(320), userEmail)
+            .input('l1Id', sql.Int, l1ManagerValue)
+            .query(`
+              UPDATE petty_cash_requests
+              SET l1_manager_id    = @l1Id,
+                  status           = 'pending_l1',
+                  l1_approval_status = 'pending'
+              WHERE employee_email = @email
+                AND (category_name = 'Travel Request' OR category_name = 'Travel')
+                AND l1_manager_id IS NULL
+                AND status IN ('pending', 'pending_l1')
+                AND (l1_approval_status IS NULL OR l1_approval_status = 'pending')
+            `);
+
+          if (rerouteResult.rowsAffected[0] > 0) {
+            console.log(`[L1 Assign] Auto-routed ${rerouteResult.rowsAffected[0]} pending travel request(s) for ${userEmail} to L1 manager id:${l1ManagerValue}`);
+          }
+        }
+      } catch (rerouteErr) {
+        // Non-fatal — log but don't fail the user update
+        console.error('[L1 Assign] Auto-reroute error (non-fatal):', rerouteErr.message);
+      }
+    }
+
     // Fetch and return the updated user with manager info
     const userResult = await pool
       .request()
