@@ -282,7 +282,7 @@ const PendingApproval = () => {
       <Card variant="outlined">
         <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <TextField
-            placeholder="Search requests..."
+            placeholder="Search by name, email, company or #ID..."
             size="small"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
