@@ -6,13 +6,13 @@ import useSortedItems from '../hooks/useSortedItems';
 import {
   Box,
   Typography,
-  Paper,
   Button,
   Table,
   TableHead,
   TableRow,
   TableCell,
   TableBody,
+  TableContainer,
   CircularProgress,
   Card,
   CardContent,
@@ -25,16 +25,16 @@ import {
   MenuItem,
   Chip,
   IconButton,
-  Tooltip
+  Tooltip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Search,
-  FilterList,
   Visibility,
   Edit,
   Delete,
-  Description,
   AttachMoney,
   CheckCircle,
   Schedule,
@@ -53,6 +53,8 @@ import {
 } from '@mui/material';
 
 const MyRequests = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
@@ -355,111 +357,120 @@ const MyRequests = () => {
               </Typography>
             </Box>
           ) : (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Category</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Company</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Location</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="right">Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="left">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
+            isMobile ? (
+              /* ── Mobile: card list ── */
+              <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {filteredRows.map((r, index) => (
-                  <TableRow
-                    key={r.id || index}
-                    hover
-                    sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
-                  >
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Typography variant="body2" fontWeight="medium">
-                        {r.dateOfPurchase ? new Date(r.dateOfPurchase).toLocaleDateString() :
-                          r.date ? new Date(r.date).toLocaleDateString() : '-'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Submitted: {r.createdAt ? new Date(r.createdAt).toLocaleDateString() :
-                          r.date ? new Date(r.date).toLocaleDateString() : '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={r.category}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {r.company}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {r.location}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight="bold">
-                        {formatCurrency(r.amount, r.currency)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusChip(r.status)}
-                    </TableCell>
-                    <TableCell align="left">
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Tooltip title="View Details">
-                          <IconButton size="small" sx={{ color: '#1976d2' }} onClick={() => navigate(`/my-requests/${r.id}`)}>
-                            <Visibility fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                  <Card key={r.id || index} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {r.dateOfPurchase ? new Date(r.dateOfPurchase).toLocaleDateString() : r.date ? new Date(r.date).toLocaleDateString() : '-'}
+                          </Typography>
+                          <Typography variant="body2" fontWeight={600} noWrap>{r.category}</Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap>{r.company}</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5, ml: 1, flexShrink: 0 }}>
+                          {getStatusChip(r.status)}
+                          <Typography variant="body2" fontWeight={700} color="success.main">
+                            {formatCurrency(r.amount, r.currency)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                        <IconButton size="small" sx={{ color: 'primary.main' }} onClick={() => navigate(`/my-requests/${r.id}`)}>
+                          <Visibility fontSize="small" />
+                        </IconButton>
                         {String(r.status).toLowerCase() === 'pending' && (
                           <>
-                            <Tooltip title="Edit">
-                              <IconButton
-                                size="small"
-                                sx={{ color: '#f57c00' }}
-                                onClick={() => {
-                                  setEditReq({
-                                    id: r.id,
-                                    company: r.company || '',
-                                    category: r.category || '',
-                                    location: r.location || '',
-                                    amount: r.amount || '',
-                                    description: r.description || r.reason || '',
-                                    dateOfPurchase: r.dateOfPurchase || r.date || '',
-                                  });
-                                  setEditOpen(true);
-                                }}
-                              >
-                                <Edit fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                              <IconButton size="small" sx={{ color: '#d32f2f' }} onClick={async () => {
-                                if (!window.confirm('Delete this request? This cannot be undone.')) return;
-                                try {
-                                  await axiosClient.delete(`/requests/${r.id}`);
-                                  setToast({ open: true, message: 'Request deleted', severity: 'success' });
-                                  load();
-                                } catch (e) {
-                                  setToast({ open: true, message: e?.response?.data?.message || 'Failed to delete', severity: 'error' });
-                                }
-                              }}>
-                                <Delete fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            <IconButton size="small" sx={{ color: 'warning.main' }} onClick={() => {
+                              setEditReq({ id: r.id, company: r.company || '', category: r.category || '', location: r.location || '', amount: r.amount || '', description: r.description || r.reason || '', dateOfPurchase: r.dateOfPurchase || r.date || '' });
+                              setEditOpen(true);
+                            }}>
+                              <Edit fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" sx={{ color: 'error.main' }} onClick={async () => {
+                              if (!window.confirm('Delete this request?')) return;
+                              try { await axiosClient.delete(`/requests/${r.id}`); setToast({ open: true, message: 'Request deleted', severity: 'success' }); load(); }
+                              catch (e) { setToast({ open: true, message: e?.response?.data?.message || 'Failed to delete', severity: 'error' }); }
+                            }}>
+                              <Delete fontSize="small" />
+                            </IconButton>
                           </>
                         )}
                       </Box>
-                    </TableCell>
-                  </TableRow>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </Box>
+            ) : (
+              /* ── Desktop: full table ── */
+              <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <Table sx={{ minWidth: 600 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Category</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Company</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Location</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} align="right">Amount</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }} align="left">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredRows.map((r, index) => (
+                      <TableRow key={r.id || index} hover sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                          <Typography variant="body2" fontWeight="medium">
+                            {r.dateOfPurchase ? new Date(r.dateOfPurchase).toLocaleDateString() : r.date ? new Date(r.date).toLocaleDateString() : '-'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Submitted: {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : r.date ? new Date(r.date).toLocaleDateString() : '-'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell><Chip label={r.category} size="small" variant="outlined" /></TableCell>
+                        <TableCell><Typography variant="body2" fontWeight="medium">{r.company}</Typography></TableCell>
+                        <TableCell><Typography variant="body2" fontWeight="medium">{r.location}</Typography></TableCell>
+                        <TableCell align="right"><Typography variant="body2" fontWeight="bold">{formatCurrency(r.amount, r.currency)}</Typography></TableCell>
+                        <TableCell>{getStatusChip(r.status)}</TableCell>
+                        <TableCell align="left">
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Tooltip title="View Details">
+                              <IconButton size="small" sx={{ color: '#1976d2' }} onClick={() => navigate(`/my-requests/${r.id}`)}>
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            {String(r.status).toLowerCase() === 'pending' && (
+                              <>
+                                <Tooltip title="Edit">
+                                  <IconButton size="small" sx={{ color: '#f57c00' }} onClick={() => {
+                                    setEditReq({ id: r.id, company: r.company || '', category: r.category || '', location: r.location || '', amount: r.amount || '', description: r.description || r.reason || '', dateOfPurchase: r.dateOfPurchase || r.date || '' });
+                                    setEditOpen(true);
+                                  }}>
+                                    <Edit fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Delete">
+                                  <IconButton size="small" sx={{ color: '#d32f2f' }} onClick={async () => {
+                                    if (!window.confirm('Delete this request? This cannot be undone.')) return;
+                                    try { await axiosClient.delete(`/requests/${r.id}`); setToast({ open: true, message: 'Request deleted', severity: 'success' }); load(); }
+                                    catch (e) { setToast({ open: true, message: e?.response?.data?.message || 'Failed to delete', severity: 'error' }); }
+                                  }}>
+                                    <Delete fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )
           )}
         </CardContent>
       </Card>

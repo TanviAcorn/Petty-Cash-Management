@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
@@ -7,52 +7,39 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 /**
  * AttachmentButton
  *
- * Renders a clickable button for an attachment file.
- * Performs a HEAD request to verify the file exists before allowing the user
- * to open it. If the file is missing (404), the button is shown as disabled
- * with a tooltip explaining the file is unavailable.
+ * Renders a clickable link-button for an attachment file.
  *
- * When `onReplace` is provided (employee viewing their own request), a
- * "Re-upload" button appears next to missing files so they can replace them.
+ * Design decision: We no longer do a HEAD check before rendering.
+ * The HEAD check was causing all attachments to appear as "checking" or
+ * "missing" on mobile devices due to network timing and CORS preflight
+ * issues. Instead we render the link immediately and rely on the backend's
+ * /api/file/:filename endpoint which returns a user-friendly HTML 404 page
+ * when a file is genuinely missing.
+ *
+ * Files that are known to be missing (passed via `isMissing` prop from the
+ * MissingAttachments admin page) still show the strikethrough + Re-upload UI.
  *
  * Props:
  *   fileUrl    {string}    Full URL to the file
  *   label      {string}    Display label (original filename)
- *   onReplace  {function}  Called with (File) when user picks a replacement file.
- *   sx         {object}    Optional MUI sx overrides for the main button
+ *   onReplace  {function}  Called with (File) when user picks a replacement.
+ *                          When provided AND isMissing=true, shows Re-upload button.
+ *   isMissing  {boolean}   Explicitly mark as missing (from server-side check).
+ *                          Default: false — renders as available link.
+ *   sx         {object}    Optional MUI sx overrides
  */
-export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} }) {
-  const [status, setStatus] = useState('checking');
+export default function AttachmentButton({ fileUrl, label, onReplace, isMissing = false, sx = {} }) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    if (!fileUrl) { setStatus('missing'); return; }
-    let cancelled = false;
-    fetch(fileUrl, { method: 'HEAD' })
-      .then((res) => { if (!cancelled) setStatus(res.ok ? 'available' : 'missing'); })
-      .catch(() => { if (!cancelled) setStatus('missing'); });
-    return () => { cancelled = true; };
-  }, [fileUrl]);
-
   const displayLabel = label || 'Attachment';
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !onReplace) return;
-    e.target.value = '';
-    setUploading(true);
-    try { await onReplace(file); setStatus('available'); }
-    catch { /* parent handles error toast */ }
-    finally { setUploading(false); }
-  };
-
-  // Shared sx for all button states — ensures minimum 44px touch target on mobile
+  // Shared sx — 44px min touch target (iOS HIG), filename truncation
   const baseSx = {
     justifyContent: 'flex-start',
     textTransform: 'none',
-    minHeight: 44,           // iOS HIG minimum touch target
-    maxWidth: '100%',        // never overflow parent on mobile
+    minHeight: 44,
+    maxWidth: '100%',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -60,18 +47,18 @@ export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} })
     ...sx,
   };
 
-  if (status === 'checking') {
-    return (
-      <Button variant="outlined" size="small" disabled
-        startIcon={<CircularProgress size={14} />}
-        sx={baseSx}
-      >
-        {displayLabel}
-      </Button>
-    );
-  }
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !onReplace) return;
+    e.target.value = '';
+    setUploading(true);
+    try { await onReplace(file); }
+    catch { /* parent handles error toast */ }
+    finally { setUploading(false); }
+  };
 
-  if (status === 'missing') {
+  // ── Missing file (explicitly flagged) ────────────────────────────────────
+  if (isMissing) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', maxWidth: '100%' }}>
         <Tooltip title="This file is no longer available on the server. Please re-upload using the button on the right.">
@@ -81,12 +68,7 @@ export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} })
               size="small"
               disabled
               startIcon={<BrokenImageIcon fontSize="small" />}
-              sx={{
-                ...baseSx,
-                color: 'text.disabled',
-                borderColor: 'divider',
-                textDecoration: 'line-through',
-              }}
+              sx={{ ...baseSx, color: 'text.disabled', borderColor: 'divider', textDecoration: 'line-through' }}
             >
               {displayLabel}
             </Button>
@@ -119,7 +101,15 @@ export default function AttachmentButton({ fileUrl, label, onReplace, sx = {} })
     );
   }
 
-  // available — opens file in new tab
+  // ── Available file — render as direct link, no HEAD check ────────────────
+  if (!fileUrl) {
+    return (
+      <Button variant="outlined" size="small" disabled sx={baseSx}>
+        {displayLabel}
+      </Button>
+    );
+  }
+
   return (
     <Button
       component="a"
