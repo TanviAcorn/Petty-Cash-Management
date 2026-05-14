@@ -76,6 +76,7 @@ const L1TravelApprovals = () => {
   const EDIT_REASON_OPTIONS = [
     'Meeting / event rescheduled',
     'Flight changed or cancelled',
+    'Trip Cancelled',
     'Hotel booking updated',
     'Visa details changed',
     'Travel dates modified',
