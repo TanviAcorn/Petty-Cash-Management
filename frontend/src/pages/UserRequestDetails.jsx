@@ -67,11 +67,11 @@ export default function UserRequestDetails() {
     return () => controller.abort();
   }, [id]);
 
-  // Re-upload a single missing attachment
+  // Re-upload a single missing attachment, or add a new one (attachmentIndex=null)
   const handleReplace = async (attachmentIndex, file) => {
     const formData = new FormData();
     formData.append('attachments', file);
-    const { data } = await axiosClient.post(`/requests/${id}/attachments`, formData, {
+    await axiosClient.post(`/requests/${id}/attachments`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     // Refresh request data so the new fileUrl is reflected
@@ -286,20 +286,52 @@ export default function UserRequestDetails() {
                 <ReceiptLongOutlinedIcon /> Attachments
               </Typography>
               <Divider sx={{ mb: 2 }} />
+
               {Array.isArray(req.attachments) && req.attachments.length > 0 ? (
-                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                /* Column layout on all screens — each attachment gets its own full-width row */
+                <Stack direction="column" spacing={1}>
                   {req.attachments.map((f, idx) => (
                     <AttachmentButton
                       key={idx}
                       fileUrl={f.fileUrl || getFileUrl(f.filename || '')}
                       label={f.originalName || f.filename || `file-${idx+1}`}
                       onReplace={(file) => handleReplace(idx, file)}
+                      sx={{ width: '100%' }}
                     />
                   ))}
                 </Stack>
               ) : (
                 <Typography variant="body2" color="text.secondary">No attachments</Typography>
               )}
+
+              {/* Upload new attachment — always visible so user can add files from phone */}
+              <Box sx={{ mt: 2 }}>
+                <input
+                  id="user-add-attachment"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip"
+                  style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', borderWidth: 0 }}
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    e.target.value = '';
+                    for (const file of files) {
+                      try { await handleReplace(null, file); }
+                      catch { /* toast handled in handleReplace */ }
+                    }
+                  }}
+                />
+                <Button
+                  component="label"
+                  htmlFor="user-add-attachment"
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ReceiptLongOutlinedIcon />}
+                  sx={{ textTransform: 'none', minHeight: 44 }}
+                >
+                  Add / Upload Attachment
+                </Button>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
