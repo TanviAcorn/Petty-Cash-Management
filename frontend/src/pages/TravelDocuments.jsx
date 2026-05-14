@@ -223,7 +223,7 @@ const TravelDocuments = () => {
               '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.light' }
             }}
           >
-            <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
+            <input ref={fileInputRef} type="file" multiple style={{ position: 'absolute', width: '1px', height: '1px', padding: '0', margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: '0' }}
               onChange={(e) => handleFiles(e.target.files)} />
             <CloudUpload sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
             <Typography variant="body2" fontWeight={500}>Drag & drop documents here or click to browse</Typography>

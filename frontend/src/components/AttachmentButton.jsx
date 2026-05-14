@@ -81,7 +81,7 @@ export default function AttachmentButton({ fileUrl, label, onReplace, isMissing 
               ref={fileInputRef}
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip,.jfif,.PNG,.JPG,.JPEG,.PDF"
-              style={{ display: 'none' }}
+              style={{ position: 'absolute', width: '1px', height: '1px', padding: '0', margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: '0' }}
               onChange={handleFileChange}
             />
             <Button

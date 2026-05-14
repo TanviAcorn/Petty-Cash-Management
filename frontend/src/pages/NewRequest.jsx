@@ -776,7 +776,7 @@ const NewRequest = () => {
                     multiple
                     accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip"
                     onChange={handleFileInput}
-                    style={{ display: 'none' }}
+                    style={{ position: 'absolute', width: '1px', height: '1px', padding: '0', margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: '0' }}
                   />
                   <CloudUpload sx={{ fontSize: { xs: 36, sm: 48 }, color: '#1976d2', mb: 1.5 }} />
                   <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>

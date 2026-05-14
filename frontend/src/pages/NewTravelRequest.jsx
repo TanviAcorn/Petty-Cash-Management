@@ -531,7 +531,7 @@ const NewTravelRequest = () => {
                   }}
                   onClick={() => document.getElementById('travel-file-input').click()}
                 >
-                  <input id="travel-file-input" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip" onChange={handleFileInput} style={{ display: 'none' }} />
+                  <input id="travel-file-input" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip" onChange={handleFileInput} style={{ position: 'absolute', width: '1px', height: '1px', padding: '0', margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', borderWidth: '0' }} />
                   <CloudUpload sx={{ fontSize: 48, color: '#1976d2', mb: 2 }} />
                   <Typography variant="body1" sx={{ mb: 0.5, color: '#444', fontWeight: 500 }}>
                     Drag and drop your documents here
