@@ -227,6 +227,8 @@ router.get("/managers", async (req, res) => {
 
     const managers = result.recordset.map((u) => ({
       id: u.id,
+      firstName: u.firstName || '',
+      lastName: u.lastName || '',
       name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
       email: u.email,
       role: u.role,

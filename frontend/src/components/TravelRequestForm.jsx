@@ -39,7 +39,11 @@ const AccompanyingPersonsPicker = ({ persons, employees, onChange }) => {
       const emp = employees.find(e => String(e.id) === String(value));
       updatePerson(idx, {
         employeeId: value,
-        name: emp ? `${emp.firstName} ${emp.lastName}`.trim() : '',
+        name: emp
+          ? (emp.firstName && emp.lastName
+              ? `${emp.firstName} ${emp.lastName}`.trim()
+              : emp.name || emp.email.split('@')[0])
+          : '',
         email: emp?.email || '',
         isOther: false,
       });
@@ -63,10 +67,9 @@ const AccompanyingPersonsPicker = ({ persons, employees, onChange }) => {
                   <MenuItem value=""><em>— Select —</em></MenuItem>
                   {employees.map(emp => (
                     <MenuItem key={emp.id} value={String(emp.id)}>
-                      {emp.firstName} {emp.lastName}
-                      <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                        ({emp.email})
-                      </Typography>
+                      {emp.firstName && emp.lastName
+                        ? `${emp.firstName} ${emp.lastName}`.trim()
+                        : emp.name || emp.email.split('@')[0]}
                     </MenuItem>
                   ))}
                   <MenuItem value="__other__">
