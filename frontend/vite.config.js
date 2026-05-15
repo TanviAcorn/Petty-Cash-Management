@@ -6,6 +6,10 @@ export default defineConfig(({ mode }) => {
   // Load environment variables based on the current mode
   const env = loadEnv(mode, process.cwd(), '');
 
+  const basePath = env.VITE_BASE_PATH
+    ? `/${env.VITE_BASE_PATH.replace(/^\/|\/$/g, '')}/`
+    : (mode === 'production' ? '/dashboard/' : '/');
+
   return {
     plugins: [react()],
     server: {
@@ -24,7 +28,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     // Use absolute base path so assets load correctly on any route (fixes blank page on refresh)
-    base: '/',
+    base: basePath,
     build: {
       outDir: 'dist',
       assetsDir: 'assets',

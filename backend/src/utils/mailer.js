@@ -5,7 +5,10 @@ const { getUserEmail } = require("./userUtils");
 function getFrontendBaseUrl() {
   const raw = process.env.FRONTEND_URL || "http://localhost:5174";
   const first = String(raw).split(",")[0].trim().replace(/\/$/, '');
-  const url = first || "http://localhost:5174";
+  let url = first || "http://localhost:5174";
+  if (process.env.NODE_ENV === 'production' && !url.match(/https?:\/\/[^/]+\/.*$/)) {
+    url = `${url}/dashboard`;
+  }
   if (/^https?:\/\/\d+\.\d+\.\d+\.\d+/.test(url) || url.includes('localhost')) {
     console.warn('[Mailer] WARNING: FRONTEND_URL is a local/IP address:', url,
       '— email links will not work for external recipients. Set FRONTEND_URL to the production domain.');

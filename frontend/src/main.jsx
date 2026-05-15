@@ -42,6 +42,7 @@ function LoginRoute() {
 
 function AuthGate() {
   const { isAuthenticated, loading } = useAuth();
+  const basename = import.meta.env.VITE_BASE_PATH || (import.meta.env.MODE === 'production' ? '/dashboard' : '/');
 
   if (loading) {
     return (
@@ -55,7 +56,7 @@ function AuthGate() {
   }
 
   return (
-    <Router>
+    <Router basename={basename}>
       <Routes>
         {/* Public routes — no auth required */}
         <Route path="/travel-feedback/:token" element={<TravelFeedback />} />
@@ -76,7 +77,7 @@ function AuthGate() {
         />
       </Routes>
     </Router>
-  )
+  );
 }
 
 createRoot(document.getElementById('root')).render(
