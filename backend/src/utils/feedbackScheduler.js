@@ -621,14 +621,20 @@ async function sendBoardingPassReminders() {
           (
             TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.roundTrip.departureDate') AS DATETIME2)
               BETWEEN SYSUTCDATETIME() AND DATEADD(hour, 25, SYSUTCDATETIME())
+            OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.roundTrip.departureDate') AS DATE)
+              = CAST(DATEADD(day, 1, GETUTCDATE()) AS DATE)
           )
           OR (
             TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.dateOfTravel') AS DATETIME2)
               BETWEEN SYSUTCDATETIME() AND DATEADD(hour, 25, SYSUTCDATETIME())
+            OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.dateOfTravel') AS DATE)
+              = CAST(DATEADD(day, 1, GETUTCDATE()) AS DATE)
           )
           OR (
             TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[0].date') AS DATETIME2)
               BETWEEN SYSUTCDATETIME() AND DATEADD(hour, 25, SYSUTCDATETIME())
+            OR TRY_CAST(JSON_VALUE(COALESCE(r.travel_form_data, r.travel_details), '$.multiCityLegs[0].date') AS DATE)
+              = CAST(DATEADD(day, 1, GETUTCDATE()) AS DATE)
           )
         )
     `);

@@ -239,10 +239,19 @@ router.post('/:requestId/save-details', async (req, res) => {
             ALTER TABLE dbo.petty_travel_costs ADD refund_initiated DECIMAL(10,2) NULL;
         `);
 
+        // Ensure external Teams account field exists in users table
+        await pool.request().query(`
+          IF COL_LENGTH('dbo.petty_Users','external_teams_email') IS NULL
+            ALTER TABLE dbo.petty_Users ADD external_teams_email NVARCHAR(320) NULL;
+        `);
+
         // Fetch request info for employee details
         const reqInfo = await pool.request()
           .input('id', sql.Int, requestId)
-          .query('SELECT employee_name, employee_email, travel_details, travel_form_data FROM petty_cash_requests WHERE id = @id');
+          .query(`SELECT r.employee_name, r.employee_email, r.travel_details, r.travel_form_data, u.external_teams_email
+                  FROM petty_cash_requests r
+                  LEFT JOIN petty_Users u ON LOWER(LTRIM(RTRIM(r.employee_email))) = LOWER(LTRIM(RTRIM(u.email)))
+                  WHERE r.id = @id`);
 
         const row = reqInfo.recordset[0] || {};
         let travelData = null;
@@ -436,8 +445,9 @@ router.post('/:requestId/send', async (req, res) => {
       const { startDate, endDate } = extractTravelDates(travelData);
       const tripSummary = buildTripSummary(travelData);
       if (startDate) {
+        const employeeTeamsEmail = row.external_teams_email || request.employee_email;
         await bookTravelCalendarEvent({
-          employeeEmail: request.employee_email,
+          employeeEmail: employeeTeamsEmail,
           employeeName: request.employee_name,
           startDate,
           endDate: endDate || startDate,

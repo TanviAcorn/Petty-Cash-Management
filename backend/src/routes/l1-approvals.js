@@ -124,7 +124,7 @@ router.get('/last-trip', async (req, res) => {
     const result = await pool.request()
       .input('email', sql.NVarChar(320), email)
       .query(`
-        SELECT TOP 1 id, travel_details, travel_form_data, created_at
+        SELECT TOP 1 id, travel_details, travel_form_data, created_at, company_name, location
         FROM petty_cash_requests
         WHERE employee_email = @email
           AND (category_name = 'Travel Request' OR category_name = 'Travel')
@@ -139,7 +139,7 @@ router.get('/last-trip', async (req, res) => {
     try { travelData = row.travel_form_data ? JSON.parse(row.travel_form_data) : null; } catch {}
     if (!travelData) { try { travelData = row.travel_details ? JSON.parse(row.travel_details) : null; } catch {} }
 
-    res.json({ data: travelData ? { id: row.id, travelData, createdAt: row.created_at } : null });
+    res.json({ data: travelData ? { id: row.id, travelData, createdAt: row.created_at, company: row.company_name, location: row.location } : null });
   } catch (err) {
     console.error('last-trip error:', err);
     res.status(500).json({ message: 'Failed to fetch last trip' });
@@ -407,12 +407,31 @@ router.put('/:id/approve', async (req, res) => {
       try { travelData = request.travel_form_data ? JSON.parse(request.travel_form_data) : null; } catch {}
       if (!travelData) { try { travelData = request.travel_details ? JSON.parse(request.travel_details) : null; } catch {} }
 
+      // Ensure external Teams account field exists in users table
+      await pool.request().query(`
+        IF COL_LENGTH('dbo.petty_Users','external_teams_email') IS NULL
+          ALTER TABLE dbo.petty_Users ADD external_teams_email NVARCHAR(320) NULL;
+      `);
+
+      let employeeTeamsEmail = request.employee_email;
+      try {
+        const externalResult = await pool.request()
+          .input('email', sql.NVarChar(320), request.employee_email)
+          .query('SELECT external_teams_email FROM petty_Users WHERE LOWER(LTRIM(RTRIM(email))) = LOWER(LTRIM(RTRIM(@email)))');
+        const externalRow = externalResult.recordset[0];
+        if (externalRow?.external_teams_email) {
+          employeeTeamsEmail = externalRow.external_teams_email;
+        }
+      } catch (nestedErr) {
+        console.warn('Unable to read external Teams email from petty_Users:', nestedErr.message || nestedErr);
+      }
+
       if (travelData) {
         const { startDate, endDate } = extractTravelDates(travelData);
         if (startDate) {
           const tripSummary = buildTripSummary(travelData);
           await bookTravelCalendarEvent({
-            employeeEmail: request.employee_email,
+            employeeEmail: employeeTeamsEmail,
             employeeName: request.employee_name,
             startDate,
             endDate: endDate || startDate,

@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
 
   const basePath = env.VITE_BASE_PATH
     ? `/${env.VITE_BASE_PATH.replace(/^\/|\/$/g, '')}/`
-    : (mode === 'production' ? '/dashboard/' : '/');
+    : '/';
 
   return {
     plugins: [react()],

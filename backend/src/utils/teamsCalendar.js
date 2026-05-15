@@ -16,6 +16,41 @@ function getGraphClient() {
   return Client.initWithMiddleware({ authProvider });
 }
 
+function isGuid(value) {
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(value || '').trim());
+}
+
+async function resolveGraphUserId(client, userEmail) {
+  const safeEmail = String(userEmail || '').trim();
+  if (!safeEmail) return null;
+
+  const escaped = safeEmail.replace(/'/g, "''");
+  const filters = [
+    `mail eq '${escaped}'`,
+    `otherMails/any(a:a eq '${escaped}')`,
+    `proxyAddresses/any(a:a eq 'smtp:${escaped}')`,
+    `proxyAddresses/any(a:a eq 'SMTP:${escaped}')`,
+  ];
+
+  // If the email looks like a UPN, also try it directly as a userPrincipalName.
+  if (safeEmail.includes('#EXT#')) {
+    filters.unshift(`userPrincipalName eq '${escaped}'`);
+  }
+
+  for (const filter of filters) {
+    try {
+      const response = await client.api('/users').filter(filter).get();
+      if (response?.value?.length) {
+        return response.value[0].id;
+      }
+    } catch (err) {
+      continue;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Book a "Out of Office – Travelling" event on the employee's Outlook/Teams calendar.
  * @param {object} params
@@ -66,14 +101,30 @@ async function bookTravelCalendarEvent({ employeeEmail, employeeName, startDate,
       categories: ['Travel'],
     };
 
+    const useId = isGuid(employeeEmail);
+    const targetUser = useId ? employeeEmail : encodeURIComponent(employeeEmail);
+    let createPath = `/users/${targetUser}/events`;
+
     const result = await client
-      .api(`/users/${employeeEmail}/events`)
-      .post(event);
+      .api(createPath)
+      .post(event)
+      .catch(async (err) => {
+        const errorText = String(err?.message || err).toLowerCase();
+        const shouldRetry = /resource|does not exist|404|invalid|mailbox|not found/.test(errorText);
+        if (shouldRetry) {
+          const graphUserId = await resolveGraphUserId(client, employeeEmail);
+          if (graphUserId) {
+            createPath = `/users/${graphUserId}/events`;
+            return client.api(createPath).post(event);
+          }
+        }
+        throw err;
+      });
 
     console.log(`[TeamsCalendar] Created calendar event for ${employeeEmail}: ${result.id}`);
     return result.id;
   } catch (err) {
-    console.error(`[TeamsCalendar] Failed to create calendar event for ${employeeEmail}:`, err.message);
+    console.error(`[TeamsCalendar] Failed to create calendar event for ${employeeEmail}:`, err.message || err);
     return null;
   }
 }

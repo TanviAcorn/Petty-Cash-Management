@@ -5,6 +5,13 @@ const sql = require('mssql');
 const crypto = require('crypto');
 const { sendEmail } = require('../utils/mailer');
 
+async function ensureExternalTeamsEmailColumn(pool) {
+  await pool.request().query(`
+    IF COL_LENGTH('dbo.petty_Users','external_teams_email') IS NULL
+      ALTER TABLE dbo.petty_Users ADD external_teams_email NVARCHAR(320) NULL;
+  `);
+}
+
 // POST /api/users/login (authenticate user)
 router.post("/login", async (req, res) => {
   try {
@@ -53,7 +60,8 @@ router.post("/login", async (req, res) => {
       email: u.email,
       role: u.role || 'User',
       company: u.company || '',
-      department: u.department || ''
+      department: u.department || '',
+      externalTeamsEmail: u.external_teams_email || null,
     };
 
     return res.json({
@@ -81,6 +89,7 @@ router.get("/me", async (req, res) => {
     }
 
     const pool = await poolPromise;
+    await ensureExternalTeamsEmailColumn(pool);
     const result = await pool
       .request()
       .input('id', userId)
@@ -338,8 +347,9 @@ router.get("/", async (req, res) => {
 // POST /api/users - create user
 router.post("/", async (req, res) => {
   try {
-    const { firstName, lastName, email, password, role, company, department, l1ManagerId } = req.body;
+    const { firstName, lastName, email, password, role, company, department, l1ManagerId, externalTeamsEmail } = req.body;
     const pool = await poolPromise;
+    await ensureExternalTeamsEmailColumn(pool);
     await pool
       .request()
       .input("firstName", firstName)
@@ -350,9 +360,10 @@ router.post("/", async (req, res) => {
       .input("company", company)
       .input("department", department)
       .input("l1ManagerId", l1ManagerId || null)
+      .input("externalTeamsEmail", externalTeamsEmail || null)
       .query(
-        `INSERT INTO petty_Users (firstName, lastName, email, password, role, company, department, l1_manager_id)
-         VALUES (@firstName, @lastName, @email, @password, @role, @company, @department, @l1ManagerId)`
+        `INSERT INTO petty_Users (firstName, lastName, email, password, role, company, department, l1_manager_id, external_teams_email)
+         VALUES (@firstName, @lastName, @email, @password, @role, @company, @department, @l1ManagerId, @externalTeamsEmail)`
       );
     res.status(201).send("User created");
   } catch (err) {
@@ -364,7 +375,7 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, password, role, company, department, l1ManagerId } = req.body;
+    const { firstName, lastName, email, password, role, company, department, l1ManagerId, externalTeamsEmail } = req.body;
     
     
     // Convert l1ManagerId to proper type
@@ -374,6 +385,7 @@ router.put("/:id", async (req, res) => {
     }
 
     const pool = await poolPromise;
+    await ensureExternalTeamsEmailColumn(pool);
     const updateResult = await pool
       .request()
       .input("id", sql.Int, parseInt(id, 10))
@@ -385,6 +397,7 @@ router.put("/:id", async (req, res) => {
       .input("company", sql.NVarChar, company)
       .input("department", sql.NVarChar, department)
       .input("l1ManagerId", sql.Int, l1ManagerValue)
+      .input("externalTeamsEmail", sql.NVarChar, externalTeamsEmail || null)
       .query(
         `UPDATE petty_Users
          SET firstName = @firstName,
@@ -394,7 +407,8 @@ router.put("/:id", async (req, res) => {
              role = @role,
              company = @company,
              department = @department,
-             l1_manager_id = @l1ManagerId
+             l1_manager_id = @l1ManagerId,
+             external_teams_email = @externalTeamsEmail
          WHERE id = @id`
       );
     

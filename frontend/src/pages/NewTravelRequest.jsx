@@ -360,7 +360,15 @@ const NewTravelRequest = () => {
           <Button
             variant="contained"
             onClick={() => {
+              // Populate travel form data
               setTravelFormData(lastTrip.travelData);
+              // Populate basic form data (company and location), but NOT dates
+              setFormData(prev => ({
+                ...prev,
+                company: lastTrip.company || prev.company,
+                location: lastTrip.location || prev.location,
+                // Explicitly leave dateOfPurchase empty as per requirement
+              }));
               setShowRecommendation(false);
             }}
           >

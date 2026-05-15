@@ -42,7 +42,7 @@ function LoginRoute() {
 
 function AuthGate() {
   const { isAuthenticated, loading } = useAuth();
-  const basename = import.meta.env.VITE_BASE_PATH || (import.meta.env.MODE === 'production' ? '/dashboard' : '/');
+  const basename = import.meta.env.VITE_BASE_PATH || '/';
 
   if (loading) {
     return (
