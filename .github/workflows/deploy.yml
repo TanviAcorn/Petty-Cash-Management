@@ -26,7 +26,7 @@ jobs:
           cd /var/www/pettycash.astutehealthcare.co.uk/html/frontend
           npm install
           rm -rf dist
-          npm run build
+          NODE_OPTIONS="--max-old-space-size=1536" npm run build
 
       - name: Restart backend
         run: pm2 restart pettycash-backend --update-env
