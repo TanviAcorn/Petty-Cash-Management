@@ -55,6 +55,7 @@ const statusColor = (s) => {
     case 'intercompany': return { color: 'secondary', label: 'intercompany' };
     case 'processed': return { color: 'info', label: 'processed' };
     case 'payment done': return { color: 'success', label: 'payment done' };
+    case 'attachment reuploaded': return { color: 'success', label: 'attachment reuploaded' };
     default: return { color: 'warning', label: 'pending' };
   }
 };

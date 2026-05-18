@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const sql = require('mssql');
 const { poolPromise } = require('../config/db');
-const { sendEmail, buildL1ApprovalNotificationEmail } = require('../utils/mailer');
+const { sendEmail, buildL1ApprovalNotificationEmail, getAdminEmailsByCompany } = require('../utils/mailer');
 const { bookTravelCalendarEvent, buildTripSummary, extractTravelDates } = require('../utils/teamsCalendar');
 
 // GET /api/l1-approvals - Get all requests pending L1 approval for a manager
@@ -334,10 +334,7 @@ router.put('/:id/approve', async (req, res) => {
 
     // Notify both travel admins that L1 has approved — they need to upload travel details
     try {
-      const adminEmails = [
-        process.env.ADMIN_EMAIL,
-        process.env.TRAVEL_ADMIN_EMAIL,
-      ].filter(Boolean);
+      const adminEmails = getAdminEmailsByCompany(request.company_name);
 
       // Get L1 manager name for the email
       const managerResult = await pool.request()

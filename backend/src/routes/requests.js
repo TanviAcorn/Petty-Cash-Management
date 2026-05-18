@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { getExchangeRate } = require('../utils/exchangeRates');
 const { poolPromise } = require('../config/db');
-const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail, buildBulkPaymentEmail, buildL1ManagerApprovalEmail } = require('../utils/mailer');
+const { sendEmail, buildAdminNewRequestEmail, buildUserStatusEmail, buildPaymentInitiatedEmail, buildBulkPaymentEmail, buildL1ManagerApprovalEmail, buildApprovedRequestPaymentEmail, getAdminEmailsByCompany } = require('../utils/mailer');
 const { getUserById } = require('../utils/userUtils');
 
 // Define uploads directory
@@ -464,6 +464,7 @@ router.put('/:id/intercompany', async (req, res) => {
   }
 });
 
+// ── POST /api/requests/:id/attachments ─────────────────────────────────────
 // ── GET /api/requests/missing-attachments ─────────────────────────────────
 // Admin-only: returns all requests that have attachment metadata in the DB
 // but whose files are missing from disk. Used for the admin report page.
@@ -648,8 +649,10 @@ router.get('/:id', async (req, res) => {
     if (Array.isArray(row.attachments)) {
       row.attachments = row.attachments.map(att => {
         const fname = att.filename || att.originalName || att;
+        const filePath = path.join(UPLOADS_DIR, path.basename(String(fname)));
         return {
           ...att,
+          isMissing: !fs.existsSync(filePath),
           fileUrl: `${frontendBase}/api/file/${path.basename(String(fname))}`,
         };
       });
@@ -720,6 +723,109 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit per file
     files: 10 // Maximum 5 files per upload
+  }
+});
+
+// ── POST /api/requests/:id/attachments ────────────────────────────────────
+// Employee re-uploads missing or adds new attachments to an existing request.
+// Updates the attachments array in the DB and marks status as "Attachment Reuploaded".
+router.post('/:id/attachments', upload.array('attachments', 10), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ message: 'Invalid request ID' });
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+
+    const pool = await poolPromise;
+
+    // Get the current request and its existing attachments
+    const currentResult = await pool.request()
+      .input('id', sql.Int, id)
+      .query('SELECT id, attachments, status FROM petty_cash_requests WHERE id = @id');
+
+    if (!currentResult.recordset || currentResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    const currentRequest = currentResult.recordset[0];
+    let existingAttachments = [];
+    try {
+      if (currentRequest.attachments && currentRequest.attachments !== '[]' && currentRequest.attachments !== '') {
+        existingAttachments = JSON.parse(currentRequest.attachments);
+      }
+    } catch (e) {
+      existingAttachments = [];
+    }
+
+    // Build new attachment objects
+    const newAttachments = req.files.map((file) => ({
+      originalName: file.originalname,
+      filename: file.filename,
+      size: file.size,
+      mimetype: file.mimetype,
+    }));
+
+    // Merge: replace any existing entry with the same originalName, append the rest
+    const merged = [...existingAttachments];
+    const replaceIndexStr = req.body.replaceIndex;
+
+    if (replaceIndexStr !== undefined && replaceIndexStr !== null) {
+      const replaceIndex = parseInt(replaceIndexStr, 10);
+      if (replaceIndex >= 0 && replaceIndex < merged.length && newAttachments.length > 0) {
+        // Replace the specific index
+        merged[replaceIndex] = newAttachments[0];
+        // If there are more new attachments (shouldn't happen for single replace), append them
+        for (let i = 1; i < newAttachments.length; i++) {
+          merged.push(newAttachments[i]);
+        }
+      } else {
+        merged.push(...newAttachments);
+      }
+    } else {
+      for (const newAtt of newAttachments) {
+        const existingIdx = merged.findIndex(
+          a => (a.originalName || '').toLowerCase() === newAtt.originalName.toLowerCase()
+        );
+        if (existingIdx >= 0) {
+          merged[existingIdx] = newAtt; // replace the missing entry
+        } else {
+          merged.push(newAtt);
+        }
+      }
+    }
+
+    // Update DB — set attachments and mark status as "Attachment Reuploaded"
+    await pool.request()
+      .input('id', sql.Int, id)
+      .input('attachments', sql.NVarChar(sql.MAX), JSON.stringify(merged))
+      .input('status', sql.VarChar(50), 'Attachment Reuploaded')
+      .query(`
+        UPDATE petty_cash_requests
+        SET attachments = @attachments, status = @status
+        WHERE id = @id
+      `);
+
+    // Build enriched response with full fileUrls
+    const frontendBase = (process.env.FRONTEND_URL || '').split(',')[0].trim().replace(/\/$/, '')
+      || `${req.protocol}://${req.get('host')}`;
+
+    const enriched = merged.map(att => ({
+      ...att,
+      fileUrl: `${frontendBase}/api/file/${path.basename(String(att.filename))}`,
+    }));
+
+    console.log(`[ATTACHMENTS] Request #${id}: ${newAttachments.length} file(s) uploaded. Status → Attachment Reuploaded`);
+
+    return res.json({
+      message: `${newAttachments.length} file(s) uploaded successfully`,
+      attachments: enriched,
+    });
+  } catch (err) {
+    console.error('Error uploading attachments:', err);
+    if (req.files) req.files.forEach(f => { try { fs.unlinkSync(f.path); } catch {} });
+    return res.status(500).json({ message: 'Failed to upload attachments', error: err.message });
   }
 });
 
@@ -1037,12 +1143,14 @@ router.post('/:id/proceed-payment', paymentAttachmentUpload.array('attachments',
         // Keys MUST match company_name exactly as stored in petty_cash_requests
         const companyAccountsEmails = {
           'Docpharm GmbH':                        'account@docpharm.de',
+          'Docpharm':                             'account@docpharm.de',
           'Lifexa BV':                            'accounts@lifexa.eu',
           'Acme Pharma Ltd':                      'accounts@acmepharma.co.uk',
+          'Acme':                                 'accounts@acmepharma.co.uk',
           'Jambo BV':                             'accounts@jambobv.nl',
           'Jambo Supplies Ltd':                   'accounts@jambobv.nl',
           'Beauty Care Global Sp Zoo':            'accounts.bcg@beautycareglobal.com',
-          'Beauty Magasin Ltd':                   'accounts.bcg@beautycareglobal.com',
+          'Beauty Magasin Ltd':                   'payment@acornuniversalconsultancy.com',
           'Astute Healthcare Ltd':                null, // uses default payment team
           'Future Centre Storage and Distribution': null,
           'Global Brand Storage and Distribution': null,
@@ -1610,16 +1718,18 @@ router.post('/', upload.array('attachments', 5), async (req, res) => {
         }
         // No admin notification on travel request creation
       } else {
-        // Normal petty cash request — notify admin
-        const adminTo = process.env.ADMIN_EMAIL;
-        if (adminTo) {
+        // Normal petty cash request — notify admin by company
+        const adminEmails = getAdminEmailsByCompany(newRequest.company_name);
+        if (adminEmails.length > 0) {
           const { subject, html } = buildAdminNewRequestEmail(newRequest);
-          console.log(`[EMAIL] Sending admin notification to ${adminTo} for request #${newRequest.id}`);
-          sendEmail({ to: adminTo, subject, html, attachments: emailAttachments })
-            .then(() => console.log(`[EMAIL] Admin notification sent to ${adminTo}`))
-            .catch((e) => console.error('Failed sending admin email:', e.message));
+          for (const adminTo of adminEmails) {
+            console.log(`[EMAIL] Sending admin notification to ${adminTo} for request #${newRequest.id}`);
+            sendEmail({ to: adminTo, subject, html, attachments: emailAttachments })
+              .then(() => console.log(`[EMAIL] Admin notification sent to ${adminTo}`))
+              .catch((e) => console.error('Failed sending admin email:', e.message));
+          }
         } else {
-          console.warn('ADMIN_EMAIL is not set; skipping admin notification');
+          console.warn('No admin email configured; skipping admin notification');
         }
       }
     } catch (e) {
@@ -1714,6 +1824,23 @@ router.put('/:id/status', async (req, res) => {
       }
     } catch (e) { 
       console.error('[MAIL][status] error:', e);
+    }
+
+    // Send email to payment team when request is approved
+    if (status === 'approved') {
+      try {
+        const paymentEmails = getAdminEmailsByCompany(row?.company_name);
+        if (paymentEmails && paymentEmails.length > 0) {
+          const { subject, html } = buildApprovedRequestPaymentEmail(row);
+          console.log(`[EMAIL] Sending approval notification to payment team for request #${id}: ${paymentEmails.join(', ')}`);
+          await sendEmail({ to: paymentEmails, subject, html });
+          console.log(`[EMAIL] Payment team notification email sent for request #${id}`);
+        } else {
+          console.warn('[MAIL][approval] no payment emails configured for company:', row?.company_name);
+        }
+      } catch (e) {
+        console.error('[MAIL][approval] error sending payment team email:', e);
+      }
     }
 
     return res.json({ 

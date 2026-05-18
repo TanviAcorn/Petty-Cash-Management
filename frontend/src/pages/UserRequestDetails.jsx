@@ -69,15 +69,32 @@ export default function UserRequestDetails() {
 
   // Re-upload a single missing attachment, or add a new one (attachmentIndex=null)
   const handleReplace = async (attachmentIndex, file) => {
-    const formData = new FormData();
-    formData.append('attachments', file);
-    await axiosClient.post(`/requests/${id}/attachments`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    // Refresh request data so the new fileUrl is reflected
-    const refreshed = await axiosClient.get(`/requests/${id}`);
-    setReq(refreshed.data?.data || refreshed.data);
-    setToast({ open: true, message: `"${file.name}" uploaded successfully`, severity: 'success' });
+    try {
+      const formData = new FormData();
+      formData.append('attachments', file);
+      if (attachmentIndex !== null && attachmentIndex !== undefined) {
+        formData.append('replaceIndex', attachmentIndex);
+      }
+      const uploadResponse = await axiosClient.post(`/requests/${id}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      // Backend now returns { attachments: [...enriched] }
+      const updatedAttachments = uploadResponse.data?.attachments;
+      if (updatedAttachments) {
+        setReq(prev => ({ ...prev, attachments: updatedAttachments, status: 'Attachment Reuploaded' }));
+      } else {
+        // Fallback: refresh from server
+        const refreshed = await axiosClient.get(`/requests/${id}`);
+        setReq(refreshed.data?.data || refreshed.data);
+      }
+
+      setToast({ open: true, message: `"${file.name}" uploaded successfully`, severity: 'success' });
+    } catch (err) {
+      console.error('Error uploading attachment:', err);
+      setToast({ open: true, message: err?.response?.data?.message || 'Failed to upload attachment', severity: 'error' });
+      throw err;
+    }
   };
 
   const sc = useMemo(() => statusChip(req?.status), [req]);
@@ -295,6 +312,7 @@ export default function UserRequestDetails() {
                       key={idx}
                       fileUrl={f.fileUrl || getFileUrl(f.filename || '')}
                       label={f.originalName || f.filename || `file-${idx+1}`}
+                      isMissing={f.isMissing}
                       onReplace={(file) => handleReplace(idx, file)}
                       sx={{ width: '100%' }}
                     />
@@ -310,14 +328,18 @@ export default function UserRequestDetails() {
                   id="user-add-attachment"
                   type="file"
                   multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip,.jfif"
                   style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', borderWidth: 0 }}
                   onChange={async (e) => {
                     const files = Array.from(e.target.files || []);
                     e.target.value = '';
                     for (const file of files) {
-                      try { await handleReplace(null, file); }
-                      catch { /* toast handled in handleReplace */ }
+                      try {
+                        await handleReplace(null, file);
+                      } catch (err) {
+                        console.error(`Failed to upload ${file.name}:`, err);
+                        // Error toast is already shown in handleReplace
+                      }
                     }
                   }}
                 />

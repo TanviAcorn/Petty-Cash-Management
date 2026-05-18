@@ -19,17 +19,24 @@ const statusColor = (s) => {
     case 'rejected': return 'error';
     case 'processed': return 'info';
     case 'payment done': return 'success';
+    case 'attachment reuploaded': return 'success';
     case 'pending': return 'warning';
     default: return 'default';
   }
 };
 
+// A request is "resolved" when its status is "Attachment Reuploaded"
+// OR when none of its listed missing files are actually missing from disk anymore.
+const isResolved = (row) =>
+  (row.status || '').toLowerCase() === 'attachment reuploaded' || row.missingCount === 0;
+
 function RequestRow({ row, onSendReminder, sendingId }) {
   const [expanded, setExpanded] = useState(false);
+  const resolved = isResolved(row);
 
   return (
     <>
-      <TableRow hover>
+      <TableRow hover sx={{ bgcolor: resolved ? 'success.50' : undefined }}>
         <TableCell>
           <IconButton size="small" onClick={() => setExpanded(p => !p)}>
             {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
@@ -56,37 +63,52 @@ function RequestRow({ row, onSendReminder, sendingId }) {
         <TableCell>
           <Chip
             size="small"
-            label={row.status}
-            color={statusColor(row.status)}
-            variant="outlined"
+            label={resolved ? 'Attachment Reuploaded' : row.status}
+            color={resolved ? 'success' : statusColor(row.status)}
+            variant={resolved ? 'filled' : 'outlined'}
+            icon={resolved ? <CheckCircleIcon /> : undefined}
             sx={{ textTransform: 'lowercase' }}
           />
         </TableCell>
         <TableCell align="center">
-          <Chip
-            size="small"
-            icon={<BrokenImageIcon />}
-            label={`${row.missingCount} / ${row.totalAttachments}`}
-            color="error"
-            variant="outlined"
-          />
+          {resolved ? (
+            <Chip
+              size="small"
+              icon={<CheckCircleIcon />}
+              label="Resolved"
+              color="success"
+              variant="outlined"
+            />
+          ) : (
+            <Chip
+              size="small"
+              icon={<BrokenImageIcon />}
+              label={`${row.missingCount} / ${row.totalAttachments}`}
+              color="error"
+              variant="outlined"
+            />
+          )}
         </TableCell>
         <TableCell align="center">
-          <Tooltip title={`Send re-upload reminder to ${row.employeeEmail}`}>
-            <span>
-              <Button
-                size="small"
-                variant="outlined"
-                color="primary"
-                startIcon={sendingId === row.id ? <CircularProgress size={12} /> : <EmailIcon fontSize="small" />}
-                disabled={sendingId === row.id}
-                onClick={() => onSendReminder(row)}
-                sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-              >
-                Send Reminder
-              </Button>
-            </span>
-          </Tooltip>
+          {resolved ? (
+            <Typography variant="caption" color="success.main" fontWeight={600}>✓ Files uploaded</Typography>
+          ) : (
+            <Tooltip title={`Send re-upload reminder to ${row.employeeEmail}`}>
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  startIcon={sendingId === row.id ? <CircularProgress size={12} /> : <EmailIcon fontSize="small" />}
+                  disabled={sendingId === row.id}
+                  onClick={() => onSendReminder(row)}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                >
+                  Send Reminder
+                </Button>
+              </span>
+            </Tooltip>
+          )}
         </TableCell>
       </TableRow>
 
@@ -96,12 +118,14 @@ function RequestRow({ row, onSendReminder, sendingId }) {
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <Box sx={{ py: 1.5, px: 3, bgcolor: 'action.hover', borderRadius: 1, my: 0.5 }}>
               <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Missing Files ({row.missingCount})
+                {resolved ? 'Previously Missing Files (now resolved)' : `Missing Files (${row.missingCount})`}
               </Typography>
               <Stack spacing={0.5} sx={{ mt: 1 }}>
                 {row.missingFiles.map((f, i) => (
                   <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <BrokenImageIcon fontSize="small" color="error" />
+                    {resolved
+                      ? <CheckCircleIcon fontSize="small" color="success" />
+                      : <BrokenImageIcon fontSize="small" color="error" />}
                     <Typography variant="body2" sx={{ flex: 1 }}>
                       <strong>{f.originalName}</strong>
                       <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>

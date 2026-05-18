@@ -552,15 +552,6 @@ function buildBulkPaymentEmail({ requests, groupedByCompany }) {
   return { subject, html };
 }
 
-module.exports = {
-  sendEmail,
-  buildAdminNewRequestEmail,
-  buildUserStatusEmail,
-  getTransporter,
-  buildPaymentInitiatedEmail,
-  buildBulkPaymentEmail,
-};
-
 function buildL1ManagerApprovalEmail(request, l1Manager) {
   const urls = getFrontendUrls();
   // Include the request ID as a query param so the L1 manager lands directly
@@ -735,6 +726,121 @@ function buildL1ApprovalNotificationEmail(request, isApproved) {
   return { subject, html };
 }
 
+// Get admin email(s) based on company name
+// Routes approval notifications to company-specific email addresses
+function buildApprovedRequestPaymentEmail(requestRow) {
+  const urls = getFrontendUrls();
+  const publicLink = `${urls[0]}/payments`;
+  
+  const subject = `Payment Ready for Processing - Request #${requestRow.id} (${requestRow.company_name || '-'})`;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        
+        <!-- Header -->
+        <div style="background: #10B981; padding: 30px 20px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Payment Ready for Processing</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style="background: #ffffff; padding: 30px 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+          
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 15px; line-height: 1.5;">
+            The following petty cash request has been approved and is ready for payment processing.
+          </p>
+          
+          <!-- Request Details Table -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #f9fafb; border-radius: 6px; overflow: hidden;">
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px; width: 140px;">Request ID</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 500;">#${requestRow.id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Status</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">✓ Approved</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Employee</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${requestRow.employee_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Company</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${requestRow.company_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">Category</td>
+              <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${requestRow.category_name || '-'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; ${requestRow.location ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #6b7280; font-size: 13px;">Amount</td>
+              <td style="padding: 12px 16px; ${requestRow.location ? 'border-bottom: 1px solid #e5e7eb;' : ''} color: #111827; font-size: 14px; font-weight: 600;">${requestRow.amount} ${requestRow.currency || 'GBP'}</td>
+            </tr>
+            ${requestRow.location ? `
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Location</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${requestRow.location}</td>
+            </tr>
+            ` : ''}
+            ${requestRow.reason ? `
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; font-size: 13px;">Description</td>
+              <td style="padding: 12px 16px; color: #111827; font-size: 14px;">${requestRow.reason}</td>
+            </tr>
+            ` : ''}
+          </table>
+          
+          <!-- Action Button -->
+          <div style="text-align: center; margin: 30px 0 20px 0;">
+            <a href="${publicLink}" style="display: inline-block; background: #10B981; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">Process Payment</a>
+          </div>
+          
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 13px; text-align: center;">
+            Please process this payment at your earliest convenience.
+          </p>
+          
+        </div>
+        
+        <!-- Footer -->
+        <div style="margin-top: 20px; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
+          <p style="margin: 0;">This is an automated notification from PocketPro HR.</p>
+        </div>
+        
+      </div>
+    </body>
+    </html>
+  `;
+  
+  return { subject, html };
+}
+
+function getAdminEmailsByCompany(companyName) {
+  if (!companyName || typeof companyName !== 'string') {
+    return [process.env.ADMIN_EMAIL, process.env.TRAVEL_ADMIN_EMAIL].filter(Boolean);
+  }
+
+  const normalized = companyName.trim().toLowerCase();
+  const companyEmailMap = {
+    'beauty magasin ltd': 'payment@acornuniversalconsultancy.com',
+    'acme': 'accounts@acmepharma.co.uk',
+    'acme pharma ltd': 'accounts@acmepharma.co.uk',
+    'docpharm': 'account@docpharm.de',
+    'docpharm gmbh': 'account@docpharm.de',
+  };
+
+  if (companyEmailMap[normalized]) {
+    return [companyEmailMap[normalized]];
+  }
+
+  return [process.env.ADMIN_EMAIL, process.env.TRAVEL_ADMIN_EMAIL].filter(Boolean);
+}
+
 module.exports = {
   sendEmail,
   buildAdminNewRequestEmail,
@@ -744,5 +850,7 @@ module.exports = {
   buildBulkPaymentEmail,
   buildL1ManagerApprovalEmail,
   buildL1ApprovalNotificationEmail,
+  buildApprovedRequestPaymentEmail,
+  getAdminEmailsByCompany,
 };
 
