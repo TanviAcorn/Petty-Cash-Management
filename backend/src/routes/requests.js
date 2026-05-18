@@ -886,6 +886,16 @@ async function ensureTravelDetailsColumn(pool) {
     BEGIN
       ALTER TABLE dbo.petty_cash_requests ADD travel_details NVARCHAR(MAX) NULL;
     END;
+    -- Widen status column if it's still VARCHAR(20) — needed for 'Attachment Reuploaded' (21 chars)
+    IF EXISTS (
+      SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'petty_cash_requests'
+        AND COLUMN_NAME = 'status'
+        AND CHARACTER_MAXIMUM_LENGTH < 50
+    )
+    BEGIN
+      ALTER TABLE dbo.petty_cash_requests ALTER COLUMN status VARCHAR(50) NULL;
+    END;
   `;
   await pool.request().query(sqlText);
 }
