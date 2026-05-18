@@ -1,11 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Box, Typography, Card, CardContent, Table, TableHead, TableRow,
   TableCell, TableBody, TableContainer, Chip, Button, Stack,
-  CircularProgress, Alert, Snackbar, Tooltip, Divider, IconButton,
-  Collapse,
+  CircularProgress, Alert, Snackbar, Tooltip, IconButton, Collapse,
 } from '@mui/material';
-import EmailIcon from '@mui/icons-material/Email';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
@@ -25,41 +24,62 @@ const statusColor = (s) => {
   }
 };
 
-// A request is "resolved" when its status is "Attachment Reuploaded"
-// OR when none of its listed missing files are actually missing from disk anymore.
 const isResolved = (row) =>
   (row.status || '').toLowerCase() === 'attachment reuploaded' || row.missingCount === 0;
 
-function RequestRow({ row, onSendReminder, sendingId }) {
+// ── Per-row component ─────────────────────────────────────────────────────
+function RequestRow({ row, onUpload, uploadingId }) {
   const [expanded, setExpanded] = useState(false);
+  const fileInputRef = useRef(null);
   const resolved = isResolved(row);
+  const uploading = uploadingId === row.id;
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    await onUpload(row, files);
+  };
 
   return (
     <>
       <TableRow hover sx={{ bgcolor: resolved ? 'success.50' : undefined }}>
+        {/* Expand toggle */}
         <TableCell>
           <IconButton size="small" onClick={() => setExpanded(p => !p)}>
             {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
           </IconButton>
         </TableCell>
+
+        {/* Request ID */}
         <TableCell>
           <Typography fontWeight={600} variant="body2">#{row.id}</Typography>
         </TableCell>
+
+        {/* Employee */}
         <TableCell>
           <Typography fontWeight={600} variant="body2">{row.employeeName}</Typography>
           <Typography variant="caption" color="text.secondary">{row.employeeEmail}</Typography>
         </TableCell>
+
+        {/* Company */}
         <TableCell>
           <Typography variant="body2">{row.company || '—'}</Typography>
         </TableCell>
+
+        {/* Category */}
         <TableCell>
           <Typography variant="body2">{row.category || '—'}</Typography>
         </TableCell>
+
+        {/* Submitted */}
         <TableCell>
           <Typography variant="body2">
             {new Date(row.submittedAt).toLocaleDateString('en-GB')}
           </Typography>
         </TableCell>
+
+        {/* Status */}
         <TableCell>
           <Chip
             size="small"
@@ -70,15 +90,11 @@ function RequestRow({ row, onSendReminder, sendingId }) {
             sx={{ textTransform: 'lowercase' }}
           />
         </TableCell>
+
+        {/* Missing / Total */}
         <TableCell align="center">
           {resolved ? (
-            <Chip
-              size="small"
-              icon={<CheckCircleIcon />}
-              label="Resolved"
-              color="success"
-              variant="outlined"
-            />
+            <Chip size="small" icon={<CheckCircleIcon />} label="Resolved" color="success" variant="outlined" />
           ) : (
             <Chip
               size="small"
@@ -89,25 +105,42 @@ function RequestRow({ row, onSendReminder, sendingId }) {
             />
           )}
         </TableCell>
+
+        {/* Action — Upload button */}
         <TableCell align="center">
           {resolved ? (
-            <Typography variant="caption" color="success.main" fontWeight={600}>✓ Files uploaded</Typography>
+            <Typography variant="caption" color="success.main" fontWeight={600}>✓ Uploaded</Typography>
           ) : (
-            <Tooltip title={`Send re-upload reminder to ${row.employeeEmail}`}>
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="primary"
-                  startIcon={sendingId === row.id ? <CircularProgress size={12} /> : <EmailIcon fontSize="small" />}
-                  disabled={sendingId === row.id}
-                  onClick={() => onSendReminder(row)}
-                  sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                >
-                  Send Reminder
-                </Button>
-              </span>
-            </Tooltip>
+            <>
+              {/* Visually-hidden file input — works on iOS/Android */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip,.jfif"
+                style={{
+                  position: 'absolute', width: '1px', height: '1px',
+                  padding: 0, margin: '-1px', overflow: 'hidden',
+                  clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', borderWidth: 0,
+                }}
+                onChange={handleFileChange}
+              />
+              <Tooltip title={`Upload missing files for ${row.employeeName} (Request #${row.id})`}>
+                <span>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="primary"
+                    startIcon={uploading ? <CircularProgress size={12} color="inherit" /> : <UploadFileIcon fontSize="small" />}
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                  >
+                    {uploading ? 'Uploading…' : 'Upload'}
+                  </Button>
+                </span>
+              </Tooltip>
+            </>
           )}
         </TableCell>
       </TableRow>
@@ -117,8 +150,11 @@ function RequestRow({ row, onSendReminder, sendingId }) {
         <TableCell colSpan={9} sx={{ py: 0, borderBottom: expanded ? undefined : 'none' }}>
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <Box sx={{ py: 1.5, px: 3, bgcolor: 'action.hover', borderRadius: 1, my: 0.5 }}>
-              <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                {resolved ? 'Previously Missing Files (now resolved)' : `Missing Files (${row.missingCount})`}
+              <Typography variant="caption" fontWeight={700} color="text.secondary"
+                sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {resolved
+                  ? 'Previously Missing Files (now resolved)'
+                  : `Missing Files (${row.missingCount}) — click Upload to restore them`}
               </Typography>
               <Stack spacing={0.5} sx={{ mt: 1 }}>
                 {row.missingFiles.map((f, i) => (
@@ -143,13 +179,14 @@ function RequestRow({ row, onSendReminder, sendingId }) {
   );
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────
 export default function MissingAttachments() {
   const [data, setData] = useState([]);
   const [summary, setSummary] = useState({ affectedRequests: 0, totalMissingFiles: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [sendingId, setSendingId] = useState(null);
-  const [sentIds, setSentIds] = useState(new Set());
+  const [uploadingId, setUploadingId] = useState(null);
+  const [resolvedCount, setResolvedCount] = useState(0);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   const fetchReport = useCallback(async () => {
@@ -157,8 +194,10 @@ export default function MissingAttachments() {
     setError('');
     try {
       const { data: res } = await axiosClient.get('/requests/missing-attachments');
-      setData(res.data || []);
+      const rows = res.data || [];
+      setData(rows);
       setSummary(res.summary || { affectedRequests: 0, totalMissingFiles: 0 });
+      setResolvedCount(rows.filter(isResolved).length);
     } catch (err) {
       setError(err?.response?.data?.message || err.message || 'Failed to load report');
     } finally {
@@ -168,28 +207,33 @@ export default function MissingAttachments() {
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
-  const handleSendReminder = async (row) => {
-    setSendingId(row.id);
+  // Admin uploads files on behalf of an employee
+  const handleUpload = async (row, files) => {
+    setUploadingId(row.id);
     try {
-      await axiosClient.post('/requests/send-reupload-reminder', {
-        requestId: row.id,
-        employeeEmail: row.employeeEmail,
-        employeeName: row.employeeName,
-        missingFiles: row.missingFiles.map(f => f.originalName),
-      });
-      setSentIds(prev => new Set([...prev, row.id]));
-      setToast({ open: true, message: `Reminder sent to ${row.employeeEmail}`, severity: 'success' });
-    } catch (err) {
-      setToast({ open: true, message: err?.response?.data?.message || 'Failed to send reminder', severity: 'error' });
-    } finally {
-      setSendingId(null);
-    }
-  };
+      const formData = new FormData();
+      files.forEach(f => formData.append('attachments', f));
 
-  const handleSendAllReminders = async () => {
-    const unsent = data.filter(r => !sentIds.has(r.id));
-    for (const row of unsent) {
-      await handleSendReminder(row);
+      await axiosClient.post(`/requests/${row.id}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setToast({
+        open: true,
+        message: `${files.length} file(s) uploaded for ${row.employeeName} (Request #${row.id})`,
+        severity: 'success',
+      });
+
+      // Refresh the report so the row updates to "Resolved"
+      await fetchReport();
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err?.response?.data?.message || 'Upload failed',
+        severity: 'error',
+      });
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -198,40 +242,26 @@ export default function MissingAttachments() {
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Missing Attachments Report</Typography>
+          <Typography variant="h5" fontWeight={700}>Missing Attachments</Typography>
           <Typography variant="body2" color="text.secondary">
             Requests where employee-uploaded files were lost during the April 2026 server migration.
-            Send reminder emails to ask employees to re-upload their files.
+            Click <strong>Upload</strong> on any row to restore the missing files on behalf of the employee.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={fetchReport}
-            disabled={loading}
-            sx={{ textTransform: 'none' }}
-          >
-            Refresh
-          </Button>
-          {data.length > 0 && (
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<EmailIcon />}
-              onClick={handleSendAllReminders}
-              disabled={loading || sendingId !== null || data.every(r => sentIds.has(r.id))}
-              sx={{ textTransform: 'none' }}
-            >
-              Send All Reminders ({data.filter(r => !sentIds.has(r.id)).length})
-            </Button>
-          )}
-        </Stack>
+        <Button
+          variant="outlined"
+          startIcon={<RefreshIcon />}
+          onClick={fetchReport}
+          disabled={loading}
+          sx={{ textTransform: 'none' }}
+        >
+          Refresh
+        </Button>
       </Box>
 
       {/* Summary cards */}
       {!loading && !error && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 2, mb: 3 }}>
           <Card variant="outlined">
             <CardContent sx={{ p: 2.5 }}>
               <Typography variant="caption" color="text.secondary">Affected Requests</Typography>
@@ -246,19 +276,18 @@ export default function MissingAttachments() {
           </Card>
           <Card variant="outlined">
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="caption" color="text.secondary">Reminders Sent</Typography>
-              <Typography variant="h4" fontWeight={800} color="success.main">{sentIds.size}</Typography>
+              <Typography variant="caption" color="text.secondary">Resolved</Typography>
+              <Typography variant="h4" fontWeight={800} color="success.main">{resolvedCount}</Typography>
             </CardContent>
           </Card>
         </Box>
       )}
 
       {/* Info banner */}
-      {!loading && !error && data.length > 0 && (
+      {!loading && !error && data.filter(r => !isResolved(r)).length > 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          <strong>How this works:</strong> Click "Send Reminder" to email the employee asking them to log in and re-upload their missing files.
-          Employees will see a <strong>"Re-upload"</strong> button next to each missing attachment on their request page.
-          Once they re-upload, the file will be available immediately.
+          <strong>How to restore:</strong> Click the <strong>Upload</strong> button on any row, select the file(s) from your computer,
+          and they will be uploaded directly to the employee's request. The status will update to "Attachment Reuploaded" automatically.
         </Alert>
       )}
 
@@ -300,9 +329,8 @@ export default function MissingAttachments() {
                     <RequestRow
                       key={row.id}
                       row={row}
-                      onSendReminder={handleSendReminder}
-                      sendingId={sendingId}
-                      alreadySent={sentIds.has(row.id)}
+                      onUpload={handleUpload}
+                      uploadingId={uploadingId}
                     />
                   ))}
                 </TableBody>
@@ -314,7 +342,7 @@ export default function MissingAttachments() {
 
       <Snackbar
         open={toast.open}
-        autoHideDuration={4000}
+        autoHideDuration={5000}
         onClose={() => setToast(p => ({ ...p, open: false }))}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
